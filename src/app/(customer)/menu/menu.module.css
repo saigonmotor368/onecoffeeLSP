@@ -1,0 +1,272 @@
+.page {
+  min-height: 100dvh;
+  background: var(--color-cream);
+}
+
+/* ── Header ─────────────────────────────────────────────── */
+.header {
+  background: var(--color-surface);
+  padding: calc(env(safe-area-inset-top) + var(--space-4)) var(--space-4) var(--space-4);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  box-shadow: var(--shadow-xs);
+}
+
+.title {
+  font-size: var(--text-2xl);
+  font-weight: 800;
+  color: var(--color-primary-dark);
+  margin-bottom: var(--space-3);
+}
+
+.searchWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.searchIcon {
+  position: absolute;
+  left: var(--space-3);
+  font-size: 16px;
+  pointer-events: none;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 11px var(--space-10) 11px var(--space-8);
+  border: 1.5px solid var(--color-border);
+  border-radius: var(--radius-full);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  background: var(--color-cream);
+  outline: none;
+  transition: border-color var(--transition-fast);
+  -webkit-appearance: none;
+}
+.searchInput:focus { border-color: var(--color-primary); }
+.searchInput::placeholder { color: var(--color-text-muted); }
+
+.clearSearch {
+  position: absolute;
+  right: var(--space-3);
+  background: var(--color-text-muted);
+  border: none;
+  color: white;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  font-size: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ── Category Tabs ──────────────────────────────────────── */
+.tabsWrap {
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border-light);
+  overflow: hidden;
+}
+
+.tabs {
+  display: flex;
+  gap: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 0 var(--space-2);
+}
+.tabs::-webkit-scrollbar { display: none; }
+
+.tab {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  border-bottom: 2.5px solid transparent;
+  transition: all var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+.tab:hover { color: var(--color-primary); }
+
+.tabActive {
+  color: var(--color-primary);
+  border-bottom-color: var(--color-primary);
+}
+
+/* ── Category Header ────────────────────────────────────── */
+.catHeader {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-4) var(--space-2);
+}
+
+.catTitle {
+  font-size: var(--text-xl);
+  font-weight: 700;
+  color: var(--color-primary-dark);
+}
+
+.catCount {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.searchResults {
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+/* ── Product list ───────────────────────────────────────── */
+.productList {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: var(--color-border-light);
+  margin-top: var(--space-2);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface);
+  text-decoration: none;
+  color: var(--color-text);
+  transition: background var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+.row:hover { background: var(--color-surface-2); }
+.row:active { background: var(--color-cream); }
+
+.rowImg {
+  flex-shrink: 0;
+  width: 72px;
+  height: 72px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, var(--color-primary-pale), var(--color-cream-dark));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.rowImgIcon { font-size: 36px; }
+
+.rowNew {
+  position: absolute;
+  bottom: 4px;
+  left: 4px;
+  background: var(--color-accent);
+  color: var(--color-primary-dark);
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+}
+
+.rowInfo {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rowNameRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.rowName {
+  font-size: var(--text-base);
+  font-weight: 600;
+  color: var(--color-text);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  flex: 1;
+}
+
+.rowStar {
+  color: var(--color-accent);
+  font-size: var(--text-sm);
+  flex-shrink: 0;
+}
+
+.rowDesc {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rowPrices {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.sizePrice {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.sizeLabel {
+  background: var(--color-primary-pale);
+  color: var(--color-primary);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: var(--radius-full);
+}
+
+/* ── Add Button ─────────────────────────────────────────── */
+.addBtn {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 2px solid var(--color-primary);
+  background: transparent;
+  color: var(--color-primary);
+  font-size: 22px;
+  font-weight: 300;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+.addBtn:hover { background: var(--color-primary); color: white; }
+.addBtn:active { transform: scale(0.9); }
+
+/* ── Price note ─────────────────────────────────────────── */
+.priceNote {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+  text-align: center;
+  padding: var(--space-4) var(--space-4) 0;
+  font-style: italic;
+}

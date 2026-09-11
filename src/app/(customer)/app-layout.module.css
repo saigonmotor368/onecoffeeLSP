@@ -1,0 +1,9 @@
+.shell {
+  position: relative;
+  background: var(--color-cream);
+}
+
+.main {
+  padding-bottom: var(--bottom-nav-height);
+  min-height: 100dvh;
+}

@@ -1,0 +1,126 @@
+.page {
+  min-height: 100dvh;
+  background: linear-gradient(160deg, var(--color-primary-dark) 0%, var(--color-primary) 50%, var(--color-primary-light) 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+}
+
+.content {
+  width: 100%;
+  max-width: 360px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-5);
+  animation: fade-in-up 500ms ease both;
+}
+
+/* Animated check */
+.checkCircle {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.15);
+  backdrop-filter: blur(12px);
+  border: 3px solid rgba(255,255,255,0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: scale-in 400ms ease both;
+}
+
+.checkMark {
+  font-size: 48px;
+  color: var(--color-accent);
+  animation: scale-in 600ms ease both;
+}
+
+.title {
+  font-size: var(--text-2xl);
+  font-weight: 800;
+  color: white;
+  text-align: center;
+}
+
+.subtitle {
+  font-size: var(--text-base);
+  color: rgba(255,255,255,0.8);
+  text-align: center;
+  line-height: 1.6;
+}
+
+.orderNumCard {
+  background: rgba(255,255,255,0.12);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4) var(--space-6);
+  text-align: center;
+  width: 100%;
+}
+
+.orderNumLabel {
+  font-size: var(--text-xs);
+  color: rgba(255,255,255,0.65);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: var(--space-1);
+}
+
+.orderNum {
+  font-size: var(--text-xl);
+  font-weight: 800;
+  color: var(--color-accent);
+  letter-spacing: 0.05em;
+}
+
+.estimateCard {
+  background: rgba(255,255,255,0.1);
+  border-radius: var(--radius-lg);
+  padding: var(--space-4);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+}
+
+.estimateIcon { font-size: 32px; }
+
+.estimateTitle {
+  font-size: var(--text-sm);
+  color: rgba(255,255,255,0.7);
+}
+
+.estimateTime {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: white;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+}
+
+/* Override btn colors for dark bg */
+.actions .btn-primary {
+  background: var(--color-accent) !important;
+  color: var(--color-primary-dark) !important;
+}
+.actions .btn-outline {
+  border-color: rgba(255,255,255,0.5) !important;
+  color: white !important;
+}
+.actions .btn-outline:hover {
+  background: rgba(255,255,255,0.1) !important;
+}
+
+.autoRedirect {
+  font-size: var(--text-xs);
+  color: rgba(255,255,255,0.4);
+  text-align: center;
+}
