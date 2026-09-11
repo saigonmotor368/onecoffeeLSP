@@ -23,23 +23,16 @@ export default function WelcomePage() {
 
   return (
     <div className={styles.pageContainer}>
-      {/* Background Coffee Beans with dark overlay */}
-      <div className={styles.bgImageWrap}>
-        <div
-          className={styles.bgImage}
-          style={{
-            backgroundImage: 'url("https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=1000&q=85")',
-          }}
-        />
-        <div className={styles.bgOverlay} />
-      </div>
+      {/* Background with Real Roasted Coffee Beans (Screen 1) */}
+      <div className={styles.bgImage} />
 
-      {/* Language Switcher at Top */}
+      {/* Floating Language Switcher at Top */}
       <header className={styles.topBar}>
         <div className={styles.langPills}>
           {LANGUAGE_OPTIONS.map(opt => (
             <button
               key={opt.code}
+              type="button"
               onClick={() => setLang(opt.code)}
               className={`${styles.langPill} ${lang === opt.code ? styles.langPillActive : ''}`}
             >
@@ -50,16 +43,16 @@ export default function WelcomePage() {
         </div>
       </header>
 
-      {/* Center Piece: Arched Card matching Screen 1 */}
-      <div className={styles.archedCardContainer}>
+      {/* Center Piece: Arched Cream Card matching Screen 1 */}
+      <main className={styles.centerSection}>
         <div className={styles.archedCard}>
-          {/* Circular Real Brand Logo */}
+          {/* Circular Brand Logo */}
           <div className={styles.logoWrapper}>
             <Image
               src="/logo-circle.png"
               alt="One Coffee Logo"
-              width={105}
-              height={105}
+              width={112}
+              height={112}
               priority
               className={styles.logoImg}
             />
@@ -68,36 +61,38 @@ export default function WelcomePage() {
           {/* Brand Heading */}
           <h1 className={styles.brandTitle}>ONE COFFEE</h1>
 
-          {/* Artistic Slogan matching mockup */}
-          <div className={styles.artisticSloganWrap}>
-            <span className={styles.sloganLineLeft} />
-            <p className={styles.artisticSloganText}>Good Coffee</p>
-            <span className={styles.sloganLineRight} />
+          {/* Slogan matching Screen 1 layout */}
+          <div className={styles.sloganContainer}>
+            <p className={styles.sloganLine1}>
+              Good Coffee <span className={styles.sloganDash}>—</span>
+            </p>
+            <p className={styles.sloganLine2}>Brighter Workdays</p>
           </div>
-          <p className={styles.artisticSloganSub}>Brighter Workdays</p>
         </div>
-      </div>
+      </main>
 
-      {/* Lower Action Area matching Screen 1 */}
-      <div className={styles.bottomSection}>
+      {/* Bottom Actions sitting directly on Coffee Beans (Screen 1) */}
+      <footer className={styles.bottomSection}>
         <button
+          type="button"
           className={styles.btnGetStarted}
           onClick={() => router.push('/home')}
         >
-          {lang === 'vi' ? 'Bắt đầu đặt nước' : 'Get Started'}
+          {lang === 'vi' ? 'Bắt đầu đặt món' : 'Get Started'}
         </button>
 
         <button
+          type="button"
           className={styles.btnLogin}
           onClick={() => router.push('/auth/login')}
         >
-          {lang === 'vi' ? 'Đăng nhập' : 'Login'}
+          {lang === 'vi' ? 'Đăng nhập / Login' : 'Login'}
         </button>
 
         <p className={styles.factoryTagline}>
           One Coffee @ LSP Petrochemical Complex · Since 2026
         </p>
-      </div>
+      </footer>
     </div>
   )
 }
