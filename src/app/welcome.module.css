@@ -17,7 +17,7 @@
   inset: 0;
   background-image: url('/welcome-bg.jpg');
   background-size: cover;
-  background-position: center center;
+  background-position: center top;
   z-index: 0;
 }
 
@@ -83,13 +83,14 @@
 }
 
 .logoWrapper {
-  width: 124px;
-  height: 124px;
+  width: 126px;
+  height: 126px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: 12px;
-  filter: drop-shadow(0 2px 8px rgba(14, 63, 42, 0.15));
+  margin-bottom: 8px;
+  /* Pure transparent logo with subtle organic depth */
+  filter: drop-shadow(0 2px 8px rgba(14, 63, 42, 0.12));
 }
 
 .logoImg {
@@ -98,48 +99,69 @@
   height: 100%;
 }
 
+/* Brand Title: Bold Luxury Serif with Emerald Shimmer */
 .brandTitle {
   font-family: var(--font-serif), 'Playfair Display', Georgia, serif;
-  font-size: 24px;
-  font-weight: 800;
-  color: #104430;
-  letter-spacing: 0.14em;
-  margin: 0 0 8px;
+  font-size: 26px;
+  font-weight: 900;
+  color: #0F432E;
+  letter-spacing: 0.16em;
+  margin: 0 0 4px;
   text-align: center;
+  background: linear-gradient(135deg, #0A3624 0%, #16533A 50%, #0A3624 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 1px 1px rgba(255, 255, 255, 0.7));
 }
 
-/* Slogan matching Screen 1 */
+/* Slogan Container: Artistic, Flowing, Soft Cursive Typography with Vibrant Colors */
 .sloganContainer {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 0px;
+  margin-top: 2px;
 }
 
 .sloganLine1 {
-  font-family: var(--font-sans), 'Plus Jakarta Sans', sans-serif;
-  font-size: 16px;
-  font-weight: 600;
-  color: #2D3748;
   margin: 0;
-  line-height: 1.35;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
+  line-height: 1.15;
+}
+
+/* Line 1: Warm Caramel Amber Script */
+.sloganTextWarm {
+  font-family: var(--font-script), 'Dancing Script', var(--font-artistic), 'Caveat', cursive;
+  font-size: 32px;
+  font-weight: 700;
+  color: #8C4722;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.6);
 }
 
 .sloganDash {
-  color: #718096;
+  color: #8C4722;
+  font-size: 18px;
   font-weight: 400;
+  opacity: 0.65;
 }
 
 .sloganLine2 {
-  font-family: var(--font-sans), 'Plus Jakarta Sans', sans-serif;
-  font-size: 16px;
-  font-weight: 600;
-  color: #2D3748;
   margin: 0;
-  line-height: 1.35;
+  line-height: 1.15;
+}
+
+/* Line 2: Deep Emerald Green Script */
+.sloganTextGreen {
+  font-family: var(--font-script), 'Dancing Script', var(--font-artistic), 'Caveat', cursive;
+  font-size: 34px;
+  font-weight: 700;
+  color: #16533A;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.6);
 }
 
 /* Bottom Actions sitting directly on Coffee Beans (Screen 1) */

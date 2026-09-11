@@ -2,7 +2,6 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import Image from 'next/image'
 import styles from './welcome.module.css'
 import { useLang } from '@/lib/providers'
 import { LANGUAGE_OPTIONS } from '@/lib/i18n'
@@ -45,27 +44,29 @@ export default function WelcomePage() {
 
       {/* Brand & Slogan Content centered in the Cream Arch */}
       <main className={styles.brandContent}>
-        {/* Transparent Logo */}
+        {/* Original Canva Transparent Logo from Logo on Cup_Rv */}
         <div className={styles.logoWrapper}>
-          <Image
-            src="/logo-circle.png"
+          <img
+            src="/logo-original-transparent.png?v=2026"
             alt="One Coffee Logo"
-            width={124}
-            height={124}
-            priority
             className={styles.logoImg}
+            width={126}
+            height={126}
           />
         </div>
 
-        {/* Brand Heading */}
+        {/* Brand Heading with Luxury Emerald Gradient */}
         <h1 className={styles.brandTitle}>ONE COFFEE</h1>
 
-        {/* Slogan matching Screen 1 layout */}
+        {/* Artistic, Soft & Colorful Cursive Slogan */}
         <div className={styles.sloganContainer}>
           <p className={styles.sloganLine1}>
-            Good Coffee <span className={styles.sloganDash}>—</span>
+            <span className={styles.sloganTextWarm}>Good Coffee</span>
+            <span className={styles.sloganDash}>—</span>
           </p>
-          <p className={styles.sloganLine2}>Brighter Workdays</p>
+          <p className={styles.sloganLine2}>
+            <span className={styles.sloganTextGreen}>Brighter Workdays</span>
+          </p>
         </div>
       </main>
 

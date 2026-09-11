@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { Plus_Jakarta_Sans, Caveat, Playfair_Display } from 'next/font/google'
+import { Plus_Jakarta_Sans, Caveat, Playfair_Display, Dancing_Script } from 'next/font/google'
 import './globals.css'
 import { AppProvider } from '@/lib/providers'
 
@@ -17,9 +17,16 @@ const caveat = Caveat({
   display: 'swap',
 })
 
+const dancingScript = Dancing_Script({
+  subsets: ['latin', 'vietnamese'],
+  weight: ['600', '700'],
+  variable: '--font-script',
+  display: 'swap',
+})
+
 const playfair = Playfair_Display({
   subsets: ['latin', 'vietnamese'],
-  weight: ['700', '800'],
+  weight: ['700', '800', '900'],
   variable: '--font-serif',
   display: 'swap',
 })
@@ -53,7 +60,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="vi" className={`${jakarta.variable} ${caveat.variable} ${playfair.variable}`}>
+    <html lang="vi" className={`${jakarta.variable} ${caveat.variable} ${dancingScript.variable} ${playfair.variable}`}>
       <body className={jakarta.className}>
         <AppProvider>
           {children}
