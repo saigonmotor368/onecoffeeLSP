@@ -26,6 +26,37 @@ export default function AdminCustomersPage() {
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerProfile | null>(null)
   const [editAddress, setEditAddress] = useState('')
   const [saving, setSaving] = useState(false)
+  const [resetPwdCustomer, setResetPwdCustomer] = useState<CustomerProfile | null>(null)
+  const [newPassword, setNewPassword] = useState('123456')
+  const [resettingPwd, setResettingPwd] = useState(false)
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!resetPwdCustomer) return
+    if (!newPassword || newPassword.length < 6) {
+      showToast('Mật khẩu tối thiểu 6 ký tự', 'error')
+      return
+    }
+    setResettingPwd(true)
+    try {
+      const res = await fetch('/api/admin/reset-customer-password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: resetPwdCustomer.id, newPassword }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        showToast(data.error || 'Lỗi đặt lại mật khẩu', 'error')
+      } else {
+        showToast(`Đã đổi mật khẩu cho ${resetPwdCustomer.full_name} thành công!`, 'success')
+        setResetPwdCustomer(null)
+      }
+    } catch {
+      showToast('Lỗi kết nối máy chủ', 'error')
+    } finally {
+      setResettingPwd(false)
+    }
+  }
 
   const loadCustomers = useCallback(async () => {
     setLoading(true)
@@ -258,16 +289,27 @@ export default function AdminCustomersPage() {
                       <td style={{ fontWeight: 700, color: 'var(--color-primary)' }}>
                         {formatPrice(customer.total_spent ?? 0)}
                       </td>
-                      <td style={{ textAlign: 'right' }}>
+                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                         <button
                           className="btn btn-ghost btn-sm"
                           onClick={() => {
                             setSelectedCustomer(customer)
                             setEditAddress(customer.default_delivery_address || '')
                           }}
-                          style={{ fontSize: '12px', padding: '4px 10px' }}
+                          style={{ fontSize: '12px', padding: '4px 10px', marginRight: 6 }}
                         >
                           ✏️ Đổi điểm giao
+                        </button>
+                        <button
+                          className="btn btn-secondary btn-sm"
+                          onClick={() => {
+                            setResetPwdCustomer(customer)
+                            setNewPassword('123456')
+                          }}
+                          style={{ fontSize: '12px', padding: '4px 10px', color: '#B45309' }}
+                          title="Đặt lại mật khẩu cho khách hàng khi liên hệ hotline"
+                        >
+                          🔑 Đặt lại MK
                         </button>
                       </td>
                     </tr>
@@ -322,6 +364,69 @@ export default function AdminCustomersPage() {
                   </button>
                   <button type="submit" className="btn btn-primary" disabled={saving}>
                     {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Modal reset customer password */}
+        {resetPwdCustomer && (
+          <div style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+            zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
+          }}>
+            <div style={{
+              background: 'white', borderRadius: 'var(--radius-xl)',
+              maxWidth: 440, width: '100%', padding: 24, boxShadow: 'var(--shadow-xl)',
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#B45309', margin: 0 }}>
+                  🔑 Đặt lại mật khẩu khách hàng
+                </h3>
+                <button
+                  onClick={() => setResetPwdCustomer(null)}
+                  style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer' }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              <p style={{ fontSize: '13px', color: '#4A5568', lineHeight: 1.5, marginBottom: 16 }}>
+                Khách hàng: <strong>{resetPwdCustomer.full_name}</strong><br />
+                Số điện thoại: <strong>{resetPwdCustomer.phone}</strong>
+              </p>
+
+              <form onSubmit={handleResetPassword}>
+                <div className="input-group" style={{ marginBottom: 20 }}>
+                  <label className="input-label" style={{ fontSize: '12px', fontWeight: 700 }}>
+                    Mật khẩu mới cấp cho khách (tối thiểu 6 ký tự)
+                  </label>
+                  <input
+                    type="text"
+                    className="input"
+                    value={newPassword}
+                    onChange={e => setNewPassword(e.target.value)}
+                    required
+                    style={{ fontSize: '14px', fontWeight: 700 }}
+                  />
+                  <span style={{ fontSize: '11px', color: '#718096', marginTop: 4 }}>
+                    Gợi ý: đặt mật khẩu dễ nhớ (VD: 123456) rồi thông báo cho khách qua điện thoại/Zalo.
+                  </span>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                  <button type="button" className="btn btn-secondary" onClick={() => setResetPwdCustomer(null)}>
+                    Hủy
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn btn-primary"
+                    style={{ background: '#B45309', borderColor: '#B45309' }}
+                    disabled={resettingPwd}
+                  >
+                    {resettingPwd ? 'Đang cập nhật...' : 'Xác nhận đặt lại MK'}
                   </button>
                 </div>
               </form>

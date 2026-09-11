@@ -686,3 +686,102 @@
   flex-shrink: 0;
 }
 
+/* Checkout Authentication Section */
+.authTabsContainer {
+  display: flex;
+  background: #EDF2F7;
+  padding: 4px;
+  border-radius: 12px;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.authTabBtn {
+  flex: 1;
+  padding: 9px 10px;
+  border: none;
+  background: transparent;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #718096;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.authTabBtnActive {
+  background: #FFFFFF !important;
+  color: #1E4D3B !important;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+}
+
+.authActionBtn {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  background: #1E4D3B;
+  color: #FFFFFF;
+  border: none;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: opacity 0.2s;
+}
+
+.authActionBtn:hover {
+  opacity: 0.92;
+}
+
+.authActionBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.loggedInBadgeCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #F0FFF4;
+  border: 1px solid #C6F6D5;
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+}
+
+.loggedInInfo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.loggedInIcon {
+  font-size: 16px;
+}
+
+.loggedInName {
+  font-size: 13px;
+  font-weight: 700;
+  color: #22543D;
+}
+
+.switchAccountBtn {
+  background: none;
+  border: none;
+  font-size: 12px;
+  font-weight: 700;
+  color: #E53E3E;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+
+

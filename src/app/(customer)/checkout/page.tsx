@@ -40,6 +40,13 @@ function CheckoutContent() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
 
+  // Auth Options at Checkout
+  const [authTab, setAuthTab] = useState<'register' | 'login'>('register')
+  const [regPassword, setRegPassword] = useState('')
+  const [loginPassword, setLoginPassword] = useState('')
+  const [authLoading, setAuthLoading] = useState(false)
+  const [showForgotModal, setShowForgotModal] = useState(false)
+
   // Payment Selection
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash')
   const [transferTab, setTransferTab] = useState<TransferViewTab>('qr')
@@ -103,6 +110,130 @@ function CheckoutContent() {
     setTimeout(() => setCopiedField(null), 2500)
   }
 
+  const handleInlineRegister = async (): Promise<string | false> => {
+    const trimmedName = recipientName.trim()
+    const cleanPhone = recipientPhone.replace(/\s+/g, '').replace(/[^0-9]/g, '')
+    const trimmedAddress = deliveryAddress.trim()
+
+    if (!trimmedName) {
+      showToast(lang === 'vi' ? 'Vui lòng nhập họ và tên!' : 'Please enter full name!', 'error')
+      return false
+    }
+    if (!cleanPhone || cleanPhone.length < 9) {
+      showToast(lang === 'vi' ? 'Vui lòng nhập số điện thoại hợp lệ!' : 'Please enter valid phone number!', 'error')
+      return false
+    }
+    if (!trimmedAddress) {
+      showToast(lang === 'vi' ? 'Vui lòng nhập địa chỉ giao hàng!' : 'Please enter delivery address!', 'error')
+      return false
+    }
+    if (!regPassword || regPassword.length < 6) {
+      showToast(lang === 'vi' ? 'Mật khẩu tối thiểu 6 ký tự để bảo mật tài khoản!' : 'Password must be at least 6 characters!', 'error')
+      return false
+    }
+
+    setAuthLoading(true)
+    try {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: cleanPhone,
+          full_name: trimmedName,
+          password: regPassword,
+          default_delivery_address: trimmedAddress,
+        }),
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        showToast(data.error || 'Lỗi tạo tài khoản', 'error')
+        if (data.alreadyRegistered) {
+          setAuthTab('login')
+        }
+        return false
+      }
+
+      // Login immediately
+      const supabase = createClient()
+      const email = `${cleanPhone}@onecoffee.vn`
+      const { data: signData, error: signErr } = await supabase.auth.signInWithPassword({
+        email,
+        password: regPassword,
+      })
+
+      if (signErr || !signData.user) {
+        showToast(lang === 'vi' ? 'Tài khoản đã tạo nhưng cần đăng nhập' : 'Account created, please login', 'warning')
+        setAuthTab('login')
+        return false
+      }
+
+      setIsLoggedIn(true)
+      setUserId(signData.user.id)
+      localStorage.setItem('oc_customer_name', trimmedName)
+      localStorage.setItem('oc_customer_phone', cleanPhone)
+      localStorage.setItem('oc_delivery_location', trimmedAddress)
+      showToast(lang === 'vi' ? 'Đã tạo tài khoản & đăng nhập thành công!' : 'Account created and logged in!', 'success')
+      return signData.user.id
+    } catch {
+      showToast(lang === 'vi' ? 'Lỗi kết nối máy chủ tạo tài khoản' : 'Error connecting to server', 'error')
+      return false
+    } finally {
+      setAuthLoading(false)
+    }
+  }
+
+  const handleInlineLogin = async (): Promise<string | false> => {
+    const cleanPhone = recipientPhone.replace(/\s+/g, '').replace(/[^0-9]/g, '')
+    if (!cleanPhone || cleanPhone.length < 9) {
+      showToast(lang === 'vi' ? 'Vui lòng nhập số điện thoại đã đăng ký!' : 'Please enter registered phone!', 'error')
+      return false
+    }
+    if (!loginPassword || loginPassword.length < 6) {
+      showToast(lang === 'vi' ? 'Vui lòng nhập mật khẩu tài khoản!' : 'Please enter password!', 'error')
+      return false
+    }
+
+    setAuthLoading(true)
+    try {
+      const supabase = createClient()
+      const email = `${cleanPhone}@onecoffee.vn`
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password: loginPassword,
+      })
+
+      if (error || !data.user) {
+        showToast(lang === 'vi' ? 'Số điện thoại hoặc mật khẩu không chính xác' : 'Invalid phone or password', 'error')
+        return false
+      }
+
+      setIsLoggedIn(true)
+      setUserId(data.user.id)
+
+      // Fetch profile
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('full_name, phone, default_delivery_address')
+        .eq('id', data.user.id)
+        .single()
+
+      if (prof) {
+        if (prof.full_name) setRecipientName(prof.full_name)
+        if (prof.phone) setRecipientPhone(prof.phone)
+        if (prof.default_delivery_address) setDeliveryAddress(prof.default_delivery_address)
+      }
+
+      showToast(lang === 'vi' ? 'Đăng nhập thành công!' : 'Logged in successfully!', 'success')
+      return data.user.id
+    } catch {
+      showToast(lang === 'vi' ? 'Lỗi kết nối đăng nhập' : 'Login connection error', 'error')
+      return false
+    } finally {
+      setAuthLoading(false)
+    }
+  }
+
   const handleSubmitOrder = async () => {
     // Validation
     const trimmedName = recipientName.trim()
@@ -120,6 +251,20 @@ function CheckoutContent() {
     if (!trimmedAddress) {
       showToast(lang === 'vi' ? 'Vui lòng nhập địa chỉ giao hàng!' : 'Please enter delivery address!', 'error')
       return
+    }
+
+    // Ensure account is registered or logged in
+    let finalUserId = userId
+    if (!isLoggedIn) {
+      if (authTab === 'register') {
+        const createdId = await handleInlineRegister()
+        if (!createdId) return
+        finalUserId = createdId
+      } else {
+        const loggedId = await handleInlineLogin()
+        if (!loggedId) return
+        finalUserId = loggedId
+      }
     }
 
     // Persist info for next time
@@ -143,7 +288,7 @@ function CheckoutContent() {
       // Order payload
       const orderPayload: Record<string, unknown> = {
         order_number: orderNumber,
-        user_id: userId,
+        user_id: finalUserId,
         delivery_address: trimmedAddress,
         recipient_name: trimmedName,
         recipient_phone: trimmedPhone,
@@ -256,89 +401,278 @@ function CheckoutContent() {
         </span>
       </div>
 
-      {/* Customer Info Card */}
+      {/* Customer & Account Info Card */}
       <section className={styles.sectionCard}>
         <div className={styles.sectionHeader}>
           <h2 className={styles.sectionTitle}>
             <span>👤</span>
-            {lang === 'vi' ? 'Thông tin giao nhận' : 'Delivery & Recipient'}
+            {lang === 'vi' ? 'Thông tin người đặt & Tài khoản' : 'Customer Info & Account'}
           </h2>
-          {isLoggedIn ? (
+          {isLoggedIn && (
             <span style={{ fontSize: '11px', color: '#166534', background: '#DCFCE7', padding: '2px 8px', borderRadius: '6px', fontWeight: 700 }}>
               {lang === 'vi' ? 'Đã đăng nhập' : 'Logged In'}
             </span>
-          ) : (
-            <Link href="/auth/login?redirect=/checkout" className={styles.loginPromptLink}>
-              {lang === 'vi' ? 'Đăng nhập tích điểm →' : 'Login for points →'}
-            </Link>
           )}
         </div>
 
-        <div className={styles.inputGrid}>
-          <div className={styles.inputRow}>
-            <div className={styles.inputGroup}>
-              <label className={styles.inputLabel}>
-                {lang === 'vi' ? 'Họ và tên *' : 'Full Name *'}
-              </label>
-              <input
-                type="text"
-                className={styles.inputField}
-                placeholder={lang === 'vi' ? 'Nguyễn Văn A' : 'John Doe'}
-                value={recipientName}
-                onChange={e => setRecipientName(e.target.value)}
-                required
-              />
+        {isLoggedIn ? (
+          /* When Logged In */
+          <>
+            <div className={styles.loggedInBadgeCard}>
+              <div className={styles.loggedInInfo}>
+                <span className={styles.loggedInIcon}>✓</span>
+                <div>
+                  <div className={styles.loggedInName}>{recipientName || 'Khách hàng'} ({recipientPhone})</div>
+                  <div style={{ fontSize: '11px', color: '#718096' }}>Đơn hàng sẽ được lưu vào lịch sử tài khoản của bạn</div>
+                </div>
+              </div>
+              <button
+                type="button"
+                className={styles.switchAccountBtn}
+                onClick={async () => {
+                  const supabase = createClient()
+                  await supabase.auth.signOut()
+                  setIsLoggedIn(false)
+                  setUserId(null)
+                  showToast(lang === 'vi' ? 'Đã đăng xuất tài khoản' : 'Logged out', 'info')
+                }}
+              >
+                {lang === 'vi' ? 'Đổi tài khoản' : 'Switch'}
+              </button>
             </div>
 
-            <div className={styles.inputGroup}>
-              <label className={styles.inputLabel}>
-                {lang === 'vi' ? 'Số điện thoại *' : 'Phone *'}
-              </label>
-              <input
-                type="tel"
-                className={styles.inputField}
-                placeholder={lang === 'vi' ? '0901234567' : '0901234567'}
-                value={recipientPhone}
-                onChange={e => setRecipientPhone(e.target.value)}
-                required
-              />
+            <div className={styles.inputGrid}>
+              <div className={styles.inputRow}>
+                <div className={styles.inputGroup}>
+                  <label className={styles.inputLabel}>
+                    {lang === 'vi' ? 'Họ và tên người nhận *' : 'Recipient Name *'}
+                  </label>
+                  <input
+                    type="text"
+                    className={styles.inputField}
+                    placeholder="Nguyễn Văn A"
+                    value={recipientName}
+                    onChange={e => setRecipientName(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className={styles.inputGroup}>
+                  <label className={styles.inputLabel}>
+                    {lang === 'vi' ? 'Số điện thoại *' : 'Phone *'}
+                  </label>
+                  <input
+                    type="tel"
+                    className={styles.inputField}
+                    placeholder="0901234567"
+                    value={recipientPhone}
+                    onChange={e => setRecipientPhone(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className={styles.inputGroup}>
+                <label className={styles.inputLabel}>
+                  {lang === 'vi' ? 'Địa chỉ giao hàng tận nơi *' : 'Delivery Address *'}
+                </label>
+                <input
+                  type="text"
+                  className={styles.inputField}
+                  placeholder={lang === 'vi' ? 'Nhập địa chỉ giao hàng (VD: Tòa nhà điều hành, Cổng 2, hoặc lân cận...)' : 'Enter delivery address...'}
+                  value={deliveryAddress}
+                  onChange={e => {
+                    setDeliveryAddress(e.target.value)
+                    localStorage.setItem('oc_delivery_location', e.target.value)
+                  }}
+                  required
+                />
+              </div>
+
+              <div className={styles.inputGroup}>
+                <label className={styles.inputLabel}>
+                  {lang === 'vi' ? 'Ghi chú cho quầy pha chế / shipper (tùy chọn)' : 'Order notes (optional)'}
+                </label>
+                <input
+                  type="text"
+                  className={styles.inputField}
+                  placeholder={lang === 'vi' ? 'VD: Giao phòng họp tầng 2, ít đá, nhiều đường...' : 'e.g. 2nd floor, less ice...'}
+                  value={customerNotes}
+                  onChange={e => setCustomerNotes(e.target.value)}
+                />
+              </div>
             </div>
-          </div>
+          </>
+        ) : (
+          /* When Not Logged In: Tabbed Register / Login */
+          <>
+            <div className={styles.authTabsContainer}>
+              <button
+                type="button"
+                className={`${styles.authTabBtn} ${authTab === 'register' ? styles.authTabBtnActive : ''}`}
+                onClick={() => setAuthTab('register')}
+              >
+                <span>✨</span>
+                <span>{lang === 'vi' ? 'Tạo tài khoản mới' : 'Register'}</span>
+              </button>
+              <button
+                type="button"
+                className={`${styles.authTabBtn} ${authTab === 'login' ? styles.authTabBtnActive : ''}`}
+                onClick={() => setAuthTab('login')}
+              >
+                <span>🔑</span>
+                <span>{lang === 'vi' ? 'Đã có tài khoản' : 'Login'}</span>
+              </button>
+            </div>
 
-          <div className={styles.inputGroup}>
-            <label className={styles.inputLabel}>
-              {lang === 'vi' ? 'Địa chỉ giao hàng tận nơi *' : 'Delivery Address *'}
-            </label>
-            <input
-              type="text"
-              className={styles.inputField}
-              placeholder={
-                lang === 'vi'
-                  ? 'Nhập địa chỉ giao hàng (VD: Tòa nhà điều hành, Cổng 2, hoặc địa chỉ lân cận...)'
-                  : 'Enter delivery address (e.g. Admin Building, Gate 2, nearby address...)'
-              }
-              value={deliveryAddress}
-              onChange={e => {
-                setDeliveryAddress(e.target.value)
-                localStorage.setItem('oc_delivery_location', e.target.value)
-              }}
-              required
-            />
-          </div>
+            {authTab === 'register' ? (
+              <div className={styles.inputGrid}>
+                <div style={{ fontSize: '12px', color: '#4A5568', background: '#F7FAFC', padding: '8px 12px', borderRadius: '8px', border: '1px solid #EDF2F7' }}>
+                  {lang === 'vi'
+                    ? '💡 Tạo tài khoản theo SĐT để lưu đơn hàng, theo dõi giao hàng và tích điểm One Coffee.'
+                    : 'Create account with phone number to track orders and earn points.'}
+                </div>
 
-          <div className={styles.inputGroup}>
-            <label className={styles.inputLabel}>
-              {lang === 'vi' ? 'Ghi chú cho quầy pha chế / shipper (tùy chọn)' : 'Order notes (optional)'}
-            </label>
-            <input
-              type="text"
-              className={styles.inputField}
-              placeholder={lang === 'vi' ? 'VD: Giao phòng họp tầng 2, ít đá, nhiều đường...' : 'e.g. 2nd floor, less ice...'}
-              value={customerNotes}
-              onChange={e => setCustomerNotes(e.target.value)}
-            />
-          </div>
-        </div>
+                <div className={styles.inputRow}>
+                  <div className={styles.inputGroup}>
+                    <label className={styles.inputLabel}>
+                      {lang === 'vi' ? 'Họ và tên *' : 'Full Name *'}
+                    </label>
+                    <input
+                      type="text"
+                      className={styles.inputField}
+                      placeholder={lang === 'vi' ? 'Nguyễn Văn A' : 'John Doe'}
+                      value={recipientName}
+                      onChange={e => setRecipientName(e.target.value)}
+                      required
+                    />
+                  </div>
+
+                  <div className={styles.inputGroup}>
+                    <label className={styles.inputLabel}>
+                      {lang === 'vi' ? 'Số điện thoại *' : 'Phone *'}
+                    </label>
+                    <input
+                      type="tel"
+                      className={styles.inputField}
+                      placeholder="0901234567"
+                      value={recipientPhone}
+                      onChange={e => setRecipientPhone(e.target.value)}
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className={styles.inputGroup}>
+                  <label className={styles.inputLabel}>
+                    {lang === 'vi' ? 'Địa chỉ giao hàng tận nơi *' : 'Delivery Address *'}
+                  </label>
+                  <input
+                    type="text"
+                    className={styles.inputField}
+                    placeholder={lang === 'vi' ? 'Nhập địa chỉ giao hàng (VD: Tòa nhà điều hành, Cổng 2...)' : 'Enter delivery address...'}
+                    value={deliveryAddress}
+                    onChange={e => {
+                      setDeliveryAddress(e.target.value)
+                      localStorage.setItem('oc_delivery_location', e.target.value)
+                    }}
+                    required
+                  />
+                </div>
+
+                <div className={styles.inputGroup}>
+                  <label className={styles.inputLabel}>
+                    {lang === 'vi' ? 'Đặt mật khẩu tài khoản * (tối thiểu 6 ký tự)' : 'Set Password *'}
+                  </label>
+                  <input
+                    type="password"
+                    className={styles.inputField}
+                    placeholder={lang === 'vi' ? 'Tạo mật khẩu để tra cứu đơn sau này' : 'Password for future logins'}
+                    value={regPassword}
+                    onChange={e => setRegPassword(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className={styles.inputGroup}>
+                  <label className={styles.inputLabel}>
+                    {lang === 'vi' ? 'Ghi chú cho quầy pha chế / shipper (tùy chọn)' : 'Order notes (optional)'}
+                  </label>
+                  <input
+                    type="text"
+                    className={styles.inputField}
+                    placeholder={lang === 'vi' ? 'VD: Giao phòng họp tầng 2, ít đá, nhiều đường...' : 'e.g. 2nd floor, less ice...'}
+                    value={customerNotes}
+                    onChange={e => setCustomerNotes(e.target.value)}
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  className={styles.authActionBtn}
+                  onClick={handleInlineRegister}
+                  disabled={authLoading}
+                >
+                  {authLoading ? 'Đang tạo tài khoản...' : (lang === 'vi' ? '✓ Tạo tài khoản & Mở khóa thanh toán' : 'Register & Unlock Payment')}
+                </button>
+              </div>
+            ) : (
+              <div className={styles.inputGrid}>
+                <div style={{ fontSize: '12px', color: '#4A5568', background: '#F7FAFC', padding: '8px 12px', borderRadius: '8px', border: '1px solid #EDF2F7' }}>
+                  {lang === 'vi'
+                    ? 'Nhập Số điện thoại và Mật khẩu đã đăng ký để nạp lại thông tin đơn hàng.'
+                    : 'Enter your phone & password to login.'}
+                </div>
+
+                <div className={styles.inputGroup}>
+                  <label className={styles.inputLabel}>
+                    {lang === 'vi' ? 'Số điện thoại *' : 'Phone *'}
+                  </label>
+                  <input
+                    type="tel"
+                    className={styles.inputField}
+                    placeholder="0901234567"
+                    value={recipientPhone}
+                    onChange={e => setRecipientPhone(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <div className={styles.inputGroup}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <label className={styles.inputLabel} style={{ marginBottom: 0 }}>
+                      {lang === 'vi' ? 'Mật khẩu *' : 'Password *'}
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowForgotModal(true)}
+                      style={{ background: 'none', border: 'none', color: '#1E4D3B', fontSize: '11px', fontWeight: 700, cursor: 'pointer', padding: 0 }}
+                    >
+                      Quên mật khẩu?
+                    </button>
+                  </div>
+                  <input
+                    type="password"
+                    className={styles.inputField}
+                    placeholder={lang === 'vi' ? 'Nhập mật khẩu của bạn' : 'Enter password'}
+                    value={loginPassword}
+                    onChange={e => setLoginPassword(e.target.value)}
+                    required
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  className={styles.authActionBtn}
+                  onClick={handleInlineLogin}
+                  disabled={authLoading}
+                >
+                  {authLoading ? 'Đang đăng nhập...' : (lang === 'vi' ? 'Đăng nhập & Tiếp tục →' : 'Login & Continue →')}
+                </button>
+              </div>
+            )}
+          </>
+        )}
       </section>
 
       {/* LSP Employee Verification Checkbox Card */}
@@ -665,6 +999,100 @@ function CheckoutContent() {
           )}
         </button>
       </div>
+
+      {/* Hotline Forgot Password Modal */}
+      {showForgotModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.5)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 1000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px',
+          }}
+          onClick={() => setShowForgotModal(false)}
+        >
+          <div
+            style={{
+              background: '#FFFFFF',
+              borderRadius: '20px',
+              padding: '24px',
+              maxWidth: '380px',
+              width: '100%',
+              boxShadow: '0 10px 30px rgba(0,0,0,0.2)',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ textAlign: 'center', fontSize: '32px', marginBottom: '8px' }}>📞</div>
+            <h3 style={{ margin: '0 0 10px', fontSize: '17px', fontWeight: 800, color: '#1E4D3B', textAlign: 'center' }}>
+              Quên mật khẩu đăng nhập?
+            </h3>
+            <p style={{ fontSize: '13px', color: '#4A5568', lineHeight: '1.6', margin: '0 0 16px', textAlign: 'center' }}>
+              Do tài khoản được định danh theo Số điện thoại nội bộ, quý khách vui lòng liên hệ Hotline One Coffee để nhân viên hỗ trợ đặt lại mật khẩu trong 1 phút!
+            </p>
+            <div
+              style={{
+                background: '#F0FFF4',
+                border: '1px solid #C6F6D5',
+                borderRadius: '12px',
+                padding: '12px',
+                textAlign: 'center',
+                marginBottom: '16px',
+              }}
+            >
+              <div style={{ fontSize: '12px', color: '#2F855A', fontWeight: 700 }}>HOTLINE HỖ TRỢ / ZALO</div>
+              <a
+                href="tel:0977999948"
+                style={{ fontSize: '20px', fontWeight: 800, color: '#1E4D3B', textDecoration: 'none', display: 'block', marginTop: '4px' }}
+              >
+                0977 999 948
+              </a>
+            </div>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button
+                type="button"
+                onClick={() => setShowForgotModal(false)}
+                style={{
+                  flex: 1,
+                  padding: '10px',
+                  borderRadius: '10px',
+                  border: '1px solid #E2E8F0',
+                  background: '#EDF2F7',
+                  color: '#4A5568',
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                }}
+              >
+                Đóng
+              </button>
+              <a
+                href="tel:0977999948"
+                style={{
+                  flex: 1,
+                  padding: '10px',
+                  borderRadius: '10px',
+                  border: 'none',
+                  background: '#1E4D3B',
+                  color: '#FFFFFF',
+                  fontWeight: 700,
+                  textAlign: 'center',
+                  textDecoration: 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '4px',
+                }}
+              >
+                <span>📞</span> Gọi ngay
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

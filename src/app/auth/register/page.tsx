@@ -37,30 +37,43 @@ export default function RegisterPage() {
     if (!validate()) return
     setLoading(true)
     try {
-      const supabase = createClient()
-      const email = `${form.phone.replace(/\s/g, '')}@lsp.internal`
-      const { error } = await supabase.auth.signUp({
-        email,
-        password: form.password,
-        options: {
-          data: {
-            phone: form.phone,
-            full_name: form.full_name,
-            default_delivery_address: form.default_delivery_address,
-            language: lang,
-          },
-        },
+      const cleanPhone = form.phone.replace(/\s/g, '').replace(/[^0-9]/g, '')
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: cleanPhone,
+          full_name: form.full_name,
+          password: form.password,
+          default_delivery_address: form.default_delivery_address,
+        }),
       })
-      if (error) {
-        if (error.message.includes('already registered')) {
-          showToast('Số điện thoại này đã được đăng ký', 'error')
-        } else {
-          showToast(error.message, 'error')
+      const data = await res.json()
+
+      if (!res.ok) {
+        showToast(data.error || 'Lỗi đăng ký tài khoản', 'error')
+        if (data.alreadyRegistered) {
+          router.push('/auth/login')
         }
-      } else {
-        showToast('Đăng ký thành công!', 'success')
-        router.replace('/home')
+        return
       }
+
+      // Auto login
+      const supabase = createClient()
+      const email = `${cleanPhone}@onecoffee.vn`
+      await supabase.auth.signInWithPassword({ email, password: form.password })
+
+      // Save customer info to localStorage for instant reuse
+      localStorage.setItem('oc_customer_name', form.full_name.trim())
+      localStorage.setItem('oc_customer_phone', cleanPhone)
+      if (form.default_delivery_address) {
+        localStorage.setItem('oc_delivery_location', form.default_delivery_address.trim())
+      }
+
+      showToast('Đăng ký tài khoản thành công!', 'success')
+      router.replace('/home')
+    } catch {
+      showToast('Không thể kết nối đến máy chủ đăng ký', 'error')
     } finally {
       setLoading(false)
     }
