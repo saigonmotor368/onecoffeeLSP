@@ -79,6 +79,35 @@
   margin: 0;
 }
 
+.accountNote {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 14px;
+  box-sizing: border-box;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.accountNoteIcon {
+  flex: 0 0 auto;
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+.accountNote p {
+  margin: 0;
+}
+
+.accountNote strong {
+  color: #F6E05E;
+}
+
 /* Notification Instruction Box */
 .noticeBox {
   width: 100%;

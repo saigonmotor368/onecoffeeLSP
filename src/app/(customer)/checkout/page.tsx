@@ -2,7 +2,6 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { useCart, useLang, useToast } from '@/lib/providers'
@@ -45,6 +44,7 @@ function CheckoutContent() {
   const [customerNotes, setCustomerNotes] = useState('')
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
+  const [accountCreatedThisCheckout, setAccountCreatedThisCheckout] = useState(false)
 
   // Auth Options at Checkout
   const [authTab, setAuthTab] = useState<'register' | 'login'>('register')
@@ -62,16 +62,15 @@ function CheckoutContent() {
   const [copiedField, setCopiedField] = useState<string | null>(null)
 
   useEffect(() => {
-    // Generate order number
-    setOrderNumber(generateOrderNumber())
-
-    // Load saved guest info from localStorage
-    const savedName = localStorage.getItem('oc_customer_name')
-    const savedPhone = localStorage.getItem('oc_customer_phone')
-    const savedLocation = localStorage.getItem('oc_delivery_location')
-    if (savedName) setRecipientName(savedName)
-    if (savedPhone) setRecipientPhone(savedPhone)
-    if (savedLocation) setDeliveryAddress(savedLocation)
+    const savedInfoTimer = window.setTimeout(() => {
+      setOrderNumber(generateOrderNumber())
+      const savedName = localStorage.getItem('oc_customer_name')
+      const savedPhone = localStorage.getItem('oc_customer_phone')
+      const savedLocation = localStorage.getItem('oc_delivery_location')
+      if (savedName) setRecipientName(savedName)
+      if (savedPhone) setRecipientPhone(savedPhone)
+      if (savedLocation) setDeliveryAddress(savedLocation)
+    }, 0)
 
     // Check if user is logged in
     const checkAuth = async () => {
@@ -96,7 +95,8 @@ function CheckoutContent() {
         // guest mode
       }
     }
-    checkAuth()
+    void checkAuth()
+    return () => window.clearTimeout(savedInfoTimer)
   }, [])
 
   const qrAmount = finalAmount > 0 ? finalAmount : 48000
@@ -176,6 +176,7 @@ function CheckoutContent() {
 
       setIsLoggedIn(true)
       setUserId(signData.user.id)
+      setAccountCreatedThisCheckout(true)
       localStorage.setItem('oc_customer_name', trimmedName)
       localStorage.setItem('oc_customer_phone', cleanPhone)
       localStorage.setItem('oc_delivery_location', trimmedAddress)
@@ -215,6 +216,7 @@ function CheckoutContent() {
 
       setIsLoggedIn(true)
       setUserId(data.user.id)
+      setAccountCreatedThisCheckout(false)
 
       // Fetch profile
       const { data: prof } = await supabase
@@ -240,6 +242,17 @@ function CheckoutContent() {
   }
 
   const handleSubmitOrder = async () => {
+    if (!isLoggedIn || !userId) {
+      showToast(
+        lang === 'vi'
+          ? 'Vui lòng tạo tài khoản hoặc đăng nhập trước khi thanh toán!'
+          : 'Please register or log in before payment!',
+        'error'
+      )
+      document.getElementById('checkout-account')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      return
+    }
+
     // Validation
     const trimmedName = recipientName.trim()
     const trimmedPhone = recipientPhone.trim()
@@ -256,20 +269,6 @@ function CheckoutContent() {
     if (!trimmedAddress) {
       showToast(lang === 'vi' ? 'Vui lòng nhập địa chỉ giao hàng!' : 'Please enter delivery address!', 'error')
       return
-    }
-
-    // Ensure account is registered or logged in
-    let finalUserId = userId
-    if (!isLoggedIn) {
-      if (authTab === 'register') {
-        const createdId = await handleInlineRegister()
-        if (!createdId) return
-        finalUserId = createdId
-      } else {
-        const loggedId = await handleInlineLogin()
-        if (!loggedId) return
-        finalUserId = loggedId
-      }
     }
 
     // Persist info for next time
@@ -291,7 +290,7 @@ function CheckoutContent() {
       // Build order payload - always pass user_id explicitly
       const orderPayload = {
         order_number: orderNumber,
-        user_id: finalUserId,
+        user_id: userId,
         delivery_address: trimmedAddress,
         recipient_name: trimmedName,
         recipient_phone: trimmedPhone,
@@ -308,7 +307,7 @@ function CheckoutContent() {
 
       // Build order items payload
       const isUuid = (str: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
-      let productMap: Record<string, string> = {}
+      const productMap: Record<string, string> = {}
       try {
         const supabase = createClient('customer')
         const { data: dbProducts } = await supabase.from('products').select('id, name_vi')
@@ -337,9 +336,21 @@ function CheckoutContent() {
       })
 
       // Use server API to create order (bypasses RLS, correct user_id guaranteed)
+      const customerClient = createClient('customer')
+      const { data: sessionData } = await customerClient.auth.getSession()
+      const accessToken = sessionData.session?.access_token
+      if (!accessToken) {
+        setIsLoggedIn(false)
+        setUserId(null)
+        throw new Error(lang === 'vi' ? 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.' : 'Session expired. Please log in again.')
+      }
+
       const res = await fetch('/api/orders/create', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
         body: JSON.stringify({ order: orderPayload, items: payloadItems }),
       })
       const orderResult = await res.json()
@@ -379,14 +390,17 @@ function CheckoutContent() {
         'success'
       )
 
-      router.push(`/orders/${targetOrderId}/success?method=${paymentMethod}`)
+      const successParams = new URLSearchParams({ method: paymentMethod })
+      if (accountCreatedThisCheckout) successParams.set('accountCreated', '1')
+      router.push(`/orders/${targetOrderId}/success?${successParams.toString()}`)
     } catch (err: unknown) {
       console.error('Checkout error:', err)
-      clearCart()
-      addRecentOrder(orderNumber, orderNumber)
-      playOrderPlacedSound()
-      showToast(lang === 'vi' ? 'Đã ghi nhận đơn hàng!' : 'Order recorded!', 'success')
-      router.push(`/orders/success/success?method=${paymentMethod}`)
+      showToast(
+        err instanceof Error
+          ? err.message
+          : (lang === 'vi' ? 'Không thể tạo đơn hàng. Vui lòng thử lại.' : 'Unable to create order. Please try again.'),
+        'error'
+      )
     } finally {
       setLoading(false)
     }
@@ -425,7 +439,7 @@ function CheckoutContent() {
       </div>
 
       {/* Customer & Account Info Card */}
-      <section className={styles.sectionCard}>
+      <section id="checkout-account" className={styles.sectionCard}>
         <div className={styles.sectionHeader}>
           <h2 className={styles.sectionTitle}>
             <span>👤</span>
@@ -454,9 +468,10 @@ function CheckoutContent() {
                 className={styles.switchAccountBtn}
                 onClick={async () => {
                   const supabase = createClient('customer')
-                  await supabase.auth.signOut()
-                  setIsLoggedIn(false)
-                  setUserId(null)
+                   await supabase.auth.signOut()
+                   setIsLoggedIn(false)
+                   setUserId(null)
+                   setAccountCreatedThisCheckout(false)
                   showToast(lang === 'vi' ? 'Đã đăng xuất tài khoản' : 'Logged out', 'info')
                 }}
               >
@@ -557,7 +572,7 @@ function CheckoutContent() {
                     <br />
                     • <strong>Mật khẩu:</strong> Bạn tự đặt (tối thiểu 6 ký tự).
                     <br />
-                    • <em>Lần sau đặt món trên bất kỳ điện thoại/máy tính nào, bạn chỉ cần chọn tab <strong>"Đã có tài khoản"</strong> và nhập SĐT + Mật khẩu này để tra cứu đơn và lưu điểm giao hàng.</em>
+                    • <em>Lần sau đặt món trên bất kỳ điện thoại/máy tính nào, bạn chỉ cần chọn tab <strong>&ldquo;Đã có tài khoản&rdquo;</strong> và nhập SĐT + Mật khẩu này để tra cứu đơn và lưu điểm giao hàng.</em>
                   </div>
                 </div>
 
@@ -824,7 +839,8 @@ function CheckoutContent() {
       </section>
 
       {/* Payment Method Selector */}
-      <section className={styles.sectionCard}>
+      {isLoggedIn && userId ? (
+        <section className={styles.sectionCard}>
         <div className={styles.sectionHeader}>
           <h2 className={styles.sectionTitle}>
             <span>💳</span>
@@ -935,9 +951,12 @@ function CheckoutContent() {
                 </div>
 
                 <div className={styles.qrCodeWrapper}>
-                  <img
+                  <Image
                     src={qrUrl}
                     alt="VietQR Payment Code"
+                    width={280}
+                    height={280}
+                    unoptimized
                     className={styles.qrImage}
                   />
                 </div>
@@ -1004,31 +1023,57 @@ function CheckoutContent() {
             )}
           </div>
         )}
-      </section>
+        </section>
+      ) : (
+        <section className={`${styles.sectionCard} ${styles.paymentLockedCard}`}>
+          <span className={styles.paymentLockedIcon}>🔒</span>
+          <div>
+            <h2 className={styles.paymentLockedTitle}>
+              {lang === 'vi' ? 'Thanh toán đang được khóa' : 'Payment is locked'}
+            </h2>
+            <p className={styles.paymentLockedText}>
+              {lang === 'vi'
+                ? 'Vui lòng tạo tài khoản mới hoặc đăng nhập tài khoản đã có ở phần trên để chọn phương thức thanh toán.'
+                : 'Please register or log in above to choose a payment method.'}
+            </p>
+          </div>
+        </section>
+      )}
 
       {/* Sticky Bottom Action Button */}
       <div className={styles.bottomBar}>
-        <button
-          className={`${styles.submitBtn} ${paymentMethod === 'cash' ? styles.submitBtnCash : ''}`}
-          onClick={handleSubmitOrder}
-          disabled={loading}
-        >
-          {loading ? (
-            <span>{lang === 'vi' ? 'Đang xử lý đơn hàng...' : 'Processing order...'}</span>
-          ) : paymentMethod === 'cash' ? (
+        {isLoggedIn && userId ? (
+          <button
+            className={`${styles.submitBtn} ${paymentMethod === 'cash' ? styles.submitBtnCash : ''}`}
+            onClick={handleSubmitOrder}
+            disabled={loading}
+          >
+            {loading ? (
+              <span>{lang === 'vi' ? 'Đang xử lý đơn hàng...' : 'Processing order...'}</span>
+            ) : paymentMethod === 'cash' ? (
+              <span>
+                {lang === 'vi'
+                  ? `Xác nhận Đặt hàng (Tiền mặt) • ${formatPrice(qrAmount)}`
+                  : `Confirm Order (Cash) • ${formatPrice(qrAmount)}`}
+              </span>
+            ) : (
+              <span>
+                {lang === 'vi'
+                  ? `✓ Tôi đã chuyển khoản xong • ${formatPrice(qrAmount)}`
+                  : `✓ I have transferred • ${formatPrice(qrAmount)}`}
+              </span>
+            )}
+          </button>
+        ) : (
+          <div className={styles.bottomLockedNotice}>
+            <span>🔒</span>
             <span>
               {lang === 'vi'
-                ? `Xác nhận Đặt hàng (Tiền mặt) • ${formatPrice(qrAmount)}`
-                : `Confirm Order (Cash) • ${formatPrice(qrAmount)}`}
+                ? 'Tạo tài khoản hoặc đăng nhập để tiếp tục thanh toán'
+                : 'Register or log in to continue payment'}
             </span>
-          ) : (
-            <span>
-              {lang === 'vi'
-                ? `✓ Tôi đã chuyển khoản xong • ${formatPrice(qrAmount)}`
-                : `✓ I have transferred • ${formatPrice(qrAmount)}`}
-            </span>
-          )}
-        </button>
+          </div>
+        )}
       </div>
 
       {/* Hotline Forgot Password Modal */}

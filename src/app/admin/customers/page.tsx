@@ -1,10 +1,14 @@
 'use client'
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { createClient } from '@/lib/supabase/client'
+import Link from 'next/link'
+import { adminFetch } from '@/lib/admin-api-client'
 import { useToast } from '@/lib/providers'
-import { formatPrice } from '@/lib/utils'
+import { formatPrice, getStatusLabel } from '@/lib/utils'
 import AdminSidebar from '@/components/AdminSidebar'
+import type { Database } from '@/lib/supabase/database.types'
+
+type CustomerOrder = Database['public']['Tables']['orders']['Row']
 
 interface CustomerProfile {
   id: string
@@ -17,6 +21,7 @@ interface CustomerProfile {
   total_orders?: number
   total_spent?: number
   last_order_at?: string
+  email?: string | null
 }
 
 export default function AdminCustomersPage() {
@@ -29,6 +34,9 @@ export default function AdminCustomersPage() {
   const [createModalOpen, setCreateModalOpen] = useState(false)
   const [editCustomer, setEditCustomer] = useState<CustomerProfile | null>(null)
   const [resetPwdCustomer, setResetPwdCustomer] = useState<CustomerProfile | null>(null)
+  const [ordersCustomer, setOrdersCustomer] = useState<CustomerProfile | null>(null)
+  const [customerOrders, setCustomerOrders] = useState<CustomerOrder[]>([])
+  const [loadingCustomerOrders, setLoadingCustomerOrders] = useState(false)
 
   // Create User Form
   const [createName, setCreateName] = useState('')
@@ -47,24 +55,20 @@ export default function AdminCustomersPage() {
 
   // Reset Password Form
   const [newPassword, setNewPassword] = useState('123456')
+  const [confirmPassword, setConfirmPassword] = useState('123456')
   const [resettingPwd, setResettingPwd] = useState(false)
 
   const loadCustomers = useCallback(async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/admin/customers')
+      const res = await adminFetch('/api/admin/customers')
       const data = await res.json()
       if (!res.ok) {
         console.error('Error loading customers:', data.error)
         setCustomers([])
         return
       }
-      const list = (data.customers || []) as CustomerProfile[]
-      const enhanced = list.map(c => ({
-        ...c,
-        role: (c.phone === '0977999948' || c.id === '89e22fbf-9655-426c-a123-e7fc7aaa0670' ? 'admin' : 'customer') as 'customer' | 'admin',
-      }))
-      setCustomers(enhanced)
+      setCustomers((data.customers || []) as CustomerProfile[])
     } catch (err) {
       console.error('Error loading customers:', err)
     } finally {
@@ -73,7 +77,10 @@ export default function AdminCustomersPage() {
   }, [])
 
   useEffect(() => {
-    loadCustomers()
+    const timer = window.setTimeout(() => {
+      void loadCustomers()
+    }, 0)
+    return () => window.clearTimeout(timer)
   }, [loadCustomers])
 
   // Create User Action
@@ -86,7 +93,7 @@ export default function AdminCustomersPage() {
 
     setSubmittingCreate(true)
     try {
-      const res = await fetch('/api/admin/users', {
+      const res = await adminFetch('/api/admin/users', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -106,7 +113,7 @@ export default function AdminCustomersPage() {
         setCreatePhone('')
         setCreateAddress('')
         setCreatePassword('123456')
-        loadCustomers()
+        void loadCustomers()
       } else {
         showToast(data.error || 'Lỗi khi tạo người dùng', 'error')
       }
@@ -130,10 +137,14 @@ export default function AdminCustomersPage() {
   const handleUpdateUser = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!editCustomer) return
+    if (!editName.trim() || editPhone.replace(/\D/g, '').length < 9) {
+      showToast('Vui lòng nhập họ tên và số điện thoại hợp lệ', 'error')
+      return
+    }
 
     setSubmittingEdit(true)
     try {
-      const res = await fetch('/api/admin/users', {
+      const res = await adminFetch('/api/admin/users', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -149,7 +160,7 @@ export default function AdminCustomersPage() {
       if (res.ok && data.success) {
         showToast('Cập nhật thông tin người dùng thành công!', 'success')
         setEditCustomer(null)
-        loadCustomers()
+        void loadCustomers()
       } else {
         showToast(data.error || 'Lỗi khi cập nhật người dùng', 'error')
       }
@@ -167,7 +178,7 @@ export default function AdminCustomersPage() {
     }
 
     try {
-      const res = await fetch(`/api/admin/users?userId=${c.id}`, { method: 'DELETE' })
+      const res = await adminFetch(`/api/admin/users?userId=${c.id}`, { method: 'DELETE' })
       const data = await res.json()
       if (res.ok && data.success) {
         showToast(`Đã xóa tài khoản ${c.full_name}!`, 'success')
@@ -188,9 +199,13 @@ export default function AdminCustomersPage() {
       showToast('Mật khẩu tối thiểu 6 ký tự', 'error')
       return
     }
+    if (newPassword !== confirmPassword) {
+      showToast('Hai lần nhập mật khẩu chưa khớp', 'error')
+      return
+    }
     setResettingPwd(true)
     try {
-      const res = await fetch('/api/admin/reset-customer-password', {
+      const res = await adminFetch('/api/admin/reset-customer-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: resetPwdCustomer.id, newPassword }),
@@ -201,11 +216,32 @@ export default function AdminCustomersPage() {
       } else {
         showToast(`Đã đổi mật khẩu cho ${resetPwdCustomer.full_name} thành công!`, 'success')
         setResetPwdCustomer(null)
+        setNewPassword('123456')
+        setConfirmPassword('123456')
       }
     } catch {
       showToast('Lỗi kết nối máy chủ', 'error')
     } finally {
       setResettingPwd(false)
+    }
+  }
+
+  const openCustomerOrders = async (customer: CustomerProfile) => {
+    setOrdersCustomer(customer)
+    setCustomerOrders([])
+    setLoadingCustomerOrders(true)
+    try {
+      const res = await adminFetch(`/api/admin/customers?userId=${encodeURIComponent(customer.id)}`)
+      const data = await res.json()
+      if (!res.ok) {
+        showToast(data.error || 'Không thể tải lịch sử đơn hàng', 'error')
+        return
+      }
+      setCustomerOrders((data.orders || []) as CustomerOrder[])
+    } catch {
+      showToast('Lỗi kết nối khi tải lịch sử đơn hàng', 'error')
+    } finally {
+      setLoadingCustomerOrders(false)
     }
   }
 
@@ -229,7 +265,7 @@ export default function AdminCustomersPage() {
           <div>
             <h1 className="admin-page-title">Quản lý Người Dùng & Khách Hàng</h1>
             <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'var(--color-text-secondary)' }}>
-              Tạo mới, chỉnh sửa thông tin, phân quyền Admin và hỗ trợ đổi mật khẩu
+              Chỉnh sửa hồ sơ, đặt lại mật khẩu và quản lý lịch sử đơn theo từng người dùng
             </p>
           </div>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
@@ -248,7 +284,7 @@ export default function AdminCustomersPage() {
               <span>➕</span>
               <span>Thêm Người Dùng</span>
             </button>
-            <button className="btn btn-ghost btn-sm" onClick={loadCustomers} title="Làm mới">
+            <button className="btn btn-ghost btn-sm" onClick={() => void loadCustomers()} title="Làm mới">
               🔄
             </button>
           </div>
@@ -305,7 +341,23 @@ export default function AdminCustomersPage() {
                       </span>
                     </td>
                     <td>
-                      <span style={{ fontWeight: 700, color: '#1E293B' }}>{c.total_orders || 0}</span> đơn
+                      <button
+                        type="button"
+                        onClick={() => void openCustomerOrders(c)}
+                        style={{
+                          border: 0,
+                          background: 'transparent',
+                          color: 'var(--color-primary)',
+                          font: 'inherit',
+                          fontWeight: 800,
+                          padding: 0,
+                          cursor: 'pointer',
+                          textDecoration: 'underline',
+                          textUnderlineOffset: 3,
+                        }}
+                      >
+                        {c.total_orders || 0} đơn
+                      </button>
                     </td>
                     <td style={{ fontWeight: 800, color: 'var(--color-primary)' }}>
                       {formatPrice(c.total_spent || 0)}
@@ -315,6 +367,14 @@ export default function AdminCustomersPage() {
                     </td>
                     <td style={{ textAlign: 'right' }}>
                       <div style={{ display: 'inline-flex', gap: 6 }}>
+                        <button
+                          className="btn btn-primary btn-sm"
+                          onClick={() => void openCustomerOrders(c)}
+                          style={{ fontSize: 12, padding: '4px 8px' }}
+                          title="Xem và quản lý đơn hàng"
+                        >
+                          📋 Đơn hàng
+                        </button>
                         <button
                           className="btn btn-ghost btn-sm"
                           onClick={() => openEditModal(c)}
@@ -328,6 +388,7 @@ export default function AdminCustomersPage() {
                           onClick={() => {
                             setResetPwdCustomer(c)
                             setNewPassword('123456')
+                            setConfirmPassword('123456')
                           }}
                           style={{ fontSize: 12, padding: '4px 8px', color: '#B45309', borderColor: '#FDE68A' }}
                           title="Đổi mật khẩu"
@@ -351,6 +412,99 @@ export default function AdminCustomersPage() {
           )}
         </div>
       </main>
+
+      {/* Modal: Customer order history */}
+      {ordersCustomer && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(3px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20,
+          }}
+          onClick={() => setOrdersCustomer(null)}
+        >
+          <div
+            style={{
+              background: '#FFFFFF', borderRadius: 20, maxWidth: 980, width: '100%', maxHeight: '88vh',
+              overflow: 'hidden', boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
+            }}
+            onClick={event => event.stopPropagation()}
+          >
+            <div style={{ padding: '20px 24px', borderBottom: '1px solid #E2E8F0', display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'flex-start' }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: 19, fontWeight: 800, color: '#0F172A' }}>
+                  📋 Đơn hàng của {ordersCustomer.full_name}
+                </h2>
+                <p style={{ margin: '5px 0 0', color: '#64748B', fontSize: 13 }}>
+                  {ordersCustomer.phone} · {customerOrders.length} đơn · Tổng chi tiêu{' '}
+                  <strong style={{ color: 'var(--color-primary)' }}>
+                    {formatPrice(customerOrders.reduce((sum, order) => sum + (order.order_status === 'cancelled' ? 0 : order.final_amount), 0))}
+                  </strong>
+                </p>
+              </div>
+              <button type="button" className="btn btn-ghost" onClick={() => setOrdersCustomer(null)} aria-label="Đóng">
+                ✕
+              </button>
+            </div>
+
+            <div style={{ maxHeight: 'calc(88vh - 90px)', overflow: 'auto' }}>
+              {loadingCustomerOrders ? (
+                <div style={{ padding: 48, display: 'flex', justifyContent: 'center' }}>
+                  <span className="spinner" />
+                </div>
+              ) : customerOrders.length === 0 ? (
+                <div className="empty-state" style={{ padding: 48 }}>
+                  <span className="empty-state-icon">☕</span>
+                  <p className="empty-state-title">Người dùng chưa có đơn hàng</p>
+                </div>
+              ) : (
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="admin-table" style={{ minWidth: 760 }}>
+                    <thead>
+                      <tr>
+                        <th>Mã đơn / Thời gian</th>
+                        <th>Điểm nhận</th>
+                        <th>Thanh toán</th>
+                        <th>Trạng thái</th>
+                        <th style={{ textAlign: 'right' }}>Tổng tiền</th>
+                        <th style={{ textAlign: 'right' }}>Quản lý</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {customerOrders.map(order => (
+                        <tr key={order.id}>
+                          <td>
+                            <strong style={{ color: 'var(--color-primary)' }}>#{order.order_number}</strong>
+                            <div style={{ marginTop: 3, fontSize: 11, color: '#94A3B8' }}>
+                              {new Date(order.created_at).toLocaleString('vi-VN')}
+                            </div>
+                          </td>
+                          <td style={{ maxWidth: 220, color: '#334155' }}>{order.delivery_address}</td>
+                          <td>
+                            <span className={`badge ${order.payment_status === 'paid' ? 'badge-success' : 'badge-warning'}`}>
+                              {order.payment_status === 'paid' ? 'Đã thanh toán' : 'Chưa thanh toán'}
+                            </span>
+                          </td>
+                          <td>
+                            <span className={`status-badge status-${order.order_status}`}>
+                              {getStatusLabel(order.order_status, 'vi')}
+                            </span>
+                          </td>
+                          <td style={{ textAlign: 'right', fontWeight: 800 }}>{formatPrice(order.final_amount)}</td>
+                          <td style={{ textAlign: 'right' }}>
+                            <Link href={`/admin/orders/${order.id}`} className="btn btn-outline btn-sm">
+                              Xem / cập nhật →
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal: Create User */}
       {createModalOpen && (
@@ -423,7 +577,7 @@ export default function AdminCustomersPage() {
                 <select
                   className="input"
                   value={createRole}
-                  onChange={e => setCreateRole(e.target.value as any)}
+                  onChange={e => setCreateRole(e.target.value as 'customer' | 'admin')}
                 >
                   <option value="customer">👤 Khách hàng (Được giảm 20% nếu là NV)</option>
                   <option value="admin">👑 Quản trị viên (Truy cập được trang Admin)</option>
@@ -500,7 +654,7 @@ export default function AdminCustomersPage() {
                 <select
                   className="input"
                   value={editRole}
-                  onChange={e => setEditRole(e.target.value as any)}
+                  onChange={e => setEditRole(e.target.value as 'customer' | 'admin')}
                 >
                   <option value="customer">👤 Khách hàng</option>
                   <option value="admin">👑 Quản trị viên (Admin)</option>
@@ -546,11 +700,26 @@ export default function AdminCustomersPage() {
               <div className="input-group">
                 <label className="input-label">Mật khẩu mới</label>
                 <input
-                  type="text"
+                  type="password"
                   className="input"
                   value={newPassword}
                   onChange={e => setNewPassword(e.target.value)}
                   placeholder="Nhập mật khẩu mới..."
+                  autoComplete="new-password"
+                  minLength={6}
+                  required
+                />
+              </div>
+              <div className="input-group">
+                <label className="input-label">Nhập lại mật khẩu mới</label>
+                <input
+                  type="password"
+                  className="input"
+                  value={confirmPassword}
+                  onChange={e => setConfirmPassword(e.target.value)}
+                  placeholder="Nhập lại mật khẩu mới..."
+                  autoComplete="new-password"
+                  minLength={6}
                   required
                 />
               </div>

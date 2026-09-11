@@ -45,6 +45,52 @@
 - Đã kiểm tra và sửa chuỗi tiếng Việt bị lỗi ký tự ở `discountNotes` (dòng 282-287).
 - `GET /checkout`, `GET /admin/customers`, `GET /admin/orders` đều trả về HTTP `200 OK`.
 
+### G. Hoàn tất backlog: ghi chú tài khoản, Realtime dự phòng và in bill 80 mm
+- Trang đặt hàng truyền cờ `accountCreated=1` khi tài khoản vừa được tạo. Trang cảm ơn chỉ trong trường hợp này mới hiện ghi chú nhẹ: khách có thể dùng SĐT vừa đăng ký để đăng nhập và theo dõi đơn.
+- Realtime Admin dùng đúng Supabase client scope `admin`, hiển thị trạng thái kết nối ở Sidebar và tự động polling mỗi 15 giây nếu WebSocket bị mạng KCN chặn.
+- Cơ chế nhận đơn mới lưu danh sách ID đã thấy để polling và WebSocket không phát chuông/thông báo trùng nhau. Dashboard cũng không còn phát chuông lần hai.
+- Trang `/admin/orders/[id]` có nút **In bill 80 mm** và stylesheet riêng cho máy in nhiệt, gồm thông tin khách, món, số lượng, ghi chú, giảm giá, phí giao, thanh toán và tổng tiền.
+- Đã kiểm tra `npx tsc --noEmit`, ESLint trên toàn bộ file thay đổi và `npm run build` thành công ngày 11/09/2026.
+
+### H. Hoàn thiện Quản lý người dùng và đơn theo khách hàng
+- Trang `/admin/customers` hỗ trợ chỉnh sửa họ tên, SĐT đăng nhập, địa chỉ mặc định và quyền Customer/Admin; role được đọc trực tiếp từ Supabase Auth thay vì suy đoán bằng SĐT.
+- Chức năng đặt lại mật khẩu có ô xác nhận mật khẩu, kiểm tra tối thiểu 6 ký tự và trả đúng lỗi từ Supabase Auth.
+- Nút **Đơn hàng** mở lịch sử của từng người dùng, hiển thị tổng đơn, tổng chi tiêu, thanh toán, trạng thái và liên kết sang trang chi tiết để quản lý đơn.
+- Thống kê/lịch sử ghép đơn theo cả `user_id` và SĐT người nhận, giúp nhận diện đúng các đơn cũ từng bị gắn nhầm session Admin.
+- Các API quản lý người dùng hiện yêu cầu access token của Admin ở server; request không đăng nhập trả `401`, tài khoản không có role Admin trả `403`.
+- API cập nhật không còn bỏ qua lỗi Auth/profile hoặc báo thành công giả; đồng thời chặn Admin tự gỡ quyền hoặc tự xóa tài khoản đang đăng nhập.
+- Đã kiểm tra trên Supabase thật ở chế độ chỉ đọc: API danh sách trả 4 người dùng, API chi tiết người dùng trả lịch sử đơn thành công.
+
+### I. Bắt buộc xác thực tài khoản trước khi thanh toán
+- Tại `/checkout`, khách chưa xác thực chỉ thấy thông báo thanh toán đang khóa; phần chọn Tiền mặt/VietQR, mã QR và nút xác nhận đặt hàng đều chỉ xuất hiện sau khi tạo tài khoản hoặc đăng nhập thành công.
+- Việc tạo tài khoản/đăng nhập là bước riêng, không còn tự động chạy khi khách bấm nút đặt hàng.
+- API `POST /api/orders/create` bắt buộc Bearer token hợp lệ và luôn lấy `user_id` từ phiên Auth, không tin `user_id` do browser gửi lên.
+- Khi phiên hết hạn hoặc API tạo đơn lỗi, checkout giữ nguyên giỏ hàng, hiện lỗi và không chuyển giả sang trang đặt hàng thành công.
+- Đã kiểm tra: request tạo đơn không có token trả `401`; token hợp lệ đi qua bước xác thực và dữ liệu rỗng trả validation `400` mà không tạo đơn thật.
+
+### J. Sửa đồng bộ đơn mới và thông báo Admin
+- Nguyên nhân: RLS của bảng `orders` chỉ cho `auth.uid() = user_id`, vì vậy tài khoản Admin đọc trực tiếp từ browser nhận danh sách rỗng; Realtime có thể báo kết nối nhưng không được cấp payload của đơn khách.
+- Thêm `GET /api/admin/orders` dùng service role sau khi xác thực Bearer token Admin, hỗ trợ danh sách, lọc trạng thái và chi tiết đơn kèm items.
+- Dashboard, danh sách đơn, chi tiết đơn và badge Sidebar đều tải dữ liệu qua API Admin mới nên không còn phụ thuộc quyền SELECT của browser.
+- Polling dự phòng rút xuống 5 giây. Sidebar so sánh ID đơn đã thấy để nhận diện đơn mới, phát chuông/native notification và luôn hiện notification nổi trong giao diện Admin kể cả khi trình duyệt chưa cấp quyền notification.
+- Các API cập nhật trạng thái và xóa đơn cũng đã bắt buộc token Admin; toàn bộ caller chuyển sang helper `adminFetch` dùng chung.
+- Đã kiểm tra production build thành công, `/admin/orders` trả `200`, API không có token trả `401`.
+
+### K. Bắt buộc xem chi tiết đơn trước khi xác nhận/xử lý
+- Dashboard và trang danh sách đơn (cả desktop lẫn mobile) không còn nút đổi trạng thái, hủy hoặc xóa trực tiếp trên bản tóm tắt.
+- Mỗi đơn chỉ còn hành động chính **Xem chi tiết & xử lý**; việc xác nhận, chuyển pha chế/giao hàng, thanh toán, hủy và xóa chỉ thực hiện tại `/admin/orders/[id]` sau khi Admin đã xem đầy đủ người nhận, món, số lượng, ghi chú và tổng tiền.
+- Popup **Xem món** là chế độ chỉ đọc, không còn dropdown đổi trạng thái hoặc nút xóa.
+- Notification đơn mới mở thẳng trang chi tiết đúng đơn thay vì mở danh sách chung.
+- Đã kiểm thử trực tiếp: Dashboard và danh sách hiện đúng 6 đơn/4 đơn chờ; trang tóm tắt không có nút xử lý nhanh, trang chi tiết vẫn có đầy đủ nút nghiệp vụ. TypeScript, ESLint và production build đều thành công ngày 12/09/2026.
+
+### L. Hoàn thiện quản lý Voucher
+- Trang `/admin/vouchers` có đầy đủ tạo mới, tìm kiếm, chỉnh sửa mã/nội dung ưu đãi/điều kiện/hạn dùng/giới hạn lượt dùng, bật-tắt và xóa voucher trên cả desktop lẫn mobile.
+- Thêm API `GET/POST/PATCH/DELETE /api/admin/vouchers`; mọi thao tác đều xác thực Bearer token và quyền Admin ở server, không còn ghi trực tiếp từ browser rồi bị RLS chặn.
+- Voucher chưa từng dùng có thể xóa vĩnh viễn. Voucher đã gắn với đơn hoặc có lịch sử sử dụng được bảo vệ, Admin cần tắt voucher để giữ nguyên dữ liệu đối soát.
+- Chuẩn hóa trường tiền sang đơn vị đồng; dữ liệu cũ từng lưu theo nghìn đồng vẫn được tự nhận diện và tính đúng ở giỏ hàng.
+- Khi tạo đơn, server kiểm tra voucher còn hoạt động, chưa hết hạn/chưa hết lượt, đủ giá trị đơn tối thiểu và khách chưa dùng mã này; sau khi đặt thành công ghi `voucher_usage` và tăng `used_count`.
+- Đã kiểm tra dữ liệu thật ở chế độ chỉ đọc: hiển thị đúng 2 voucher `WELCOME10` và `LSP50K`; form sửa nạp đúng nội dung và đơn vị tiền. TypeScript, ESLint, kiểm tra API không token (`401`) và production build đều thành công ngày 12/09/2026.
+
 ---
 
 ## 3. CẤU TRÚC FILE & API MỚI CẦN LƯU Ý
@@ -97,12 +143,16 @@ Các biến đã được cấu hình trong `.env.local`:
    - **Kỳ vọng:** Không hiện popup "Tạo tài khoản thành công", chuyển thẳng sang trang đơn hàng thành công `/order-success` hoặc `/orders`.
 3. **Kiểm tra luồng Admin (Desktop):**
    - Truy cập: `http://localhost:3000/admin/orders`
-   - Xem đơn mới đặt -> Bấm nút **Xác nhận đơn** hoặc chuyển trạng thái -> Đơn đổi trạng thái ngay lập tức.
+   - Xem đơn mới đặt -> Bấm **Xem chi tiết & xử lý** -> kiểm tra đầy đủ thông tin rồi mới bấm **Xác nhận đơn** hoặc chuyển trạng thái tại trang chi tiết.
    - Truy cập: `http://localhost:3000/admin/customers` -> Kiểm tra khách hàng vừa đặt đơn đã hiển thị trong danh sách kèm tổng số đơn và doanh thu.
 
 ---
 
 ## 6. DANH SÁCH VIỆC CẦN LÀM TIẾP THEO (BACKLOG CHO DEV MỚI)
-- [ ] **Thông báo cho khách về tài khoản:** Khách lần đầu đặt đơn dùng SĐT + mật khẩu thì hiển thị một dòng ghi chú nhỏ nhẹ nhàng ở trang Thank You: *"Lần sau bạn có thể dùng SĐT [sdt] để đăng nhập và theo dõi đơn hàng"*.
-- [ ] **Realtime Admin:** Kiểm tra Supabase Realtime channel cho admin dashboard khi có khách đặt đơn mới (đã có hook, cần kiểm tra kết nối websocket nếu mạng KCN chặn).
-- [ ] **In hóa đơn / Bill:** Xem xét bổ sung nút in nhiệt (POS 80mm) cho đơn hàng trong trang chi tiết đơn của Admin nếu quán cần in bill dán ly.
+- [x] **Thông báo cho khách về tài khoản:** Đã hiện ghi chú đúng khi vừa tạo tài khoản tại checkout.
+- [x] **Realtime Admin:** Đã thêm trạng thái kết nối, polling dự phòng 15 giây và chống thông báo trùng.
+- [x] **In hóa đơn / Bill:** Đã bổ sung nút và mẫu in nhiệt POS 80 mm tại trang chi tiết đơn.
+
+### Việc nên kiểm thử tại quán
+- Mở Admin trên đúng mạng KCN, quan sát Sidebar hiển thị trạng thái đồng bộ; nếu WebSocket bị chặn, polling dự phòng vẫn nhận đơn tối đa sau khoảng 5 giây.
+- Chọn đúng khổ giấy **80 mm**, lề mặc định hoặc tối thiểu, tắt header/footer của trình duyệt trước khi in bill thật lần đầu.

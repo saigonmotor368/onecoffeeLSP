@@ -1,19 +1,19 @@
 import { NextResponse } from 'next/server'
-import { getAdminClient } from '@/lib/supabase/admin'
+import { requireAdmin } from '@/lib/supabase/admin-auth'
 
 export async function POST(req: Request) {
   try {
+    const auth = await requireAdmin(req)
+    if (!auth.authorized) return auth.response
+
     const { orderId, status, paymentStatus } = await req.json()
 
     if (!orderId) {
       return NextResponse.json({ error: 'orderId is required' }, { status: 400 })
     }
 
-    const supabase = getAdminClient()
-
     // Build the update payload
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const updatePayload: Record<string, any> = {}
+    const updatePayload: Record<string, string> = {}
 
     if (status !== undefined) {
       const VALID_STATUSES = ['pending', 'confirmed', 'preparing', 'delivering', 'delivered', 'cancelled']
@@ -35,7 +35,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
     }
 
-    const { error } = await supabase
+    const { error } = await auth.supabase
       .from('orders')
       .update(updatePayload)
       .eq('id', orderId)

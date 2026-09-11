@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
-import { formatPrice, getStatusLabel } from '@/lib/utils'
-import { useToast } from '@/lib/providers'
+import { adminFetch } from '@/lib/admin-api-client'
+import { formatPrice } from '@/lib/utils'
 import AdminSidebar from '@/components/AdminSidebar'
 import type { Database } from '@/lib/supabase/database.types'
 
@@ -25,7 +25,6 @@ const STATUS_LABELS: Record<string, string> = {
 }
 
 export default function AdminOrdersPage() {
-  const { showToast } = useToast()
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<FilterStatus>('all')
@@ -33,109 +32,55 @@ export default function AdminOrdersPage() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
   const [selectedItems, setSelectedItems] = useState<OrderItem[]>([])
   const [modalLoading, setModalLoading] = useState(false)
-  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const loadOrders = useCallback(async () => {
-    const supabase = createClient()
-    let q = supabase
-      .from('orders')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(200)
-
-    if (filter !== 'all') {
-      q = q.eq('order_status', filter)
+    try {
+      const params = new URLSearchParams({ limit: '200' })
+      if (filter !== 'all') params.set('status', filter)
+      const response = await adminFetch(`/api/admin/orders?${params.toString()}`)
+      const data = await response.json()
+      if (response.ok) {
+        setOrders((data.orders || []) as Order[])
+      }
+    } finally {
+      setLoading(false)
     }
-
-    const { data, error } = await q
-    if (!error) {
-      setOrders(data ?? [])
-    }
-    setLoading(false)
   }, [filter])
 
   useEffect(() => {
-    loadOrders()
+    const timer = window.setTimeout(() => {
+      void loadOrders()
+    }, 0)
+    return () => window.clearTimeout(timer)
   }, [loadOrders])
 
   // Realtime updates
   useEffect(() => {
-    const supabase = createClient()
+    const supabase = createClient('admin')
     const sub = supabase
       .channel('admin-orders-live-list')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
-        loadOrders()
+        void loadOrders()
       })
       .subscribe()
+
+    const pollingTimer = window.setInterval(() => {
+      void loadOrders()
+    }, 5000)
+
     return () => {
-      sub.unsubscribe()
+      window.clearInterval(pollingTimer)
+      void supabase.removeChannel(sub)
     }
   }, [loadOrders])
-
-  const updateStatus = async (orderId: string, newStatus: string) => {
-    try {
-      const res = await fetch('/api/admin/orders/update-status', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId, status: newStatus }),
-      })
-      const data = await res.json()
-      if (res.ok && data.success) {
-        showToast(`Đã chuyển: ${STATUS_LABELS[newStatus] || newStatus}`, 'success')
-        setOrders(prev =>
-          prev.map(o => (o.id === orderId ? { ...o, order_status: newStatus as Order['order_status'] } : o))
-        )
-        if (selectedOrder && selectedOrder.id === orderId) {
-          setSelectedOrder(prev => (prev ? { ...prev, order_status: newStatus as Order['order_status'] } : null))
-        }
-      } else {
-        showToast(data.error || 'Lỗi cập nhật trạng thái đơn hàng', 'error')
-      }
-    } catch {
-      showToast('Lỗi kết nối khi cập nhật trạng thái', 'error')
-    }
-  }
-
-  const handleDeleteOrder = async (order: Order) => {
-    const ok = window.confirm(
-      `⚠️ CẢNH BÁO: Bạn có chắc chắn muốn XÓA VĨNH VIỄN đơn hàng #${order.order_number}?\n\nThao tác này dùng khi phát hiện đơn hàng gian lận/spam. Dữ liệu sẽ không thể khôi phục.`
-    )
-    if (!ok) return
-
-    setDeletingId(order.id)
-    try {
-      const res = await fetch('/api/admin/orders/delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId: order.id }),
-      })
-      const data = await res.json()
-      if (res.ok && data.success) {
-        showToast(`Đã xóa vĩnh viễn đơn hàng #${order.order_number}!`, 'success')
-        setOrders(prev => prev.filter(o => o.id !== order.id))
-        if (selectedOrder?.id === order.id) {
-          setSelectedOrder(null)
-        }
-      } else {
-        showToast(data.error || 'Lỗi khi xóa đơn hàng', 'error')
-      }
-    } catch {
-      showToast('Lỗi kết nối máy chủ khi xóa đơn', 'error')
-    } finally {
-      setDeletingId(null)
-    }
-  }
 
   const openOrderDetailModal = async (order: Order) => {
     setSelectedOrder(order)
     setModalLoading(true)
     try {
-      const supabase = createClient()
-      const { data } = await supabase
-        .from('order_items')
-        .select('*')
-        .eq('order_id', order.id)
-      setSelectedItems(data || [])
+      const response = await adminFetch(`/api/admin/orders?id=${encodeURIComponent(order.id)}`)
+      const data = await response.json()
+      if (response.ok) setSelectedItems((data.items || []) as OrderItem[])
     } finally {
       setModalLoading(false)
     }
@@ -167,7 +112,7 @@ export default function AdminOrdersPage() {
           <div>
             <h1 className="admin-page-title">Quản lý Đơn Hàng</h1>
             <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'var(--color-text-secondary)' }}>
-              Xác nhận đơn mới, theo dõi tiến độ pha chế & giao hàng, xóa đơn gian lận
+              Xem đầy đủ chi tiết đơn trước khi xác nhận hoặc thay đổi trạng thái
             </p>
           </div>
           <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
@@ -180,7 +125,7 @@ export default function AdminOrdersPage() {
             />
             <button
               className="btn btn-ghost btn-sm"
-              onClick={loadOrders}
+              onClick={() => void loadOrders()}
               title="Tải lại danh sách"
             >
               🔄 Làm mới
@@ -270,9 +215,6 @@ export default function AdminOrdersPage() {
               <tbody>
                 {filtered.map(order => {
                   const isPending = order.order_status === 'pending'
-                  const isConfirmed = order.order_status === 'confirmed'
-                  const isPreparing = order.order_status === 'preparing'
-                  const isDelivering = order.order_status === 'delivering'
 
                   return (
                     <tr
@@ -383,83 +325,13 @@ export default function AdminOrdersPage() {
                       {/* Actions */}
                       <td style={{ textAlign: 'right' }}>
                         <div style={{ display: 'inline-flex', gap: 6, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                          {/* Step Transitions */}
-                          {isPending && (
-                            <button
-                              type="button"
-                              className="btn btn-primary btn-sm"
-                              onClick={() => updateStatus(order.id, 'confirmed')}
-                              style={{ background: '#1E4D3B', fontSize: 12, padding: '5px 10px' }}
-                              title="Xác nhận đơn hàng và chuyển cho pha chế"
-                            >
-                              ✓ Xác nhận
-                            </button>
-                          )}
-
-                          {isConfirmed && (
-                            <button
-                              type="button"
-                              className="btn btn-primary btn-sm"
-                              onClick={() => updateStatus(order.id, 'preparing')}
-                              style={{ background: '#6D28D9', borderColor: '#6D28D9', fontSize: 12, padding: '5px 10px' }}
-                              title="Bắt đầu chuẩn bị đồ uống"
-                            >
-                              ☕ Pha chế
-                            </button>
-                          )}
-
-                          {isPreparing && (
-                            <button
-                              type="button"
-                              className="btn btn-primary btn-sm"
-                              onClick={() => updateStatus(order.id, 'delivering')}
-                              style={{ background: '#D97706', borderColor: '#D97706', fontSize: 12, padding: '5px 10px' }}
-                              title="Giao cho shipper / nhân viên giao"
-                            >
-                              🛵 Giao hàng
-                            </button>
-                          )}
-
-                          {isDelivering && (
-                            <button
-                              type="button"
-                              className="btn btn-primary btn-sm"
-                              onClick={() => updateStatus(order.id, 'delivered')}
-                              style={{ background: '#16A34A', borderColor: '#16A34A', fontSize: 12, padding: '5px 10px' }}
-                              title="Khách đã nhận đồ uống thành công"
-                            >
-                              🎉 Hoàn tất
-                            </button>
-                          )}
-
-                          {/* Cancel button if not delivered or cancelled */}
-                          {order.order_status !== 'delivered' && order.order_status !== 'cancelled' && (
-                            <button
-                              type="button"
-                              className="btn btn-outline btn-sm"
-                              onClick={() => {
-                                if (window.confirm(`Hủy đơn hàng #${order.order_number}?`)) {
-                                  updateStatus(order.id, 'cancelled')
-                                }
-                              }}
-                              style={{ color: '#EF4444', borderColor: '#FECACA', fontSize: 12, padding: '5px 8px' }}
-                              title="Hủy đơn hàng"
-                            >
-                              ❌ Hủy
-                            </button>
-                          )}
-
-                          {/* Delete button (for fraud / spam) */}
-                          <button
-                            type="button"
-                            className="btn btn-ghost btn-sm"
-                            disabled={deletingId === order.id}
-                            onClick={() => handleDeleteOrder(order)}
-                            style={{ color: '#DC2626', fontSize: 12, padding: '5px 8px' }}
-                            title="Xóa vĩnh viễn đơn nếu gian lận hoặc spam"
+                          <Link
+                            href={`/admin/orders/${order.id}`}
+                            className="btn btn-primary btn-sm"
+                            style={{ background: '#1E4D3B', fontSize: 12, padding: '6px 11px', textDecoration: 'none' }}
                           >
-                            {deletingId === order.id ? '⏳' : '🗑️ Xóa'}
-                          </button>
+                            🔍 Xem chi tiết & xử lý
+                          </Link>
                         </div>
                       </td>
                     </tr>
@@ -473,9 +345,6 @@ export default function AdminOrdersPage() {
               <div className="admin-mobile-cards">
                 {filtered.map(order => {
                   const isPending = order.order_status === 'pending'
-                  const isConfirmed = order.order_status === 'confirmed'
-                  const isPreparing = order.order_status === 'preparing'
-                  const isDelivering = order.order_status === 'delivering'
 
                   return (
                     <div
@@ -585,47 +454,6 @@ export default function AdminOrdersPage() {
 
                       {/* Action buttons on card */}
                       <div className="admin-order-card-footer">
-                        {isPending && (
-                          <button
-                            type="button"
-                            className="btn btn-primary"
-                            onClick={() => updateStatus(order.id, 'confirmed')}
-                            style={{ background: '#1E4D3B', fontSize: 13, flex: 1, padding: '10px 14px', fontWeight: 800 }}
-                          >
-                            ✓ Xác nhận
-                          </button>
-                        )}
-                        {isConfirmed && (
-                          <button
-                            type="button"
-                            className="btn btn-primary"
-                            onClick={() => updateStatus(order.id, 'preparing')}
-                            style={{ background: '#6D28D9', borderColor: '#6D28D9', fontSize: 13, flex: 1, padding: '10px 14px', fontWeight: 800 }}
-                          >
-                            ☕ Pha chế
-                          </button>
-                        )}
-                        {isPreparing && (
-                          <button
-                            type="button"
-                            className="btn btn-primary"
-                            onClick={() => updateStatus(order.id, 'delivering')}
-                            style={{ background: '#D97706', borderColor: '#D97706', fontSize: 13, flex: 1, padding: '10px 14px', fontWeight: 800 }}
-                          >
-                            🛵 Giao hàng
-                          </button>
-                        )}
-                        {isDelivering && (
-                          <button
-                            type="button"
-                            className="btn btn-primary"
-                            onClick={() => updateStatus(order.id, 'delivered')}
-                            style={{ background: '#16A34A', borderColor: '#16A34A', fontSize: 13, flex: 1, padding: '10px 14px', fontWeight: 800 }}
-                          >
-                            🎉 Hoàn tất
-                          </button>
-                        )}
-
                         <button
                           type="button"
                           className="btn btn-outline"
@@ -637,38 +465,11 @@ export default function AdminOrdersPage() {
 
                         <Link
                           href={`/admin/orders/${order.id}`}
-                          className="btn btn-outline"
-                          style={{ fontSize: 12, padding: '8px 12px', textDecoration: 'none' }}
+                          className="btn btn-primary"
+                          style={{ background: '#1E4D3B', fontSize: 13, flex: 1, padding: '10px 14px', fontWeight: 800, textDecoration: 'none', textAlign: 'center' }}
                         >
-                          📄 Chi tiết
+                          🔍 Xem chi tiết & xử lý
                         </Link>
-
-                        {order.order_status !== 'delivered' && order.order_status !== 'cancelled' && (
-                          <button
-                            type="button"
-                            className="btn btn-outline"
-                            onClick={() => {
-                              if (window.confirm(`Hủy đơn hàng #${order.order_number}?`)) {
-                                updateStatus(order.id, 'cancelled')
-                              }
-                            }}
-                            style={{ color: '#EF4444', borderColor: '#FECACA', fontSize: 12, padding: '8px 10px' }}
-                            title="Hủy đơn"
-                          >
-                            ❌
-                          </button>
-                        )}
-
-                        <button
-                          type="button"
-                          className="btn btn-outline"
-                          disabled={deletingId === order.id}
-                          onClick={() => handleDeleteOrder(order)}
-                          style={{ color: '#DC2626', borderColor: '#FECACA', fontSize: 12, padding: '8px 10px' }}
-                          title="Xóa đơn"
-                        >
-                          🗑️
-                        </button>
                       </div>
                     </div>
                   )
@@ -739,7 +540,7 @@ export default function AdminOrdersPage() {
               </button>
             </div>
 
-            {/* Status & Quick Change */}
+            {/* Read-only status summary. All processing happens on the full detail page. */}
             <div style={{ background: '#F8FAFC', padding: '12px 16px', borderRadius: '12px', marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <span style={{ fontSize: '12px', color: '#64748B' }}>Trạng thái hiện tại:</span>
@@ -747,20 +548,9 @@ export default function AdminOrdersPage() {
                   {STATUS_LABELS[selectedOrder.order_status]}
                 </div>
               </div>
-              <div style={{ display: 'flex', gap: 6 }}>
-                <select
-                  value={selectedOrder.order_status}
-                  onChange={e => updateStatus(selectedOrder.id, e.target.value)}
-                  className="input"
-                  style={{ fontSize: 12, padding: '6px 10px', height: 'auto', width: 'auto' }}
-                >
-                  {STATUSES.filter(s => s !== 'all').map(s => (
-                    <option key={s} value={s}>
-                      {STATUS_LABELS[s]}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <span style={{ fontSize: 12, color: '#64748B', textAlign: 'right' }}>
+                Mở trang chi tiết để xử lý đơn
+              </span>
             </div>
 
             {/* Recipient Info */}
@@ -845,19 +635,11 @@ export default function AdminOrdersPage() {
 
             {/* Modal Bottom Actions */}
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-              <button
-                type="button"
-                className="btn btn-outline btn-sm"
-                onClick={() => handleDeleteOrder(selectedOrder)}
-                style={{ color: '#DC2626', borderColor: '#FECACA' }}
-              >
-                🗑️ Xóa đơn vĩnh viễn (Gian lận)
-              </button>
               <Link
                 href={`/admin/orders/${selectedOrder.id}`}
-                className="btn btn-ghost btn-sm"
+                className="btn btn-primary btn-sm"
               >
-                Trang chi tiết đầy đủ →
+                Xem chi tiết & xử lý →
               </Link>
               <button
                 type="button"

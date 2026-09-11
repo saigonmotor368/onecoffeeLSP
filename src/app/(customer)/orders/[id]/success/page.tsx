@@ -21,9 +21,9 @@ function SuccessContent({ orderId }: { orderId: string }) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const methodParam = searchParams.get('method') || 'transfer'
+  const accountCreated = searchParams.get('accountCreated') === '1'
 
   const [order, setOrder] = useState<OrderDetails | null>(null)
-  const [loading, setLoading] = useState(true)
 
   const isCash = (order?.payment_method || methodParam) === 'cash'
 
@@ -65,8 +65,6 @@ function SuccessContent({ orderId }: { orderId: string }) {
         }
       } catch (err) {
         console.warn('Failed to load order info:', err)
-      } finally {
-        setLoading(false)
       }
     }
 
@@ -101,6 +99,16 @@ function SuccessContent({ orderId }: { orderId: string }) {
             ? 'Đơn hàng của Quý khách đã được chuyển tới quầy pha chế One Coffee.'
             : 'One Coffee đã ghi nhận thanh toán chuyển khoản và đang ưu tiên chuẩn bị món.'}
         </p>
+
+        {accountCreated && (
+          <div className={styles.accountNote}>
+            <span className={styles.accountNoteIcon}>👤</span>
+            <p>
+              Lần sau bạn có thể dùng SĐT{' '}
+              <strong>{order?.recipient_phone || 'vừa đăng ký'}</strong> để đăng nhập và theo dõi đơn hàng.
+            </p>
+          </div>
+        )}
 
         {/* Notice instruction box */}
         <div className={`${styles.noticeBox} ${isCash ? styles.noticeBoxCash : styles.noticeBoxTransfer}`}>

@@ -2,8 +2,8 @@
 
 import { useState, useEffect, use } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
+import { adminFetch } from '@/lib/admin-api-client'
 import { formatPrice, getStatusLabel } from '@/lib/utils'
 import { useToast } from '@/lib/providers'
 import AdminSidebar from '@/components/AdminSidebar'
@@ -32,19 +32,20 @@ export default function AdminOrderDetailPage({ params }: { params: Promise<{ id:
 
   useEffect(() => {
     const load = async () => {
-      const supabase = createClient()
-      const [{ data: o }, { data: oi }] = await Promise.all([
-        supabase.from('orders').select('*').eq('id', id).single(),
-        supabase.from('order_items').select('*').eq('order_id', id),
-      ])
-      setOrder(o)
-      setItems(oi ?? [])
+      const response = await adminFetch(`/api/admin/orders?id=${encodeURIComponent(id)}`)
+      const data = await response.json()
+      if (response.ok) {
+        setOrder(data.order as Order)
+        setItems((data.items || []) as OrderItem[])
+      }
       setLoading(false)
     }
-    load()
+    const initialTimer = window.setTimeout(() => {
+      void load()
+    }, 0)
 
     // Realtime subscription
-    const supabase = createClient()
+    const supabase = createClient('admin')
     const sub = supabase
       .channel(`admin-order-${id}`)
       .on(
@@ -53,8 +54,15 @@ export default function AdminOrderDetailPage({ params }: { params: Promise<{ id:
         payload => setOrder(payload.new as Order)
       )
       .subscribe()
+
+    const pollingTimer = window.setInterval(() => {
+      void load()
+    }, 5000)
+
     return () => {
-      sub.unsubscribe()
+      window.clearTimeout(initialTimer)
+      window.clearInterval(pollingTimer)
+      void supabase.removeChannel(sub)
     }
   }, [id])
 
@@ -62,7 +70,7 @@ export default function AdminOrderDetailPage({ params }: { params: Promise<{ id:
     if (!order) return
     setUpdating(true)
     try {
-      const res = await fetch('/api/admin/orders/update-status', {
+      const res = await adminFetch('/api/admin/orders/update-status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ orderId: id, status: newStatus }),
@@ -83,7 +91,7 @@ export default function AdminOrderDetailPage({ params }: { params: Promise<{ id:
   const updatePayment = async (paid: boolean) => {
     if (!order) return
     try {
-      const res = await fetch('/api/admin/orders/update-status', {
+      const res = await adminFetch('/api/admin/orders/update-status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ orderId: id, paymentStatus: paid ? 'paid' : 'pending' }),
@@ -107,7 +115,7 @@ export default function AdminOrderDetailPage({ params }: { params: Promise<{ id:
     }
 
     try {
-      const res = await fetch('/api/admin/orders/delete', {
+      const res = await adminFetch('/api/admin/orders/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ orderId: order.id }),
@@ -122,6 +130,10 @@ export default function AdminOrderDetailPage({ params }: { params: Promise<{ id:
     } catch {
       showToast('Lỗi kết nối khi xóa đơn hàng', 'error')
     }
+  }
+
+  const handlePrint = () => {
+    window.print()
   }
 
   if (loading) {
@@ -161,6 +173,68 @@ export default function AdminOrderDetailPage({ params }: { params: Promise<{ id:
       <AdminSidebar />
 
       <main className="admin-main">
+        <section className="thermal-receipt" aria-label={`Hóa đơn ${order.order_number}`}>
+          <div className="thermal-receipt-brand">ONE COFFEE</div>
+          <div className="thermal-receipt-subtitle">LSP COFFEE DELIVERY</div>
+          <div className="thermal-receipt-divider" />
+
+          <div className="thermal-receipt-order">ĐƠN #{order.order_number}</div>
+          <div className="thermal-receipt-meta">
+            <span>Ngày:</span>
+            <span>{new Date(order.created_at).toLocaleString('vi-VN')}</span>
+          </div>
+          <div className="thermal-receipt-meta">
+            <span>Khách:</span>
+            <span>{order.recipient_name}</span>
+          </div>
+          <div className="thermal-receipt-meta">
+            <span>SĐT:</span>
+            <span>{order.recipient_phone}</span>
+          </div>
+          <div className="thermal-receipt-address">Giao: {order.delivery_address}</div>
+          <div className="thermal-receipt-divider" />
+
+          <div className="thermal-receipt-items">
+            {items.map(item => (
+              <div className="thermal-receipt-item" key={item.id}>
+                <div className="thermal-receipt-item-main">
+                  <span>{item.quantity}x {item.product_name_vi} ({item.size})</span>
+                  <strong>{formatPrice(item.unit_price * item.quantity)}</strong>
+                </div>
+                {item.notes && <div className="thermal-receipt-note">Ghi chú: {item.notes}</div>}
+              </div>
+            ))}
+          </div>
+
+          <div className="thermal-receipt-divider" />
+          <div className="thermal-receipt-total-row">
+            <span>Tạm tính</span>
+            <span>{formatPrice(order.total_amount)}</span>
+          </div>
+          {order.discount_amount > 0 && (
+            <div className="thermal-receipt-total-row">
+              <span>Giảm giá</span>
+              <span>-{formatPrice(order.discount_amount)}</span>
+            </div>
+          )}
+          <div className="thermal-receipt-total-row">
+            <span>Phí giao</span>
+            <span>{(order as { shipping_fee?: number }).shipping_fee ? formatPrice((order as { shipping_fee?: number }).shipping_fee) : '0đ'}</span>
+          </div>
+          <div className="thermal-receipt-grand-total">
+            <span>TỔNG CỘNG</span>
+            <strong>{formatPrice(order.final_amount)}</strong>
+          </div>
+
+          <div className="thermal-receipt-divider" />
+          <div className="thermal-receipt-payment">
+            {order.payment_method === 'cash' ? 'TIỀN MẶT' : 'CHUYỂN KHOẢN'} ·{' '}
+            {order.payment_status === 'paid' ? 'ĐÃ THANH TOÁN' : 'CHƯA THANH TOÁN'}
+          </div>
+          {order.notes && <div className="thermal-receipt-order-note">{order.notes}</div>}
+          <div className="thermal-receipt-thanks">Cảm ơn quý khách!</div>
+        </section>
+
         {/* Header with Back Link */}
         <div className="admin-page-header">
           <div>
@@ -184,9 +258,14 @@ export default function AdminOrderDetailPage({ params }: { params: Promise<{ id:
             </button>
             <h1 className="admin-page-title">Chi tiết đơn: #{order.order_number}</h1>
           </div>
-          <span className={`status-badge status-${order.order_status}`} style={{ fontSize: '15px', padding: '8px 16px', fontWeight: 800 }}>
-            {getStatusLabel(order.order_status, 'vi')}
-          </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <button type="button" className="btn btn-outline" onClick={handlePrint}>
+              🧾 In bill 80 mm
+            </button>
+            <span className={`status-badge status-${order.order_status}`} style={{ fontSize: '15px', padding: '8px 16px', fontWeight: 800 }}>
+              {getStatusLabel(order.order_status, 'vi')}
+            </span>
+          </div>
         </div>
 
         {/* ⚡ PROMINENT QUICK ACTION BANNER (Shown at Top so mobile admins see it immediately) */}

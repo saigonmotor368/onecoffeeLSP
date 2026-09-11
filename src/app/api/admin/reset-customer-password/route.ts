@@ -1,23 +1,24 @@
 import { NextResponse } from 'next/server'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { requireAdmin } from '@/lib/supabase/admin-auth'
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json()
-    const { userId, newPassword } = body
+    const auth = await requireAdmin(request)
+    if (!auth.authorized) return auth.response
 
-    if (!userId) {
+    const { userId, newPassword } = await request.json()
+    const cleanPassword = typeof newPassword === 'string' ? newPassword.trim() : ''
+
+    if (typeof userId !== 'string' || !userId) {
       return NextResponse.json({ error: 'Thiếu ID người dùng' }, { status: 400 })
     }
 
-    if (!newPassword || newPassword.length < 6) {
+    if (cleanPassword.length < 6) {
       return NextResponse.json({ error: 'Mật khẩu mới phải có tối thiểu 6 ký tự' }, { status: 400 })
     }
 
-    const supabaseAdmin = createAdminClient()
-
-    const { data, error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
-      password: newPassword,
+    const { data, error } = await auth.supabase.auth.admin.updateUserById(userId, {
+      password: cleanPassword,
     })
 
     if (error) {

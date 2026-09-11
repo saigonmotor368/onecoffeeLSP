@@ -2,55 +2,45 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { adminFetch } from '@/lib/admin-api-client'
 import { formatPrice, getStatusLabel } from '@/lib/utils'
-import { playAdminNewOrderSound, sendDeviceNotification } from '@/lib/notifications'
-import { useToast } from '@/lib/providers'
 import AdminSidebar from '@/components/AdminSidebar'
 import type { Database } from '@/lib/supabase/database.types'
 
 type Order = Database['public']['Tables']['orders']['Row']
 
 export default function AdminDashboard() {
-  const router = useRouter()
-  const { showToast } = useToast()
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [newOrderAlert, setNewOrderAlert] = useState(false)
 
-  const loadOrders = useCallback(async () => {
-    setLoading(true)
-    const supabase = createClient()
-    const { data } = await supabase
-      .from('orders')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(50)
-    setOrders(data ?? [])
-    setLoading(false)
+  const loadOrders = useCallback(async (showLoading = true) => {
+    if (showLoading) setLoading(true)
+    try {
+      const response = await adminFetch('/api/admin/orders?limit=50')
+      const data = await response.json()
+      if (response.ok) setOrders((data.orders || []) as Order[])
+    } finally {
+      if (showLoading) setLoading(false)
+    }
   }, [])
 
   useEffect(() => {
-    loadOrders()
+    const initialTimer = window.setTimeout(() => {
+      void loadOrders()
+    }, 0)
 
     // Realtime: new orders
-    const supabase = createClient()
+    const supabase = createClient('admin')
     const sub = supabase
       .channel('admin-orders-dashboard')
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'orders' },
-        (payload: any) => {
-          loadOrders()
+        () => {
+          void loadOrders(false)
           setNewOrderAlert(true)
-          playAdminNewOrderSound()
-          const o = payload.new
-          sendDeviceNotification(`🔔 CÓ ĐƠN HÀNG MỚI #${o?.order_number || ''}!`, {
-            body: `Khách: ${o?.recipient_name || ''} - ${formatPrice(o?.final_amount || 0)}. Bấm xem đơn!`,
-            tag: `admin-new-order-${o?.id || Date.now()}`,
-            data: { url: '/admin/orders' },
-          })
           setTimeout(() => setNewOrderAlert(false), 6000)
         }
       )
@@ -58,59 +48,28 @@ export default function AdminDashboard() {
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'orders' },
         () => {
-          loadOrders()
+          void loadOrders(false)
         }
       )
       .subscribe()
 
+    const pollingTimer = window.setInterval(() => {
+      void loadOrders(false)
+    }, 5000)
+
     return () => {
-      sub.unsubscribe()
+      window.clearTimeout(initialTimer)
+      window.clearInterval(pollingTimer)
+      void supabase.removeChannel(sub)
     }
   }, [loadOrders])
 
   const pendingOrders = orders.filter(o => o.order_status === 'pending')
   const preparingOrders = orders.filter(o => o.order_status === 'preparing')
   const deliveringOrders = orders.filter(o => o.order_status === 'delivering')
-  const deliveredOrders = orders.filter(o => o.order_status === 'delivered')
   const revenueToday = orders
     .filter(o => o.order_status !== 'cancelled')
     .reduce((s, o) => s + (o.final_amount || 0), 0)
-
-  const updateStatus = async (orderId: string, newStatus: string) => {
-    try {
-      const res = await fetch('/api/admin/orders/update-status', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId, status: newStatus }),
-      })
-      const data = await res.json()
-      if (res.ok && data.success) {
-        showToast(`Đã chuyển trạng thái sang ""`, 'success')
-        setOrders(prev => prev.map(o => (o.id === orderId ? { ...o, order_status: newStatus as Order['order_status'] } : o)))
-      } else {
-        showToast('Lỗi cập nhật trạng thái', 'error')
-      }
-    } catch {
-      showToast('Lỗi kết nối khi cập nhật trạng thái', 'error')
-    }
-  }
-
-  const handleDeleteOrder = async (order: Order) => {
-    if (!window.confirm(`⚠️ Bạn có chắc chắn muốn XÓA VĨNH VIỄN đơn #${order.order_number}?`)) return
-    try {
-      const res = await fetch('/api/admin/orders/delete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId: order.id }),
-      })
-      if (res.ok) {
-        showToast(`Đã xóa đơn #${order.order_number}!`, 'success')
-        setOrders(prev => prev.filter(o => o.id !== order.id))
-      }
-    } catch {
-      showToast('Lỗi khi xóa đơn', 'error')
-    }
-  }
 
   return (
     <div className="admin-layout">
@@ -220,33 +179,13 @@ export default function AdminDashboard() {
                     </span>
                   </div>
 
-                  <div style={{ display: 'flex', gap: 6 }}>
-                    <button
-                      type="button"
-                      className="btn btn-primary btn-sm"
-                      onClick={() => updateStatus(po.id, 'confirmed')}
-                      style={{ fontSize: 12, padding: '5px 12px' }}
-                    >
-                      ✓ Xác nhận đơn
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-outline btn-sm"
-                      onClick={() => updateStatus(po.id, 'cancelled')}
-                      style={{ fontSize: 12, padding: '5px 8px', color: '#EF4444', borderColor: '#FECACA' }}
-                    >
-                      ❌ Hủy
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-ghost btn-sm"
-                      onClick={() => handleDeleteOrder(po)}
-                      style={{ fontSize: 12, padding: '5px 8px', color: '#DC2626' }}
-                      title="Xóa đơn nếu gian lận"
-                    >
-                      🗑️
-                    </button>
-                  </div>
+                  <Link
+                    href={`/admin/orders/${po.id}`}
+                    className="btn btn-primary btn-sm"
+                    style={{ fontSize: 12, padding: '6px 12px', textDecoration: 'none' }}
+                  >
+                    🔍 Xem chi tiết đơn
+                  </Link>
                 </div>
               ))}
             </div>
@@ -288,7 +227,7 @@ export default function AdminDashboard() {
             <h2 style={{ fontWeight: 800, fontSize: '16px', color: '#0F172A' }}>
               Đơn hàng gần đây
             </h2>
-            <button className="btn btn-ghost btn-sm" onClick={loadOrders}>
+            <button className="btn btn-ghost btn-sm" onClick={() => void loadOrders()}>
               🔄 Làm mới
             </button>
           </div>
@@ -376,62 +315,13 @@ export default function AdminDashboard() {
 
                     <td style={{ textAlign: 'right' }}>
                       <div style={{ display: 'inline-flex', gap: 6 }}>
-                        {order.order_status === 'pending' && (
-                          <button
-                            type="button"
-                            className="btn btn-primary btn-sm"
-                            onClick={() => updateStatus(order.id, 'confirmed')}
-                            style={{ fontSize: 11, padding: '4px 8px' }}
-                          >
-                            ✓ Xác nhận
-                          </button>
-                        )}
-                        {order.order_status === 'confirmed' && (
-                          <button
-                            type="button"
-                            className="btn btn-primary btn-sm"
-                            onClick={() => updateStatus(order.id, 'preparing')}
-                            style={{ fontSize: 11, padding: '4px 8px', background: '#6D28D9', borderColor: '#6D28D9' }}
-                          >
-                            ☕ Pha chế
-                          </button>
-                        )}
-                        {order.order_status === 'preparing' && (
-                          <button
-                            type="button"
-                            className="btn btn-primary btn-sm"
-                            onClick={() => updateStatus(order.id, 'delivering')}
-                            style={{ fontSize: 11, padding: '4px 8px', background: '#D97706', borderColor: '#D97706' }}
-                          >
-                            🛵 Giao hàng
-                          </button>
-                        )}
-                        {order.order_status === 'delivering' && (
-                          <button
-                            type="button"
-                            className="btn btn-primary btn-sm"
-                            onClick={() => updateStatus(order.id, 'delivered')}
-                            style={{ fontSize: 11, padding: '4px 8px', background: '#16A34A', borderColor: '#16A34A' }}
-                          >
-                            🎉 Hoàn tất
-                          </button>
-                        )}
                         <Link
                           href={`/admin/orders/${order.id}`}
-                          className="btn btn-ghost btn-sm"
-                          style={{ fontSize: 11, padding: '4px 8px' }}
+                          className="btn btn-primary btn-sm"
+                          style={{ fontSize: 11, padding: '5px 10px', textDecoration: 'none' }}
                         >
-                          Chi tiết →
+                          Xem chi tiết & xử lý →
                         </Link>
-                        <button
-                          type="button"
-                          className="btn btn-ghost btn-sm"
-                          onClick={() => handleDeleteOrder(order)}
-                          style={{ color: '#DC2626', fontSize: 11, padding: '4px 6px' }}
-                          title="Xóa đơn"
-                        >
-                          🗑️
-                        </button>
                       </div>
                     </td>
                   </tr>

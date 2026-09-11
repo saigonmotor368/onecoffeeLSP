@@ -1,32 +1,50 @@
 import { NextResponse } from 'next/server'
-import { getAdminClient } from '@/lib/supabase/admin'
+import { requireAdmin } from '@/lib/supabase/admin-auth'
+
+function normalizePhone(value: unknown) {
+  return typeof value === 'string' ? value.replace(/\D/g, '') : ''
+}
+
+function isValidPhone(phone: string) {
+  return phone.length >= 9 && phone.length <= 11
+}
+
+function normalizeRole(value: unknown): 'admin' | 'customer' {
+  return value === 'admin' ? 'admin' : 'customer'
+}
 
 // POST: Create a new user / customer / admin
-export async function POST(req: Request) {
+export async function POST(request: Request) {
   try {
-    const { fullName, phone, password, address, role } = await req.json()
+    const auth = await requireAdmin(request)
+    if (!auth.authorized) return auth.response
 
-    if (!fullName || !phone || !password) {
-      return NextResponse.json({ error: 'Vui lòng điền đầy đủ họ tên, SĐT và mật khẩu' }, { status: 400 })
+    const { fullName, phone, password, address, role } = await request.json()
+    const cleanName = typeof fullName === 'string' ? fullName.trim() : ''
+    const cleanPhone = normalizePhone(phone)
+    const cleanPassword = typeof password === 'string' ? password.trim() : ''
+    const cleanAddress = typeof address === 'string' ? address.trim() : ''
+    const userRole = normalizeRole(role)
+
+    if (!cleanName || !isValidPhone(cleanPhone)) {
+      return NextResponse.json({ error: 'Họ tên hoặc số điện thoại không hợp lệ' }, { status: 400 })
+    }
+    if (cleanPassword.length < 6) {
+      return NextResponse.json({ error: 'Mật khẩu phải có tối thiểu 6 ký tự' }, { status: 400 })
     }
 
-    const cleanPhone = phone.replace(/\s+/g, '')
+    const { supabase } = auth
     const email = `${cleanPhone}@onecoffee.vn`
-    const userRole = role === 'admin' ? 'admin' : 'customer'
-
-    const supabase = getAdminClient()
-
-    // Create user in Supabase auth
     const { data: authData, error: authError } = await supabase.auth.admin.createUser({
       email,
-      password: password.trim(),
+      password: cleanPassword,
       email_confirm: true,
       app_metadata: { role: userRole },
       user_metadata: {
-        full_name: fullName.trim(),
+        full_name: cleanName,
         phone: cleanPhone,
         role: userRole,
-        default_delivery_address: address?.trim() || null,
+        default_delivery_address: cleanAddress || null,
       },
     })
 
@@ -34,97 +52,128 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: authError?.message || 'Không thể tạo tài khoản' }, { status: 400 })
     }
 
-    // Upsert profile in profiles table
-    await supabase.from('profiles').upsert({
+    const { error: profileError } = await supabase.from('profiles').upsert({
       id: authData.user.id,
       phone: cleanPhone,
-      full_name: fullName.trim(),
-      default_delivery_address: address?.trim() || null,
+      full_name: cleanName,
+      default_delivery_address: cleanAddress || null,
       language: 'vi',
     })
 
-    return NextResponse.json({
-      success: true,
-      user: {
-        id: authData.user.id,
-        phone: cleanPhone,
-        full_name: fullName.trim(),
-        default_delivery_address: address?.trim() || null,
-        role: userRole,
-      },
-    })
-  } catch (err: unknown) {
-    console.error('Create user error:', err)
+    if (profileError) {
+      await supabase.auth.admin.deleteUser(authData.user.id)
+      return NextResponse.json({ error: profileError.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('Create user error:', error)
     return NextResponse.json({ error: 'Lỗi máy chủ khi tạo tài khoản' }, { status: 500 })
   }
 }
 
-// PUT: Update an existing user / customer
-export async function PUT(req: Request) {
+// PUT: Update profile, login phone and role.
+export async function PUT(request: Request) {
   try {
-    const { userId, fullName, phone, address, role } = await req.json()
+    const auth = await requireAdmin(request)
+    if (!auth.authorized) return auth.response
 
-    if (!userId) {
-      return NextResponse.json({ error: 'userId is required' }, { status: 400 })
+    const { userId, fullName, phone, address, role } = await request.json()
+    const cleanName = typeof fullName === 'string' ? fullName.trim() : ''
+    const cleanPhone = normalizePhone(phone)
+    const cleanAddress = typeof address === 'string' ? address.trim() : ''
+    const userRole = normalizeRole(role)
+
+    if (typeof userId !== 'string' || !userId) {
+      return NextResponse.json({ error: 'Thiếu ID người dùng' }, { status: 400 })
+    }
+    if (!cleanName || !isValidPhone(cleanPhone)) {
+      return NextResponse.json({ error: 'Họ tên hoặc số điện thoại không hợp lệ' }, { status: 400 })
+    }
+    if (userId === auth.user.id && userRole !== 'admin') {
+      return NextResponse.json({ error: 'Không thể tự gỡ quyền Admin của tài khoản đang đăng nhập' }, { status: 400 })
     }
 
-    const supabase = getAdminClient()
-    const cleanPhone = phone ? phone.replace(/\s+/g, '') : undefined
-    const userRole = role === 'admin' ? 'admin' : 'customer'
+    const { supabase } = auth
+    const { data: currentUserData, error: currentUserError } = await supabase.auth.admin.getUserById(userId)
+    if (currentUserError || !currentUserData.user) {
+      return NextResponse.json({ error: currentUserError?.message || 'Không tìm thấy tài khoản Auth' }, { status: 404 })
+    }
 
-    // Update auth metadata
-    await supabase.auth.admin.updateUserById(userId, {
-      ...(cleanPhone ? { email: `${cleanPhone}@onecoffee.vn` } : {}),
-      app_metadata: { role: userRole },
+    const currentUser = currentUserData.user
+    const { error: authError } = await supabase.auth.admin.updateUserById(userId, {
+      email: `${cleanPhone}@onecoffee.vn`,
+      email_confirm: true,
+      app_metadata: { ...currentUser.app_metadata, role: userRole },
       user_metadata: {
-        ...(fullName ? { full_name: fullName.trim() } : {}),
-        ...(cleanPhone ? { phone: cleanPhone } : {}),
+        ...currentUser.user_metadata,
+        full_name: cleanName,
+        phone: cleanPhone,
         role: userRole,
-        default_delivery_address: address?.trim() || null,
+        default_delivery_address: cleanAddress || null,
       },
     })
 
-    // Update profile table
-    const updatePayload: Record<string, unknown> = {}
-    if (fullName) updatePayload.full_name = fullName.trim()
-    if (cleanPhone) updatePayload.phone = cleanPhone
-    if (address !== undefined) updatePayload.default_delivery_address = address?.trim() || null
-
-    if (Object.keys(updatePayload).length > 0) {
-      await supabase.from('profiles').update(updatePayload).eq('id', userId)
+    if (authError) {
+      return NextResponse.json({ error: authError.message }, { status: 400 })
     }
 
-    return NextResponse.json({ success: true })
-  } catch (err: unknown) {
-    console.error('Update user error:', err)
+    const { error: profileError } = await supabase.from('profiles').upsert({
+      id: userId,
+      phone: cleanPhone,
+      full_name: cleanName,
+      default_delivery_address: cleanAddress || null,
+      language: 'vi',
+    })
+
+    if (profileError) {
+      return NextResponse.json({ error: profileError.message }, { status: 500 })
+    }
+
+    return NextResponse.json({
+      success: true,
+      customer: {
+        id: userId,
+        phone: cleanPhone,
+        full_name: cleanName,
+        default_delivery_address: cleanAddress || null,
+        role: userRole,
+      },
+    })
+  } catch (error) {
+    console.error('Update user error:', error)
     return NextResponse.json({ error: 'Lỗi máy chủ khi cập nhật tài khoản' }, { status: 500 })
   }
 }
 
-// DELETE: Delete a user
-export async function DELETE(req: Request) {
+// DELETE: Delete a user. The current admin cannot delete itself.
+export async function DELETE(request: Request) {
   try {
-    const { searchParams } = new URL(req.url)
-    const userId = searchParams.get('userId')
+    const auth = await requireAdmin(request)
+    if (!auth.authorized) return auth.response
 
+    const userId = new URL(request.url).searchParams.get('userId')
     if (!userId) {
-      return NextResponse.json({ error: 'userId is required' }, { status: 400 })
+      return NextResponse.json({ error: 'Thiếu ID người dùng' }, { status: 400 })
+    }
+    if (userId === auth.user.id) {
+      return NextResponse.json({ error: 'Không thể xóa tài khoản Admin đang đăng nhập' }, { status: 400 })
     }
 
-    const supabase = getAdminClient()
+    const { supabase } = auth
+    const { error: authError } = await supabase.auth.admin.deleteUser(userId)
+    if (authError) {
+      return NextResponse.json({ error: authError.message }, { status: 400 })
+    }
 
-    // 1. Delete profile
-    await supabase.from('profiles').delete().eq('id', userId)
-
-    // 2. Delete auth user
-    const { error } = await supabase.auth.admin.deleteUser(userId)
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 })
+    const { error: profileError } = await supabase.from('profiles').delete().eq('id', userId)
+    if (profileError) {
+      return NextResponse.json({ error: profileError.message }, { status: 500 })
     }
 
     return NextResponse.json({ success: true })
-  } catch (err: unknown) {
-    console.error('Delete user error:', err)
+  } catch (error) {
+    console.error('Delete user error:', error)
     return NextResponse.json({ error: 'Lỗi máy chủ khi xóa tài khoản' }, { status: 500 })
   }
 }

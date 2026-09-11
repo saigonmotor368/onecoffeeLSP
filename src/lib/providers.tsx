@@ -35,6 +35,11 @@ export interface AppliedVoucher {
   max_discount?: number | null
 }
 
+function normalizeVoucherMoney(value: number | null | undefined) {
+  if (!value) return 0
+  return value < 1000 ? value * 1000 : value
+}
+
 interface CartContextValue {
   items: CartItem[]
   addItem: (item: Omit<CartItem, 'id'>) => void
@@ -213,13 +218,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   // Voucher discount calculation
   let voucherDiscount = 0
   if (appliedVoucher) {
-    const minOrder = appliedVoucher.min_order_amount ?? 0
+    // Older Admin screens stored money fields in thousands (50 meant 50.000đ).
+    // New records use full VND, while this normalization keeps legacy vouchers valid.
+    const minOrder = normalizeVoucherMoney(appliedVoucher.min_order_amount)
     if (subtotal >= minOrder) {
       if (appliedVoucher.type === 'percent') {
         const raw = Math.round(subtotal * (appliedVoucher.value / 100))
-        voucherDiscount = appliedVoucher.max_discount ? Math.min(raw, appliedVoucher.max_discount) : raw
+        const maxDiscount = normalizeVoucherMoney(appliedVoucher.max_discount)
+        voucherDiscount = maxDiscount ? Math.min(raw, maxDiscount) : raw
       } else {
-        const val = appliedVoucher.value < 1000 ? appliedVoucher.value * 1000 : appliedVoucher.value
+        const val = normalizeVoucherMoney(appliedVoucher.value)
         voucherDiscount = Math.min(subtotal, val)
       }
     }
@@ -261,10 +269,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         return { success: false, message: 'Mã khuyến mãi đã đạt số lượt sử dụng tối đa' }
       }
 
-      if (data.min_order_amount && subtotal < data.min_order_amount) {
+      const minOrder = normalizeVoucherMoney(data.min_order_amount)
+      if (minOrder && subtotal < minOrder) {
         return {
           success: false,
-          message: `Mã áp dụng cho đơn từ ${new Intl.NumberFormat('vi-VN').format(data.min_order_amount)}đ`,
+          message: `Mã áp dụng cho đơn từ ${new Intl.NumberFormat('vi-VN').format(minOrder)}đ`,
         }
       }
 

@@ -1,9 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { adminFetch } from '@/lib/admin-api-client'
 import {
   playAdminNewOrderSound,
   sendDeviceNotification,
@@ -11,6 +12,15 @@ import {
   getNotificationPermission,
 } from '@/lib/notifications'
 import { formatPrice } from '@/lib/utils'
+
+type RealtimeState = 'connecting' | 'live' | 'fallback'
+
+interface AdminOrderAlert {
+  id?: string
+  order_number?: string
+  final_amount?: number
+  recipient_name?: string
+}
 
 const NAV_ITEMS = [
   { href: '/admin',           icon: '📊', label: 'Dashboard' },
@@ -29,60 +39,102 @@ export default function AdminSidebar({ pendingCount: propPendingCount }: { pendi
   const [pendingCount, setPendingCount] = useState(propPendingCount ?? 0)
   const [mobileOpen, setMobileOpen] = useState(false)
   const [notificationActive, setNotificationActive] = useState(false)
+  const [realtimeState, setRealtimeState] = useState<RealtimeState>('connecting')
+  const [newOrderNotice, setNewOrderNotice] = useState<AdminOrderAlert | null>(null)
+  const noticeTimerRef = useRef<number | null>(null)
 
   useEffect(() => {
-    if (getNotificationPermission() === 'granted') {
-      setNotificationActive(true)
-    }
+    const timer = window.setTimeout(() => {
+      setNotificationActive(getNotificationPermission() === 'granted')
+    }, 0)
+    return () => window.clearTimeout(timer)
   }, [])
-
-  useEffect(() => {
-    if (propPendingCount !== undefined) {
-      setPendingCount(propPendingCount)
-    }
-  }, [propPendingCount])
 
   // Fetch pending count and listen for new orders
   useEffect(() => {
-    const supabase = createClient()
-    const fetchPending = async () => {
-      const { count } = await supabase
-        .from('orders')
-        .select('*', { count: 'exact', head: true })
-        .eq('order_status', 'pending')
-      setPendingCount(count ?? 0)
+    const supabase = createClient('admin')
+    const seenOrderIds = new Set<string>()
+    let hasInitialSnapshot = false
+    let active = true
+
+    const notifyNewOrder = (order: AdminOrderAlert) => {
+      if (!order.id || seenOrderIds.has(order.id)) return
+      seenOrderIds.add(order.id)
+      setNewOrderNotice(order)
+      if (noticeTimerRef.current) window.clearTimeout(noticeTimerRef.current)
+      noticeTimerRef.current = window.setTimeout(() => setNewOrderNotice(null), 10000)
+      playAdminNewOrderSound()
+      const orderNum = order.order_number || ''
+      const amt = order.final_amount ? ` (${formatPrice(order.final_amount)})` : ''
+      const name = order.recipient_name ? ` - KH: ${order.recipient_name}` : ''
+      sendDeviceNotification(`🔔 CÓ ĐƠN HÀNG MỚI #${orderNum}!`, {
+        body: `Đơn mới nhận${amt}${name}. Bấm để xem chi tiết!`,
+        tag: `admin-order-${order.id}`,
+        data: { url: `/admin/orders/${order.id}` },
+      })
     }
 
-    fetchPending()
+    const fetchPending = async (detectNewOrders = false) => {
+      let response: Response
+      try {
+        response = await adminFetch('/api/admin/orders?status=pending&limit=100')
+      } catch {
+        if (active) setRealtimeState('fallback')
+        return
+      }
+
+      const result = await response.json()
+      const data = (result.orders || []) as AdminOrderAlert[]
+
+      if (!active) return
+      if (!response.ok) {
+        setRealtimeState('fallback')
+        return
+      }
+
+      setPendingCount(data.length)
+      if (detectNewOrders && hasInitialSnapshot) {
+        data.forEach(order => notifyNewOrder(order))
+      } else {
+        data.forEach(order => {
+          if (order.id) seenOrderIds.add(order.id)
+        })
+      }
+      hasInitialSnapshot = true
+    }
+
+    void fetchPending()
 
     const channel = supabase
       .channel('admin-sidebar-count')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload: any) => {
-        fetchPending()
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, payload => {
+        void fetchPending()
         if (payload.eventType === 'INSERT') {
-          playAdminNewOrderSound()
-          const order = payload.new
-          const orderNum = order?.order_number || ''
-          const amt = order?.final_amount ? ` (${formatPrice(order.final_amount)})` : ''
-          const name = order?.recipient_name ? ` - KH: ${order.recipient_name}` : ''
-          sendDeviceNotification(`🔔 CÓ ĐƠN HÀNG MỚI #${orderNum}!`, {
-            body: `Đơn mới nhận${amt}${name}. Bấm để xem chi tiết!`,
-            tag: `admin-order-${order?.id || Date.now()}`,
-            data: { url: '/admin/orders' },
-          })
+          notifyNewOrder(payload.new as AdminOrderAlert)
         }
       })
-      .subscribe()
+      .subscribe(status => {
+        if (!active) return
+        if (status === 'SUBSCRIBED') {
+          setRealtimeState('live')
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+          setRealtimeState('fallback')
+        }
+      })
+
+    // The industrial network can block WebSockets. Polling keeps the queue and
+    // notifications working, while seenOrderIds prevents duplicate alerts.
+    const pollingTimer = window.setInterval(() => {
+      void fetchPending(true)
+    }, 5000)
 
     return () => {
-      channel.unsubscribe()
+      active = false
+      window.clearInterval(pollingTimer)
+      if (noticeTimerRef.current) window.clearTimeout(noticeTimerRef.current)
+      void supabase.removeChannel(channel)
     }
   }, [])
-
-  // Close drawer on route change
-  useEffect(() => {
-    setMobileOpen(false)
-  }, [pathname])
 
   const handleTestSoundAndNotification = async () => {
     playAdminNewOrderSound()
@@ -103,6 +155,47 @@ export default function AdminSidebar({ pendingCount: propPendingCount }: { pendi
 
   return (
     <>
+      {newOrderNotice && (
+        <div
+          role="alert"
+          style={{
+            position: 'fixed',
+            top: 18,
+            right: 18,
+            zIndex: 10000,
+            width: 'min(390px, calc(100vw - 36px))',
+            padding: '16px 18px',
+            borderRadius: 16,
+            background: '#166534',
+            color: '#FFFFFF',
+            boxShadow: '0 18px 45px rgba(20, 83, 45, 0.35)',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 12,
+          }}
+        >
+          <span style={{ fontSize: 25 }}>🔔</span>
+          <button
+            type="button"
+            onClick={() => router.push(`/admin/orders/${newOrderNotice.id}`)}
+            style={{ flex: 1, border: 0, padding: 0, background: 'transparent', color: 'inherit', textAlign: 'left', cursor: 'pointer' }}
+          >
+            <strong style={{ display: 'block', fontSize: 14 }}>Có đơn hàng mới #{newOrderNotice.order_number}</strong>
+            <span style={{ display: 'block', marginTop: 3, fontSize: 12, opacity: 0.9 }}>
+              {newOrderNotice.recipient_name || 'Khách hàng'} · {formatPrice(newOrderNotice.final_amount || 0)} — Bấm để xem
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setNewOrderNotice(null)}
+            aria-label="Đóng thông báo"
+            style={{ border: 0, background: 'transparent', color: '#FFFFFF', fontSize: 16, cursor: 'pointer' }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Mobile hamburger header */}
       <header className="admin-mobile-header">
         <button
@@ -169,6 +262,7 @@ export default function AdminSidebar({ pendingCount: propPendingCount }: { pendi
                 key={item.href}
                 href={item.href}
                 className={`admin-nav-item ${isActive ? 'active' : ''}`}
+                onClick={() => setMobileOpen(false)}
               >
                 <span className="admin-nav-icon">{item.icon}</span>
                 <span>{item.label}</span>
@@ -220,6 +314,20 @@ export default function AdminSidebar({ pendingCount: propPendingCount }: { pendi
               </div>
             </div>
           </button>
+          <div
+            title={realtimeState === 'live' ? 'Realtime và đồng bộ dự phòng mỗi 5 giây' : 'Tự động đồng bộ mỗi 5 giây'}
+            style={{
+              marginTop: 8,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              color: realtimeState === 'live' ? '#86EFAC' : '#FDE68A',
+              fontSize: 10,
+            }}
+          >
+            <span>{realtimeState === 'live' ? '●' : '◷'}</span>
+            <span>{realtimeState === 'live' ? 'Đang đồng bộ đơn hàng' : 'Tự động đồng bộ mỗi 5 giây'}</span>
+          </div>
         </div>
 
         <div style={{ padding: '10px 12px 16px' }}>
