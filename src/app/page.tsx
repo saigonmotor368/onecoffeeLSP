@@ -23,9 +23,6 @@ export default function WelcomePage() {
 
   return (
     <div className={styles.pageContainer}>
-      {/* Background with Real Roasted Coffee Beans (Screen 1) */}
-      <div className={styles.bgImage} />
-
       {/* Floating Language Switcher at Top */}
       <header className={styles.topBar}>
         <div className={styles.langPills}>
@@ -46,13 +43,13 @@ export default function WelcomePage() {
       {/* Center Piece: Arched Cream Card matching Screen 1 */}
       <main className={styles.centerSection}>
         <div className={styles.archedCard}>
-          {/* Circular Brand Logo */}
+          {/* Circular Brand Logo (transparent PNG) */}
           <div className={styles.logoWrapper}>
             <Image
               src="/logo-circle.png"
               alt="One Coffee Logo"
-              width={112}
-              height={112}
+              width={116}
+              height={116}
               priority
               className={styles.logoImg}
             />
@@ -70,6 +67,9 @@ export default function WelcomePage() {
           </div>
         </div>
       </main>
+
+      {/* Foreground Real Roasted Coffee Beans (Screen 1) */}
+      <div className={styles.coffeeBeansForeground} />
 
       {/* Bottom Actions sitting directly on Coffee Beans (Screen 1) */}
       <footer className={styles.bottomSection}>
