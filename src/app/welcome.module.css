@@ -64,10 +64,10 @@
 }
 
 .brandTitle {
-  font-family: var(--font-brand), 'Plus Jakarta Sans', system-ui, sans-serif;
-  font-size: clamp(24px, 6.5vw, 32px);
+  font-family: var(--font-jakarta), 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  font-size: clamp(26px, 7vw, 34px);
   font-weight: 900;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   margin: 0 0 6px;
   text-align: center;
   text-transform: uppercase;
@@ -91,33 +91,36 @@
   justify-content: center;
   gap: 8px;
   margin: 0 0 2px;
-  line-height: 1.15;
+  line-height: 1.2;
 }
 
 .sloganTextWarm {
-  font-family: var(--font-script), 'Dancing Script', var(--font-artistic), 'Caveat', cursive;
-  font-size: 34px;
+  font-family: var(--font-serif), 'Playfair Display', Georgia, serif;
+  font-style: italic;
+  font-size: clamp(26px, 6.5vw, 32px);
   font-weight: 700;
-  color: #B45309;
+  color: #C89B3C;
   letter-spacing: 0.02em;
   text-shadow: 0 1px 2px rgba(255, 255, 255, 0.6);
 }
 
 .sloganDash {
-  font-size: 26px;
-  font-weight: 300;
-  color: #B45309;
+  font-family: var(--font-serif), Georgia, serif;
+  font-size: 22px;
+  font-weight: 400;
+  color: #C89B3C;
   opacity: 0.85;
 }
 
 .sloganLine2 {
   margin: 0;
-  line-height: 1.15;
+  line-height: 1.2;
 }
 
 .sloganTextGreen {
-  font-family: var(--font-script), 'Dancing Script', var(--font-artistic), 'Caveat', cursive;
-  font-size: 34px;
+  font-family: var(--font-serif), 'Playfair Display', Georgia, serif;
+  font-style: italic;
+  font-size: clamp(26px, 6.5vw, 32px);
   font-weight: 700;
   color: #16533A;
   letter-spacing: 0.02em;

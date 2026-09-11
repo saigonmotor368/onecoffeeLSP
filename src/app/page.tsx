@@ -53,9 +53,8 @@ export default function WelcomePage() {
               type="button"
               onClick={() => setLang('vi')}
               className={`${styles.langSelectBtn} ${lang === 'vi' ? styles.langSelectBtnActive : ''}`}
-              aria-label="Chọn Tiếng Việt"
+              aria-label="Tiếng Việt"
             >
-              <span className={styles.langFlag}>🇻🇳</span>
               <span className={styles.langName}>Tiếng Việt</span>
               {lang === 'vi' && <span className={styles.langCheck}>✓</span>}
             </button>
@@ -64,9 +63,8 @@ export default function WelcomePage() {
               type="button"
               onClick={() => setLang('en')}
               className={`${styles.langSelectBtn} ${lang === 'en' ? styles.langSelectBtnActive : ''}`}
-              aria-label="Select English"
+              aria-label="English"
             >
-              <span className={styles.langFlag}>🇺🇸</span>
               <span className={styles.langName}>English</span>
               {lang === 'en' && <span className={styles.langCheck}>✓</span>}
             </button>
