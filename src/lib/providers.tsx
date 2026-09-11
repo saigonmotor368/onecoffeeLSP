@@ -47,6 +47,8 @@ interface CartContextValue {
   // Shipping & Discount
   shippingConfig: ShippingConfig
   employeeDiscountConfig: EmployeeDiscountConfig
+  isLspEmployee: boolean
+  setIsLspEmployee: (val: boolean) => void
   shippingFee: number
   freeShippingThreshold: number
   isFreeShipping: boolean
@@ -113,6 +115,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([])
   const [shippingConfig, setShippingConfig] = useState<ShippingConfig>(DEFAULT_SHIPPING_CONFIG)
   const [employeeDiscountConfig, setEmployeeDiscountConfig] = useState<EmployeeDiscountConfig>(DEFAULT_EMPLOYEE_DISCOUNT)
+  const [isLspEmployee, setIsLspEmployeeState] = useState<boolean>(false)
   const [appliedVoucher, setAppliedVoucher] = useState<AppliedVoucher | null>(null)
 
   // Load configs
@@ -129,7 +132,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     loadConfigs()
   }, [loadConfigs])
 
-  // Load saved cart and voucher
+  // Load saved cart, voucher and LSP employee status
   useEffect(() => {
     const savedCart = localStorage.getItem('oc_cart')
     if (savedCart) {
@@ -139,6 +142,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (savedVoucher) {
       try { setAppliedVoucher(JSON.parse(savedVoucher)) } catch { /* noop */ }
     }
+    const savedLsp = localStorage.getItem('oc_is_lsp_employee')
+    if (savedLsp === 'true') {
+      setIsLspEmployeeState(true)
+    }
+  }, [])
+
+  const setIsLspEmployee = useCallback((val: boolean) => {
+    setIsLspEmployeeState(val)
+    localStorage.setItem('oc_is_lsp_employee', val ? 'true' : 'false')
   }, [])
 
   useEffect(() => {
@@ -190,9 +202,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const remainingForFreeShipping = Math.max(0, freeShippingThreshold - subtotal)
   const shippingFee = items.length === 0 ? 0 : (isFreeShipping ? 0 : shippingConfig.shipping_fee)
 
-  // Employee discount calculation (20% for LSP internal staff)
-  const employeeDiscountPercent = employeeDiscountConfig.enabled ? employeeDiscountConfig.discount_percent : 0
-  const employeeDiscount = employeeDiscountPercent > 0 ? Math.round(subtotal * (employeeDiscountPercent / 100)) : 0
+  // Employee discount calculation (20% for LSP internal staff only when checked)
+  const employeeDiscountPercent = (isLspEmployee && employeeDiscountConfig.enabled)
+    ? employeeDiscountConfig.discount_percent
+    : 0
+  const employeeDiscount = employeeDiscountPercent > 0
+    ? Math.round(subtotal * (employeeDiscountPercent / 100))
+    : 0
 
   // Voucher discount calculation
   let voucherDiscount = 0
@@ -292,6 +308,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           subtotal,
           shippingConfig,
           employeeDiscountConfig,
+          isLspEmployee,
+          setIsLspEmployee,
           shippingFee,
           freeShippingThreshold,
           isFreeShipping,

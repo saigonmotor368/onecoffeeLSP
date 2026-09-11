@@ -21,6 +21,8 @@ export default function CartPage() {
     isFreeShipping,
     remainingForFreeShipping,
     shippingFee,
+    isLspEmployee,
+    setIsLspEmployee,
     employeeDiscountPercent,
     employeeDiscount,
     appliedVoucher,
@@ -179,22 +181,56 @@ export default function CartPage() {
         })}
       </div>
 
-      {/* Internal Employee Discount Badge */}
-      {employeeDiscountPercent > 0 && (
-        <div className={styles.employeeCard}>
-          <div className={styles.employeeInfo}>
-            <span className={styles.employeeBadge}>LSP STAFF</span>
-            <span className={styles.employeeText}>
-              {lang === 'vi'
-                ? `Ưu đãi nhân viên nội bộ LSP (-${employeeDiscountPercent}%)`
-                : `Internal LSP Staff Discount (-${employeeDiscountPercent}%)`}
+      {/* LSP Employee Verification Checkbox Card */}
+      <div
+        className={`${styles.lspToggleCard} ${isLspEmployee ? styles.lspToggleCardActive : ''}`}
+        onClick={() => {
+          const nextVal = !isLspEmployee
+          setIsLspEmployee(nextVal)
+          if (nextVal) {
+            showToast(
+              lang === 'vi'
+                ? 'Đã áp dụng giảm 20% cho nhân viên LSP!'
+                : 'Applied 20% LSP employee discount!',
+              'success'
+            )
+          } else {
+            showToast(
+              lang === 'vi'
+                ? 'Đã hủy ưu đãi nhân viên LSP (giá tiêu chuẩn)'
+                : 'Removed LSP discount (standard price)',
+              'info'
+            )
+          }
+        }}
+        role="button"
+        tabIndex={0}
+        aria-pressed={isLspEmployee}
+      >
+        <div className={`${styles.lspCheckboxWrap} ${isLspEmployee ? styles.lspCheckboxWrapChecked : ''}`}>
+          {isLspEmployee ? <span className={styles.customCheckmark}>✓</span> : null}
+        </div>
+        <div className={styles.lspToggleBody}>
+          <div className={styles.lspToggleTitleRow}>
+            <span className={styles.lspToggleTitle}>
+              {lang === 'vi' ? 'Bạn có phải là nhân viên LSP không?' : 'Are you an LSP employee?'}
+            </span>
+            <span className={`${styles.lspBadge} ${isLspEmployee ? styles.lspBadgeActive : ''}`}>
+              LSP
             </span>
           </div>
-          <span className={styles.employeeSavings}>
-            -{formatPrice(employeeDiscount)}
-          </span>
+          <p className={styles.lspToggleSub}>
+            {lang === 'vi'
+              ? 'Tích chọn để tự động giảm 20% toàn bộ đồ uống (dành riêng cho CBCNV LSP)'
+              : 'Check this box to get 20% off drinks for LSP staff'}
+          </p>
         </div>
-      )}
+        {isLspEmployee && employeeDiscount > 0 && (
+          <div className={styles.lspSavingsPill}>
+            -{formatPrice(employeeDiscount)}
+          </div>
+        )}
+      </div>
 
       {/* Voucher Input & Applied Voucher */}
       <div className={styles.voucherSection}>
