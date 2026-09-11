@@ -3,7 +3,6 @@
 import { useRouter } from 'next/navigation'
 import styles from './welcome.module.css'
 import { useLang } from '@/lib/providers'
-import { LANGUAGE_OPTIONS } from '@/lib/i18n'
 
 export default function WelcomePage() {
   const router = useRouter()
@@ -14,22 +13,8 @@ export default function WelcomePage() {
       {/* Background with Green Top, Cream Arch, and Roasted Coffee Beans */}
       <div className={styles.bgImage} />
 
-      {/* Floating Language Switcher at Top Right */}
-      <header className={styles.topBar}>
-        <div className={styles.langPills}>
-          {LANGUAGE_OPTIONS.map(opt => (
-            <button
-              key={opt.code}
-              type="button"
-              onClick={() => setLang(opt.code)}
-              className={`${styles.langPill} ${lang === opt.code ? styles.langPillActive : ''}`}
-            >
-              <span>{opt.flag}</span>
-              <span>{opt.code.toUpperCase()}</span>
-            </button>
-          ))}
-        </div>
-      </header>
+      {/* Top Spacer */}
+      <div className={styles.topBarSpacer} />
 
       {/* Brand & Slogan Content centered in the Cream Arch */}
       <main className={styles.brandContent}>
@@ -59,8 +44,36 @@ export default function WelcomePage() {
         </div>
       </main>
 
-      {/* Bottom Actions */}
+      {/* Bottom Actions with 2 Language Buttons sitting right above the CTA */}
       <footer className={styles.bottomSection}>
+        {/* 2 Prominent Language Selection Buttons */}
+        <div className={styles.languageSelectorSection}>
+          <div className={styles.languageButtonGroup}>
+            <button
+              type="button"
+              onClick={() => setLang('vi')}
+              className={`${styles.langSelectBtn} ${lang === 'vi' ? styles.langSelectBtnActive : ''}`}
+              aria-label="Chọn Tiếng Việt"
+            >
+              <span className={styles.langFlag}>🇻🇳</span>
+              <span className={styles.langName}>Tiếng Việt</span>
+              {lang === 'vi' && <span className={styles.langCheck}>✓</span>}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setLang('en')}
+              className={`${styles.langSelectBtn} ${lang === 'en' ? styles.langSelectBtnActive : ''}`}
+              aria-label="Select English"
+            >
+              <span className={styles.langFlag}>🇺🇸</span>
+              <span className={styles.langName}>English</span>
+              {lang === 'en' && <span className={styles.langCheck}>✓</span>}
+            </button>
+          </div>
+        </div>
+
+        {/* Primary Start CTA */}
         <button
           type="button"
           className={styles.btnGetStarted}
