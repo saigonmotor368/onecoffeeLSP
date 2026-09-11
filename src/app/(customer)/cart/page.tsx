@@ -229,7 +229,7 @@ export default function CartPage() {
             <input
               type="text"
               className={styles.voucherInput}
-              placeholder={lang === 'vi' ? 'Nhập mã voucher (VD: WELCOME10)' : 'Enter promo code'}
+              placeholder={lang === 'vi' ? 'Nhập mã giảm giá...' : 'Enter promo code...'}
               value={voucherCodeInput}
               onChange={e => setVoucherCodeInput(e.target.value.toUpperCase())}
               onKeyDown={e => { if (e.key === 'Enter') handleApplyVoucher() }}
@@ -240,27 +240,6 @@ export default function CartPage() {
               disabled={applyingVoucher}
             >
               {applyingVoucher ? '...' : (lang === 'vi' ? 'Áp dụng' : 'Apply')}
-            </button>
-          </div>
-        )}
-
-        {/* Quick voucher hints */}
-        {!appliedVoucher && (
-          <div className={styles.quickVouchers}>
-            <span className={styles.quickVoucherLabel}>{lang === 'vi' ? 'Gợi ý mã:' : 'Available:'}</span>
-            <button
-              type="button"
-              className={styles.quickVoucherPill}
-              onClick={() => { setVoucherCodeInput('WELCOME10') }}
-            >
-              WELCOME10 (-10%)
-            </button>
-            <button
-              type="button"
-              className={styles.quickVoucherPill}
-              onClick={() => { setVoucherCodeInput('LSP50K') }}
-            >
-              LSP50K (-50k)
             </button>
           </div>
         )}

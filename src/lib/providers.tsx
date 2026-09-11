@@ -226,49 +226,44 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         .select('*')
         .eq('code', code)
         .eq('is_active', true)
-        .single()
+        .maybeSingle()
 
-      if (!error && data) {
-        if (data.expires_at && new Date(data.expires_at) < new Date()) {
-          return { success: false, message: 'Mã khuyến mãi này đã hết hạn sử dụng' }
-        }
-        if (data.min_order_amount && subtotal < data.min_order_amount) {
-          return {
-            success: false,
-            message: `Mã áp dụng cho đơn từ ${new Intl.NumberFormat('vi-VN').format(data.min_order_amount)}đ`,
-          }
-        }
-        setAppliedVoucher({
-          id: data.id,
-          code: data.code,
-          type: data.type as 'percent' | 'fixed',
-          value: data.value,
-          min_order_amount: data.min_order_amount,
-          max_discount: data.max_discount,
-        })
-        return { success: true, message: `Áp dụng thành công mã ${data.code}!` }
+      if (error) {
+        console.warn('Voucher query error:', error.message)
+        return { success: false, message: 'Không thể kết nối đến máy chủ khuyến mãi' }
       }
+
+      if (!data) {
+        return { success: false, message: 'Mã khuyến mãi không tồn tại hoặc đã hết hiệu lực' }
+      }
+
+      if (data.expires_at && new Date(data.expires_at) < new Date()) {
+        return { success: false, message: 'Mã khuyến mãi này đã hết hạn sử dụng' }
+      }
+
+      if (data.usage_limit && data.used_count >= data.usage_limit) {
+        return { success: false, message: 'Mã khuyến mãi đã đạt số lượt sử dụng tối đa' }
+      }
+
+      if (data.min_order_amount && subtotal < data.min_order_amount) {
+        return {
+          success: false,
+          message: `Mã áp dụng cho đơn từ ${new Intl.NumberFormat('vi-VN').format(data.min_order_amount)}đ`,
+        }
+      }
+
+      setAppliedVoucher({
+        id: data.id,
+        code: data.code,
+        type: data.type as 'percent' | 'fixed',
+        value: data.value,
+        min_order_amount: data.min_order_amount,
+        max_discount: data.max_discount,
+      })
+      return { success: true, message: `Áp dụng thành công mã ${data.code}!` }
     } catch {
-      // offline/fallback
+      return { success: false, message: 'Lỗi kiểm tra mã khuyến mãi' }
     }
-
-    // Fallback static vouchers
-    if (code === 'WELCOME10') {
-      if (subtotal < 50000) {
-        return { success: false, message: 'Mã WELCOME10 áp dụng cho đơn từ 50.000đ' }
-      }
-      setAppliedVoucher({ code: 'WELCOME10', type: 'percent', value: 10, min_order_amount: 50000 })
-      return { success: true, message: 'Áp dụng mã WELCOME10 giảm 10% thành công!' }
-    }
-    if (code === 'LSP50K') {
-      if (subtotal < 150000) {
-        return { success: false, message: 'Mã LSP50K áp dụng cho đơn từ 150.000đ' }
-      }
-      setAppliedVoucher({ code: 'LSP50K', type: 'fixed', value: 50000, min_order_amount: 150000 })
-      return { success: true, message: 'Áp dụng mã LSP50K giảm 50.000đ thành công!' }
-    }
-
-    return { success: false, message: 'Mã khuyến mãi không tồn tại hoặc đã hết hạn' }
   }, [subtotal])
 
   const removeVoucher = useCallback(() => {
