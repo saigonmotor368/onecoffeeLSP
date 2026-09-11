@@ -42,8 +42,13 @@ function AdminLoginContent() {
       })
 
       if (error || !data.user) {
-        setErrorMessage('Email hoặc mật khẩu quản trị không chính xác!')
-        showToast('Email hoặc mật khẩu không đúng', 'error')
+        console.error('Admin login error:', error)
+        const isCredError = error?.message?.toLowerCase().includes('invalid login credentials')
+        const detailedMsg = isCredError
+          ? 'Email hoặc mật khẩu quản trị không chính xác!'
+          : `Lỗi xác thực: ${error?.message || 'Không thể đăng nhập. Vui lòng kiểm tra cấu hình kết nối!'}`
+        setErrorMessage(detailedMsg)
+        showToast(detailedMsg, 'error')
         return
       }
 
