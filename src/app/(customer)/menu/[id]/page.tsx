@@ -20,11 +20,25 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
     return menuProducts.find(p => p.id === id) || menuProducts[0]
   })
 
+  // Multi-size quantities (supports picking both M and L at the same time)
+  const [qtyM, setQtyM] = useState<number>(() => (product.price_m ? 1 : 0))
+  const [qtyL, setQtyL] = useState<number>(() => (!product.price_m && product.price_l ? 1 : 0))
+  const [notes, setNotes] = useState('')
+  const [isFavorite, setIsFavorite] = useState(false)
+  const [selectedAddons, setSelectedAddons] = useState<string[]>([])
+
   useEffect(() => {
     if (!id) return
     const found = menuProducts.find(p => p.id === id)
     if (found) {
       setProduct(found)
+      if (found.price_m) {
+        setQtyM(1)
+        setQtyL(0)
+      } else if (found.price_l) {
+        setQtyM(0)
+        setQtyL(1)
+      }
       return
     }
 
@@ -38,7 +52,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
       .then(({ data }) => {
         if (data) {
           const d = data as any
-          setProduct({
+          const loadedProduct: MenuProduct = {
             id: d.id,
             category_slug: d.categories?.slug || 'coffee',
             name_vi: d.name_vi,
@@ -51,46 +65,91 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
             is_featured: d.is_featured,
             is_new: d.is_new,
             is_recommended: d.is_recommended,
-          })
+          }
+          setProduct(loadedProduct)
+          if (loadedProduct.price_m) {
+            setQtyM(1)
+            setQtyL(0)
+          } else if (loadedProduct.price_l) {
+            setQtyM(0)
+            setQtyL(1)
+          }
         }
       })
   }, [id])
 
-  const [size, setSize] = useState<'M' | 'L'>(() => {
-    if (product.price_m) return 'M'
-    return 'L'
-  })
-  const [qty, setQty] = useState(1)
-  const [notes, setNotes] = useState('')
-  const [isFavorite, setIsFavorite] = useState(false)
-  const [selectedAddons, setSelectedAddons] = useState<string[]>([])
-
   const titleEn = product.name_en
   const titleVi = product.name_vi
   const imageUrl = getProductImage(product)
+  const isFood = product.category_slug === 'food'
+  const hasBothSizes = Boolean(product.price_m && product.price_l)
 
-  const rawUnitPrice = (size === 'M' ? product.price_m : product.price_l) ?? (product.price_m || product.price_l || 48)
-  const unitPrice = toVndPrice(rawUnitPrice)
+  // Addon calculation
   const addonTotal = selectedAddons.reduce((sum, aId) => {
     const addon = addons.find(a => a.id === aId)
     return sum + toVndPrice(addon?.price ?? 10)
   }, 0)
-  const calculatedUnitPrice = unitPrice + addonTotal
-  const totalPrice = calculatedUnitPrice * qty
+
+  const unitPriceM = product.price_m ? toVndPrice(product.price_m) + addonTotal : 0
+  const unitPriceL = product.price_l ? toVndPrice(product.price_l) + addonTotal : 0
+
+  const totalCups = (product.price_m ? qtyM : 0) + (product.price_l ? qtyL : 0)
+  const totalPrice = (product.price_m ? qtyM * unitPriceM : 0) + (product.price_l ? qtyL * unitPriceL : 0)
+
+  const toggleAddon = (addonId: string) => {
+    setSelectedAddons(prev =>
+      prev.includes(addonId) ? prev.filter(a => a !== addonId) : [...prev, addonId]
+    )
+  }
 
   const handleAddToCart = () => {
-    addItem({
-      product_id: product.id,
-      name_vi: product.name_vi,
-      name_en: product.name_en,
-      size,
-      quantity: qty,
-      unit_price: calculatedUnitPrice,
-      addon_ids: selectedAddons,
-      notes,
-      image_url: imageUrl,
-    })
-    showToast(lang === 'vi' ? 'Đã thêm vào giỏ hàng!' : 'Added to cart!', 'success')
+    if (totalCups <= 0) {
+      showToast(
+        lang === 'vi' ? 'Vui lòng chọn ít nhất 1 ly/món!' : 'Please select at least 1 item!',
+        'error'
+      )
+      return
+    }
+
+    const addedParts: string[] = []
+
+    // Add Size M if quantity > 0
+    if (product.price_m && qtyM > 0) {
+      addItem({
+        product_id: product.id,
+        name_vi: product.name_vi,
+        name_en: product.name_en,
+        size: 'M',
+        quantity: qtyM,
+        unit_price: unitPriceM,
+        addon_ids: selectedAddons,
+        notes,
+        image_url: imageUrl,
+      })
+      addedParts.push(`${qtyM} ly M`)
+    }
+
+    // Add Size L if quantity > 0
+    if (product.price_l && qtyL > 0) {
+      addItem({
+        product_id: product.id,
+        name_vi: product.name_vi,
+        name_en: product.name_en,
+        size: 'L',
+        quantity: qtyL,
+        unit_price: unitPriceL,
+        addon_ids: selectedAddons,
+        notes,
+        image_url: imageUrl,
+      })
+      addedParts.push(`${qtyL} ly L`)
+    }
+
+    const toastMsg = lang === 'vi'
+      ? `Đã thêm ${totalCups} ly vào giỏ hàng (${addedParts.join(' + ')})!`
+      : `Added ${totalCups} cup${totalCups > 1 ? 's' : ''} to cart (${addedParts.join(' + ')})!`
+
+    showToast(toastMsg, 'success')
     router.back()
   }
 
@@ -124,92 +183,239 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
           alt={product.name_en}
           className={styles.heroImage}
           onError={(e) => {
-            (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=600&auto=format&fit=crop&q=80'
+            (e.target as HTMLImageElement).src =
+              'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=600&auto=format&fit=crop&q=80'
           }}
         />
       </div>
 
-      {/* Product Detail Card Sheet matching Screen 4 */}
+      {/* Product Detail Card Sheet */}
       <div className={styles.detailSheet}>
-        {/* Title & Subtitle */}
+        {/* Title & Price range */}
         <div className={styles.titleSection}>
           <h1 className={styles.mainTitle}>{titleEn}</h1>
           <p className={styles.subTitle}>{titleVi}</p>
           <div className={styles.priceTag}>
-            {formatPrice(calculatedUnitPrice)}
+            {hasBothSizes ? (
+              <span>
+                {formatPrice(product.price_m)} ~ {formatPrice(product.price_l)}
+              </span>
+            ) : (
+              <span>{formatPrice(product.price_m || product.price_l)}</span>
+            )}
           </div>
         </div>
 
-        {/* Size Selection matching Screen 4 (only if both sizes exist) */}
-        {product.price_m && product.price_l && (
+        {/* Multi-Size & Quantity Selection: Allows picking both M and L at the same time! */}
+        <div className={styles.sectionBlock}>
+          <div className={styles.sectionHeadingRow}>
+            <h3 className={styles.sectionHeading}>
+              {hasBothSizes
+                ? (lang === 'vi' ? 'Chọn kích cỡ & số lượng' : 'Select Size & Quantity')
+                : (lang === 'vi' ? 'Số lượng' : 'Quantity')}
+            </h3>
+            {totalCups > 0 && (
+              <span className={styles.totalCupsBadge}>
+                {totalCups} {lang === 'vi' ? (isFood ? 'phần đã chọn' : 'ly đã chọn') : 'selected'}
+              </span>
+            )}
+          </div>
+
+          <div className={styles.sizeSelectionList}>
+            {/* Size M Card */}
+            {product.price_m && (
+              <div
+                className={`${styles.sizeCard} ${qtyM > 0 ? styles.sizeCardActive : ''}`}
+              >
+                <div
+                  className={styles.sizeCardInfo}
+                  onClick={() => {
+                    if (qtyM === 0) setQtyM(1)
+                  }}
+                >
+                  <div
+                    className={`${styles.sizeBadge} ${qtyM > 0 ? styles.sizeBadgeActive : ''}`}
+                  >
+                    {isFood ? '🍽️' : 'M'}
+                  </div>
+                  <div className={styles.sizeMeta}>
+                    <div className={styles.sizeTitle}>
+                      {isFood
+                        ? (lang === 'vi' ? 'Khẩu phần tiêu chuẩn' : 'Standard Portion')
+                        : hasBothSizes
+                        ? (lang === 'vi' ? 'Size M (Ly vừa)' : 'Size M (Medium)')
+                        : (lang === 'vi' ? 'Cỡ tiêu chuẩn' : 'Standard Size')}
+                    </div>
+                    <div className={styles.sizePrice}>
+                      {formatPrice(unitPriceM)}
+                      {addonTotal > 0 && (
+                        <span className={styles.addonPriceNote}>
+                          {' '}(+{formatPrice(addonTotal)} topping)
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className={styles.sizeStepper}>
+                  <button
+                    type="button"
+                    className={styles.stepperMiniBtn}
+                    onClick={() => setQtyM(Math.max(0, qtyM - 1))}
+                    disabled={qtyM === 0}
+                    aria-label="Decrease Size M"
+                  >
+                    −
+                  </button>
+                  <span
+                    className={`${styles.stepperMiniQty} ${qtyM > 0 ? styles.stepperMiniQtyActive : ''}`}
+                  >
+                    {qtyM}
+                  </span>
+                  <button
+                    type="button"
+                    className={`${styles.stepperMiniBtn} ${styles.stepperMiniBtnPlus}`}
+                    onClick={() => setQtyM(qtyM + 1)}
+                    aria-label="Increase Size M"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Size L Card */}
+            {product.price_l && (
+              <div
+                className={`${styles.sizeCard} ${qtyL > 0 ? styles.sizeCardActive : ''}`}
+              >
+                <div
+                  className={styles.sizeCardInfo}
+                  onClick={() => {
+                    if (qtyL === 0) setQtyL(1)
+                  }}
+                >
+                  <div
+                    className={`${styles.sizeBadge} ${qtyL > 0 ? styles.sizeBadgeActive : ''}`}
+                  >
+                    L
+                  </div>
+                  <div className={styles.sizeMeta}>
+                    <div className={styles.sizeTitle}>
+                      {lang === 'vi' ? 'Size L (Ly lớn)' : 'Size L (Large)'}
+                    </div>
+                    <div className={styles.sizePrice}>
+                      {formatPrice(unitPriceL)}
+                      {addonTotal > 0 && (
+                        <span className={styles.addonPriceNote}>
+                          {' '}(+{formatPrice(addonTotal)} topping)
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className={styles.sizeStepper}>
+                  <button
+                    type="button"
+                    className={styles.stepperMiniBtn}
+                    onClick={() => setQtyL(Math.max(0, qtyL - 1))}
+                    disabled={qtyL === 0}
+                    aria-label="Decrease Size L"
+                  >
+                    −
+                  </button>
+                  <span
+                    className={`${styles.stepperMiniQty} ${qtyL > 0 ? styles.stepperMiniQtyActive : ''}`}
+                  >
+                    {qtyL}
+                  </span>
+                  <button
+                    type="button"
+                    className={`${styles.stepperMiniBtn} ${styles.stepperMiniBtnPlus}`}
+                    onClick={() => setQtyL(qtyL + 1)}
+                    aria-label="Increase Size L"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Optional Add-ons / Toppings (for drinks) */}
+        {!isFood && (
           <div className={styles.sectionBlock}>
-            <h3 className={styles.sectionHeading}>{lang === 'vi' ? 'Kích cỡ' : 'Size'}</h3>
-            <div className={styles.sizeSegmentGrid}>
-              <button
-                type="button"
-                className={`${styles.sizeBtn} ${size === 'M' ? styles.sizeBtnActive : ''}`}
-                onClick={() => setSize('M')}
-              >
-                <span className={styles.sizeTitle}>M</span>
-                <span className={styles.sizeCost}>{formatPrice(product.price_m)}</span>
-              </button>
-              <button
-                type="button"
-                className={`${styles.sizeBtn} ${size === 'L' ? styles.sizeBtnActive : ''}`}
-                onClick={() => setSize('L')}
-              >
-                <span className={styles.sizeTitle}>L</span>
-                <span className={styles.sizeCost}>{formatPrice(product.price_l)}</span>
-              </button>
+            <div className={styles.sectionHeadingRow}>
+              <h3 className={styles.sectionHeading}>
+                {lang === 'vi' ? 'Topping thêm (tùy chọn)' : 'Add-ons (optional)'}
+              </h3>
+              <span className={styles.addonNotice}>
+                {lang === 'vi' ? '+10.000đ/phần' : '+10,000đ/item'}
+              </span>
+            </div>
+            <div className={styles.addonGrid}>
+              {addons.map(addon => {
+                const isSelected = selectedAddons.includes(addon.id)
+                return (
+                  <button
+                    key={addon.id}
+                    type="button"
+                    className={`${styles.addonChip} ${isSelected ? styles.addonChipActive : ''}`}
+                    onClick={() => toggleAddon(addon.id)}
+                  >
+                    <span className={styles.addonCheck}>
+                      {isSelected ? '✓' : '+'}
+                    </span>
+                    <span className={styles.addonName}>
+                      {lang === 'vi' ? addon.name_vi : addon.name_en}
+                    </span>
+                  </button>
+                )
+              })}
             </div>
           </div>
         )}
 
-        {/* Quantity Stepper matching Screen 4 */}
-        <div className={styles.sectionBlock}>
-          <h3 className={styles.sectionHeading}>{lang === 'vi' ? 'Số lượng' : 'Quantity'}</h3>
-          <div className={styles.stepperWrap}>
-            <button
-              type="button"
-              className={styles.stepperBtn}
-              onClick={() => setQty(Math.max(1, qty - 1))}
-            >
-              −
-            </button>
-            <span className={styles.stepperQty}>{qty}</span>
-            <button
-              type="button"
-              className={`${styles.stepperBtn} ${styles.stepperBtnGreen}`}
-              onClick={() => setQty(qty + 1)}
-            >
-              +
-            </button>
-          </div>
-        </div>
-
-        {/* Note Input matching Screen 4 */}
+        {/* Note Input */}
         <div className={styles.sectionBlock}>
           <h3 className={styles.sectionHeading}>
-            {lang === 'vi' ? 'Ghi chú (tùy chọn)' : 'Note (optional)'}
+            {lang === 'vi' ? 'Ghi chú đơn (tùy chọn)' : 'Note (optional)'}
           </h3>
           <input
             type="text"
             className={styles.noteInput}
-            placeholder={lang === 'vi' ? 'Ví dụ: ít đá, không đường, thêm ly giấy...' : 'E.g. less ice, no sugar...'}
+            placeholder={
+              lang === 'vi'
+                ? 'Ví dụ: 1 ly ít đường, 1 ly không đá, thêm ống hút...'
+                : 'E.g. 1 cup less sugar, 1 cup no ice...'
+            }
             value={notes}
             onChange={e => setNotes(e.target.value)}
           />
         </div>
 
-        {/* Bottom Sticky Action matching Screen 4 */}
+        {/* Bottom Sticky Action Bar */}
         <div className={styles.bottomBar}>
           <button
-            className={styles.btnAddToCart}
+            className={`${styles.btnAddToCart} ${totalCups === 0 ? styles.btnDisabled : ''}`}
             onClick={handleAddToCart}
+            disabled={totalCups === 0}
           >
             <span style={{ fontSize: '18px', marginRight: '8px' }}>🛒</span>
-            <span>{lang === 'vi' ? 'Thêm vào giỏ' : 'Add to Cart'}</span>
-            <span style={{ marginLeft: 'auto', fontWeight: 800 }}>{formatPrice(totalPrice)}</span>
+            <span>
+              {lang === 'vi' ? 'Thêm vào giỏ' : 'Add to Cart'}
+              {totalCups > 0 && (
+                <span style={{ opacity: 0.9, marginLeft: '6px', fontSize: '13px', fontWeight: 500 }}>
+                  ({totalCups} {lang === 'vi' ? (isFood ? 'món' : 'ly') : 'cups'}
+                  {hasBothSizes && qtyM > 0 && qtyL > 0 ? `: ${qtyM}M + ${qtyL}L` : ''})
+                </span>
+              )}
+            </span>
+            <span style={{ marginLeft: 'auto', fontWeight: 800 }}>
+              {totalCups > 0 ? formatPrice(totalPrice) : (lang === 'vi' ? '0đ' : '$0')}
+            </span>
           </button>
         </div>
       </div>

@@ -54,7 +54,7 @@
   object-fit: cover;
 }
 
-/* Detail Sheet matching Screen 4 */
+/* Detail Sheet */
 .detailSheet {
   background: #FFFFFF;
   border-top-left-radius: 28px;
@@ -96,7 +96,13 @@
 .sectionBlock {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
+}
+
+.sectionHeadingRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .sectionHeading {
@@ -104,62 +110,110 @@
   font-weight: 700;
   color: #4A5568;
   margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
-/* Size Segmented Buttons matching Screen 4 */
-.sizeSegmentGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
+.totalCupsBadge {
+  font-size: 12px;
+  font-weight: 700;
+  color: #1E4D3B;
+  background: #E8F5E9;
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+
+/* Multi-Size Selection Cards */
+.sizeSelectionList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.sizeCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-radius: 14px;
+  border: 1.5px solid #E2E8F0;
+  background: #FFFFFF;
+  transition: all 0.2s ease;
+  user-select: none;
+}
+
+.sizeCardActive {
+  border-color: #1E4D3B;
+  background: #F4FAF7;
+  box-shadow: 0 4px 14px rgba(30, 77, 59, 0.08);
+}
+
+.sizeCardInfo {
+  display: flex;
+  align-items: center;
   gap: 12px;
+  flex: 1;
+  cursor: pointer;
 }
 
-.sizeBtn {
+.sizeBadge {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  background: #EDF2F7;
+  color: #4A5568;
+  font-weight: 800;
+  font-size: 15px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 12px 16px;
-  border-radius: 12px;
-  border: 1px solid #E2E8F0;
-  background: #FFFFFF;
-  color: #2D3748;
-  cursor: pointer;
   transition: all 0.2s ease;
-  font-family: inherit;
+  flex-shrink: 0;
+}
+
+.sizeBadgeActive {
+  background: #1E4D3B;
+  color: #FFFFFF;
+}
+
+.sizeMeta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .sizeTitle {
-  font-weight: 800;
   font-size: 14px;
+  font-weight: 700;
+  color: #1A202C;
 }
 
-.sizeCost {
-  font-weight: 600;
+.sizePrice {
   font-size: 13px;
+  font-weight: 700;
+  color: #1E4D3B;
 }
 
-.sizeBtnActive {
-  background: #1E4D3B !important;
-  color: #FFFFFF !important;
-  border-color: #1E4D3B !important;
-  box-shadow: 0 4px 12px rgba(30, 77, 59, 0.25);
+.addonPriceNote {
+  font-size: 11px;
+  font-weight: 500;
+  color: #718096;
 }
 
-/* Quantity Stepper matching Screen 4 */
-.stepperWrap {
+/* Size Stepper */
+.sizeStepper {
   display: flex;
   align-items: center;
-  gap: 16px;
-  width: fit-content;
+  gap: 8px;
   background: #F8F9FA;
-  padding: 4px;
+  padding: 3px;
   border-radius: 999px;
-  border: 1px solid #EDF2F7;
+  border: 1px solid #E2E8F0;
 }
 
-.stepperBtn {
-  width: 34px;
-  height: 34px;
+.stepperMiniBtn {
+  width: 30px;
+  height: 30px;
   border-radius: 50%;
   border: 1px solid #E2E8F0;
   background: #FFFFFF;
@@ -173,21 +227,83 @@
   transition: all 0.15s ease;
 }
 
-.stepperBtnGreen {
-  background: #1E4D3B !important;
-  color: #FFFFFF !important;
-  border-color: #1E4D3B !important;
+.stepperMiniBtn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
 }
 
-.stepperQty {
-  font-size: 16px;
+.stepperMiniBtnPlus {
+  background: #1E4D3B;
+  color: #FFFFFF;
+  border-color: #1E4D3B;
+}
+
+.stepperMiniBtnPlus:hover:not(:disabled) {
+  background: #25634D;
+}
+
+.stepperMiniQty {
+  font-size: 15px;
   font-weight: 800;
-  color: #1A202C;
-  min-width: 24px;
+  min-width: 22px;
   text-align: center;
+  color: #A0AEC0;
 }
 
-/* Note Input matching Screen 4 */
+.stepperMiniQtyActive {
+  color: #1E4D3B;
+}
+
+/* Add-ons / Toppings */
+.addonNotice {
+  font-size: 11px;
+  font-weight: 600;
+  color: #718096;
+}
+
+.addonGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.addonChip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid #E2E8F0;
+  background: #FFFFFF;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-align: left;
+  font-family: inherit;
+}
+
+.addonChipActive {
+  border-color: #1E4D3B;
+  background: #E8F5E9;
+  color: #1E4D3B;
+}
+
+.addonCheck {
+  font-size: 13px;
+  font-weight: 800;
+  width: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.addonName {
+  font-size: 12px;
+  font-weight: 600;
+  color: inherit;
+  flex: 1;
+}
+
+/* Note Input */
 .noteInput {
   width: 100%;
   padding: 12px 14px;
@@ -197,6 +313,7 @@
   font-size: 13px;
   color: #2D3748;
   outline: none;
+  font-family: inherit;
 }
 
 .noteInput:focus {
@@ -204,7 +321,7 @@
   background: #FFFFFF;
 }
 
-/* Bottom Bar matching Screen 4 */
+/* Bottom Bar */
 .bottomBar {
   position: fixed;
   bottom: 0;
@@ -235,9 +352,18 @@
   cursor: pointer;
   box-shadow: 0 6px 20px rgba(30, 77, 59, 0.3);
   transition: all 0.2s ease;
+  font-family: inherit;
 }
 
-.btnAddToCart:hover {
+.btnAddToCart:hover:not(:disabled) {
   background: #25634D;
   transform: translateY(-1px);
+}
+
+.btnDisabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background: #A0AEC0 !important;
+  box-shadow: none !important;
+  transform: none !important;
 }
