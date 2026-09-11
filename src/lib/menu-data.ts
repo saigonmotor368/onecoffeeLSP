@@ -34,7 +34,7 @@ const PRODUCT_IMAGE_MAP: Record<string, string> = {
   'cafe-macchiato-sua-dua': 'https://images.unsplash.com/photo-1534778101976-62847782c213?w=600&auto=format&fit=crop&q=80',
   'cafe-caramel-macchiato': 'https://images.unsplash.com/photo-1485808191679-5f86510681a2?w=600&auto=format&fit=crop&q=80',
   'cafe-white-choco-macchiato': 'https://images.unsplash.com/photo-1577968897966-3d4325b36b61?w=600&auto=format&fit=crop&q=80',
-  'cafe-latte-tran-chau-duong-den': 'https://images.unsplash.com/photo-1558857563-b37cf0e23485?w=600&auto=format&fit=crop&q=80',
+  'cafe-latte-tran-chau-duong-den': 'https://images.unsplash.com/photo-1525385133512-2f3bdd039054?w=600&auto=format&fit=crop&q=80',
   'mocha-da-vien': 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=600&auto=format&fit=crop&q=80',
   'cafe-espresso': 'https://images.unsplash.com/photo-1510591509098-f4fdc6d0ff04?w=600&auto=format&fit=crop&q=80',
   'cafe-latte-da': 'https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=600&auto=format&fit=crop&q=80',
@@ -46,10 +46,10 @@ const PRODUCT_IMAGE_MAP: Record<string, string> = {
   'cafe-kem-muoi-long-son': 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=600&auto=format&fit=crop&q=80',
 
   // Trà sữa
-  'tra-sua-thai-do': 'https://images.unsplash.com/photo-1558857563-b37cf0e23485?w=600&auto=format&fit=crop&q=80',
+  'tra-sua-thai-do': 'https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=600&auto=format&fit=crop&q=80',
   'tra-sua-thai-do-tran-chau': 'https://images.unsplash.com/photo-1525385133512-2f3bdd039054?w=600&auto=format&fit=crop&q=80',
   'tra-sua-thai-xanh': 'https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=600&auto=format&fit=crop&q=80',
-  'tra-sua-thai-xanh-tran-chau': 'https://images.unsplash.com/photo-1558857563-b37cf0e23485?w=600&auto=format&fit=crop&q=80',
+  'tra-sua-thai-xanh-tran-chau': 'https://images.unsplash.com/photo-1551024709-8f23befc6f87?w=600&auto=format&fit=crop&q=80',
   'sua-tuoi-tran-chau-duong-den': 'https://images.unsplash.com/photo-1595981267035-7b04ca84a82d?w=600&auto=format&fit=crop&q=80',
   'socola-da-vien': 'https://images.unsplash.com/photo-1544787219-7f47ccb76574?w=600&auto=format&fit=crop&q=80',
 
@@ -89,18 +89,20 @@ const PRODUCT_IMAGE_MAP: Record<string, string> = {
   'banh-tiramisu-ca-phe': 'https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?w=600&auto=format&fit=crop&q=80',
   'banh-muffin-chocolate': 'https://images.unsplash.com/photo-1586985289688-ca3cf47d3e6e?w=600&auto=format&fit=crop&q=80',
   'banh-cookies-hanh-nhan': 'https://images.unsplash.com/photo-1499636136210-6f4ee915583e?w=600&auto=format&fit=crop&q=80',
-  'hat-dieu-rang-muoi': 'https://images.unsplash.com/photo-1536591375315-1b836820db76?w=600&auto=format&fit=crop&q=80',
+  'hat-dieu-rang-muoi': 'https://images.unsplash.com/photo-1608755728617-aefab37d2edd?w=600&auto=format&fit=crop&q=80',
 }
 
 export function getProductImage(product: MenuProduct): string {
-  if (product.image_url) return product.image_url
+  if (product.image_url && !product.image_url.includes('1558857563') && !product.image_url.includes('1536591375')) {
+    return product.image_url
+  }
   const id = product.id.toLowerCase()
   if (PRODUCT_IMAGE_MAP[id]) return PRODUCT_IMAGE_MAP[id]
   const cat = product.category_slug.toLowerCase()
 
   if (cat === 'food') return 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=600&auto=format&fit=crop&q=80'
   if (cat === 'coffee') return 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=600&auto=format&fit=crop&q=80'
-  if (cat === 'milk-tea') return 'https://images.unsplash.com/photo-1558857563-b37cf0e23485?w=600&auto=format&fit=crop&q=80'
+  if (cat === 'milk-tea') return 'https://images.unsplash.com/photo-1576092768241-dec231879fc3?w=600&auto=format&fit=crop&q=80'
   if (cat === 'fruit-tea') return 'https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=600&auto=format&fit=crop&q=80'
   if (cat === 'matcha') return 'https://images.unsplash.com/photo-1536256263959-770b48d82b0a?w=600&auto=format&fit=crop&q=80'
   if (cat === 'frappe') return 'https://images.unsplash.com/photo-1572490122747-3968b75cc699?w=600&auto=format&fit=crop&q=80'
@@ -507,7 +509,7 @@ export const menuProducts: MenuProduct[] = [
     description_vi: 'Hạt điều rang củi loại 1 nguyên hạt giòn béo, món snack năng lượng cho ngày làm việc',
     description_en: 'Premium wood-roasted salted cashews, delicious energy booster for workdays',
     price_m: 32, price_l: null,
-    image_url: 'https://images.unsplash.com/photo-1536591375315-1b836820db76?w=500&auto=format&fit=crop&q=80',
+    image_url: 'https://images.unsplash.com/photo-1608755728617-aefab37d2edd?w=600&auto=format&fit=crop&q=80',
   },
 ]
 

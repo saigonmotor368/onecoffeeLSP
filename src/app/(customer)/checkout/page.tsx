@@ -265,7 +265,7 @@ function CheckoutContent() {
               {lang === 'vi' ? 'Đã đăng nhập' : 'Logged In'}
             </span>
           ) : (
-            <Link href="/profile" className={styles.loginPromptLink}>
+            <Link href="/auth/login?redirect=/checkout" className={styles.loginPromptLink}>
               {lang === 'vi' ? 'Đăng nhập tích điểm →' : 'Login for points →'}
             </Link>
           )}

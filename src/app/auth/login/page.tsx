@@ -1,15 +1,17 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useLang, useToast } from '@/lib/providers'
 import { isValidPhone } from '@/lib/utils'
 import styles from '../auth.module.css'
 
-export default function LoginPage() {
+function LoginContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirectTarget = searchParams.get('redirect') || '/home'
   const { t } = useLang()
   const { showToast } = useToast()
   const [phone, setPhone] = useState('')
@@ -31,14 +33,14 @@ export default function LoginPage() {
     setLoading(true)
     try {
       const supabase = createClient()
-      // Use phone as email (phone@onecoffee.internal)
+      // Use phone as email (phone@lsp.internal)
       const email = `${phone.replace(/\s/g, '')}@lsp.internal`
       const { error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) {
         showToast('Số điện thoại hoặc mật khẩu không đúng', 'error')
       } else {
         showToast('Đăng nhập thành công!', 'success')
-        router.replace('/home')
+        router.replace(redirectTarget)
       }
     } finally {
       setLoading(false)
@@ -101,13 +103,21 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className={styles.switchText}>
-          {t('no_account')}{' '}
-          <Link href="/auth/register" className={styles.switchLink}>
+        <div className={styles.footer}>
+          <span>{t('no_account')} </span>
+          <Link href={`/auth/register${redirectTarget !== '/home' ? `?redirect=${encodeURIComponent(redirectTarget)}` : ''}`} className={styles.link}>
             {t('register')}
           </Link>
-        </p>
+        </div>
       </div>
     </div>
+  )
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<div style={{ padding: '48px', display: 'flex', justifyContent: 'center' }}><span className="spinner" /></div>}>
+      <LoginContent />
+    </Suspense>
   )
 }

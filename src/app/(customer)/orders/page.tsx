@@ -35,85 +35,17 @@ export default function OrdersPage() {
           .eq('user_id', session.user.id)
           .order('created_at', { ascending: false })
         if (data && data.length > 0) fetched = data
-      }
-
-      if (fetched.length === 0) {
-        // Mock demo orders matching Screen 9
-        const now = Date.now()
-        fetched = [
-          {
-            id: 'mock-1',
-            order_number: '#OC20260911-001',
-            user_id: 'u-1',
-            recipient_name: 'Nguyen Van A',
-            recipient_phone: '0901234567',
-            delivery_address: 'LSP - Line 3',
-            total_amount: 206000,
-            discount_amount: 0,
-            final_amount: 206000,
-            payment_method: 'transfer',
-            payment_status: 'paid',
-            order_status: 'delivering',
-            voucher_id: null,
-            notes: null,
-            created_at: new Date(now - 3600000 * 2).toISOString(),
-            updated_at: new Date().toISOString(),
-          },
-          {
-            id: 'mock-2',
-            order_number: '#OC20260909-015',
-            user_id: 'u-1',
-            recipient_name: 'Nguyen Van A',
-            recipient_phone: '0901234567',
-            delivery_address: 'LSP - QC',
-            total_amount: 54000,
-            discount_amount: 0,
-            final_amount: 54000,
-            payment_method: 'transfer',
-            payment_status: 'paid',
-            order_status: 'delivered',
-            voucher_id: null,
-            notes: null,
-            created_at: new Date(now - 86400000 * 2).toISOString(),
-            updated_at: new Date().toISOString(),
-          },
-          {
-            id: 'mock-3',
-            order_number: '#OC20260908-012',
-            user_id: 'u-1',
-            recipient_name: 'Nguyen Van A',
-            recipient_phone: '0901234567',
-            delivery_address: 'LSP - Office',
-            total_amount: 120000,
-            discount_amount: 0,
-            final_amount: 120000,
-            payment_method: 'cash',
-            payment_status: 'paid',
-            order_status: 'delivered',
-            voucher_id: null,
-            notes: null,
-            created_at: new Date(now - 86400000 * 3).toISOString(),
-            updated_at: new Date().toISOString(),
-          },
-          {
-            id: 'mock-4',
-            order_number: '#OC20260905-008',
-            user_id: 'u-1',
-            recipient_name: 'Nguyen Van A',
-            recipient_phone: '0901234567',
-            delivery_address: 'LSP - Warehouse',
-            total_amount: 48000,
-            discount_amount: 0,
-            final_amount: 48000,
-            payment_method: 'transfer',
-            payment_status: 'paid',
-            order_status: 'delivered',
-            voucher_id: null,
-            notes: null,
-            created_at: new Date(now - 86400000 * 6).toISOString(),
-            updated_at: new Date().toISOString(),
-          },
-        ]
+      } else {
+        // Guest mode: attempt loading orders placed by this phone
+        const guestPhone = localStorage.getItem('oc_customer_phone')
+        if (guestPhone) {
+          const { data } = await supabase
+            .from('orders')
+            .select('*')
+            .eq('recipient_phone', guestPhone)
+            .order('created_at', { ascending: false })
+          if (data && data.length > 0) fetched = data
+        }
       }
 
       setOrders(fetched)

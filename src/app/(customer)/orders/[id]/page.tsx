@@ -23,41 +23,37 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   useEffect(() => {
     const load = async () => {
       const supabase = createClient()
-      const [{ data: o }, { data: oi }] = await Promise.all([
-        supabase.from('orders').select('*').eq('id', id).single(),
+      let foundOrder: Order | null = null
+      let foundItems: OrderItem[] = []
+
+      // Try finding by UUID
+      const [{ data: byId }, { data: itemsById }] = await Promise.all([
+        supabase.from('orders').select('*').eq('id', id).maybeSingle(),
         supabase.from('order_items').select('*').eq('order_id', id),
       ])
-      
-      if (o) {
-        setOrder(o)
-        setItems(oi ?? [])
+
+      if (byId) {
+        foundOrder = byId
+        foundItems = itemsById || []
       } else {
-        // Mock fallback demo order matching Screen 8
-        const demoOrder: Order = {
-          id: id || 'demo-order-1',
-          order_number: 'OC20260911-001',
-          user_id: 'user-1',
-          recipient_name: 'Nguyen Van A',
-          recipient_phone: '0901234567',
-          delivery_address: 'LSP - Production Line 3\nBlock C - Assembly Area',
-          total_amount: 206000,
-          discount_amount: 0,
-          final_amount: 206000,
-          payment_method: 'transfer',
-          payment_status: 'paid',
-          order_status: 'delivering',
-          voucher_id: null,
-          notes: null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
+        // Try finding by order_number
+        const { data: byNum } = await supabase
+          .from('orders')
+          .select('*')
+          .eq('order_number', id)
+          .maybeSingle()
+        if (byNum) {
+          foundOrder = byNum
+          const { data: itemsByNum } = await supabase
+            .from('order_items')
+            .select('*')
+            .eq('order_id', byNum.id)
+          foundItems = itemsByNum || []
         }
-        setOrder(demoOrder)
-        setItems([
-          { id: 'item-1', order_id: id, product_id: 'cafe-muoi', product_name_vi: 'Cà Phê Kem Muối Long Sơn', product_name_en: 'Salted Foam Coffee', size: 'M', quantity: 1, unit_price: 48000, addon_ids: [], notes: null },
-          { id: 'item-2', order_id: id, product_id: 'matcha-latte', product_name_vi: 'Matcha Latte', product_name_en: 'Matcha Latte', size: 'L', quantity: 2, unit_price: 54000, addon_ids: [], notes: null },
-          { id: 'item-3', order_id: id, product_id: 'tra-sua-thai', product_name_vi: 'Trà Sữa Thái Đỏ', product_name_en: 'Trà Sữa Thái', size: 'M', quantity: 1, unit_price: 50000, addon_ids: [], notes: null },
-        ])
       }
+
+      setOrder(foundOrder)
+      setItems(foundItems)
       setLoading(false)
     }
     load()
@@ -131,7 +127,36 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     },
   ]
 
-  const totalItemsCount = items.reduce((sum, i) => sum + i.quantity, 0) || 3
+  if (loading) {
+    return (
+      <div style={{ padding: 48, display: 'flex', justifyContent: 'center' }}>
+        <span className="spinner" />
+      </div>
+    )
+  }
+
+  if (!order) {
+    return (
+      <div className={styles.pageContainer} style={{ textAlign: 'center', padding: '60px 20px' }}>
+        <span style={{ fontSize: '48px', marginBottom: '12px', display: 'block' }}>🔍</span>
+        <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#1A202C' }}>
+          {lang === 'vi' ? 'Không tìm thấy đơn hàng' : 'Order Not Found'}
+        </h2>
+        <p style={{ fontSize: '13px', color: '#718096', margin: '8px 0 20px' }}>
+          {lang === 'vi' ? 'Mã đơn hàng không tồn tại hoặc đã được xử lý.' : 'This order could not be located.'}
+        </p>
+        <button
+          className="btn btn-primary"
+          onClick={() => router.push('/orders')}
+          style={{ padding: '10px 20px', borderRadius: '12px' }}
+        >
+          {lang === 'vi' ? 'Xem danh sách đơn hàng' : 'View Orders'}
+        </button>
+      </div>
+    )
+  }
+
+  const totalItemsCount = items.reduce((sum, i) => sum + i.quantity, 0)
 
   return (
     <div className={styles.pageContainer}>

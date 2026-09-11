@@ -125,7 +125,7 @@ export default function HomePage() {
           aria-label="Profile"
         >
           <div className={styles.avatarCircle}>
-            {profile?.full_name ? profile.full_name.slice(0, 2).toUpperCase() : 'LSP'}
+            {profile?.full_name ? profile.full_name.slice(0, 2).toUpperCase() : '👤'}
           </div>
         </button>
       </header>
@@ -243,6 +243,9 @@ export default function HomePage() {
                   src={drink.image}
                   alt={drink.name_en}
                   className={styles.drinkImage}
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=600&auto=format&fit=crop&q=80'
+                  }}
                 />
               </div>
               <h3 className={styles.drinkName}>

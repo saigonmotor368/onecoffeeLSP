@@ -123,6 +123,9 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
           src={imageUrl}
           alt={product.name_en}
           className={styles.heroImage}
+          onError={(e) => {
+            (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=600&auto=format&fit=crop&q=80'
+          }}
         />
       </div>
 

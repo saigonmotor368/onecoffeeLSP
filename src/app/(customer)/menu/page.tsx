@@ -188,7 +188,14 @@ function MenuProductItem({ product, lang }: { product: MenuProduct; lang: string
     <Link href={`/menu/${product.id}`} className={styles.productRow}>
       {/* Thumbnail */}
       <div className={styles.thumbnailWrap}>
-        <img src={imageUrl} alt={primaryName} className={styles.thumbnail} />
+        <img
+          src={imageUrl}
+          alt={primaryName}
+          className={styles.thumbnail}
+          onError={(e) => {
+            (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=600&auto=format&fit=crop&q=80'
+          }}
+        />
       </div>
 
       {/* Info */}
