@@ -10,3 +10,5 @@ export function createAdminClient() {
     },
   })
 }
+
+export const getAdminClient = createAdminClient

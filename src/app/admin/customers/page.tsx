@@ -13,6 +13,7 @@ interface CustomerProfile {
   default_delivery_address: string | null
   language: 'vi' | 'en'
   created_at: string
+  role?: 'customer' | 'admin'
   total_orders?: number
   total_spent?: number
   last_order_at?: string
@@ -23,13 +24,183 @@ export default function AdminCustomersPage() {
   const [customers, setCustomers] = useState<CustomerProfile[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-  const [selectedCustomer, setSelectedCustomer] = useState<CustomerProfile | null>(null)
-  const [editAddress, setEditAddress] = useState('')
-  const [saving, setSaving] = useState(false)
+
+  // Modals state
+  const [createModalOpen, setCreateModalOpen] = useState(false)
+  const [editCustomer, setEditCustomer] = useState<CustomerProfile | null>(null)
   const [resetPwdCustomer, setResetPwdCustomer] = useState<CustomerProfile | null>(null)
+
+  // Create User Form
+  const [createName, setCreateName] = useState('')
+  const [createPhone, setCreatePhone] = useState('')
+  const [createPassword, setCreatePassword] = useState('123456')
+  const [createAddress, setCreateAddress] = useState('')
+  const [createRole, setCreateRole] = useState<'customer' | 'admin'>('customer')
+  const [submittingCreate, setSubmittingCreate] = useState(false)
+
+  // Edit User Form
+  const [editName, setEditName] = useState('')
+  const [editPhone, setEditPhone] = useState('')
+  const [editAddress, setEditAddress] = useState('')
+  const [editRole, setEditRole] = useState<'customer' | 'admin'>('customer')
+  const [submittingEdit, setSubmittingEdit] = useState(false)
+
+  // Reset Password Form
   const [newPassword, setNewPassword] = useState('123456')
   const [resettingPwd, setResettingPwd] = useState(false)
 
+  const loadCustomers = useCallback(async () => {
+    setLoading(true)
+    const supabase = createClient()
+
+    try {
+      const [{ data: profiles, error: pError }, { data: orders }] = await Promise.all([
+        supabase.from('profiles').select('*').order('created_at', { ascending: false }),
+        supabase.from('orders').select('user_id, final_amount, created_at, order_status'),
+      ])
+
+      if (pError) {
+        console.error('Error loading profiles:', pError)
+      }
+
+      const list = (profiles || []) as CustomerProfile[]
+
+      // Aggregate order statistics
+      const orderStats = (orders || []).reduce((acc, order) => {
+        if (!order.user_id) return acc
+        if (!acc[order.user_id]) {
+          acc[order.user_id] = { count: 0, total: 0, lastAt: order.created_at }
+        }
+        acc[order.user_id].count += 1
+        if (order.order_status !== 'cancelled') {
+          acc[order.user_id].total += order.final_amount || 0
+        }
+        return acc
+      }, {} as Record<string, { count: number; total: number; lastAt: string }>)
+
+      const enhanced = list.map(c => ({
+        ...c,
+        role: (c.phone === '0977999948' || c.id === '89e22fbf-9655-426c-a123-e7fc7aaa0670' ? 'admin' : 'customer') as 'customer' | 'admin',
+        total_orders: orderStats[c.id]?.count ?? 0,
+        total_spent: orderStats[c.id]?.total ?? 0,
+        last_order_at: orderStats[c.id]?.lastAt,
+      }))
+
+      setCustomers(enhanced)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadCustomers()
+  }, [loadCustomers])
+
+  // Create User Action
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!createName.trim() || !createPhone.trim() || !createPassword.trim()) {
+      showToast('Vui lòng điền đủ tên, số điện thoại và mật khẩu!', 'error')
+      return
+    }
+
+    setSubmittingCreate(true)
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fullName: createName.trim(),
+          phone: createPhone.trim(),
+          password: createPassword.trim(),
+          address: createAddress.trim(),
+          role: createRole,
+        }),
+      })
+
+      const data = await res.json()
+      if (res.ok && data.success) {
+        showToast(`Đã tạo tài khoản cho ${createName} thành công!`, 'success')
+        setCreateModalOpen(false)
+        setCreateName('')
+        setCreatePhone('')
+        setCreateAddress('')
+        setCreatePassword('123456')
+        loadCustomers()
+      } else {
+        showToast(data.error || 'Lỗi khi tạo người dùng', 'error')
+      }
+    } catch {
+      showToast('Lỗi kết nối máy chủ', 'error')
+    } finally {
+      setSubmittingCreate(false)
+    }
+  }
+
+  // Open Edit Modal
+  const openEditModal = (c: CustomerProfile) => {
+    setEditCustomer(c)
+    setEditName(c.full_name)
+    setEditPhone(c.phone)
+    setEditAddress(c.default_delivery_address || '')
+    setEditRole(c.role || 'customer')
+  }
+
+  // Update User Action
+  const handleUpdateUser = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editCustomer) return
+
+    setSubmittingEdit(true)
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: editCustomer.id,
+          fullName: editName.trim(),
+          phone: editPhone.trim(),
+          address: editAddress.trim(),
+          role: editRole,
+        }),
+      })
+
+      const data = await res.json()
+      if (res.ok && data.success) {
+        showToast('Cập nhật thông tin người dùng thành công!', 'success')
+        setEditCustomer(null)
+        loadCustomers()
+      } else {
+        showToast(data.error || 'Lỗi khi cập nhật người dùng', 'error')
+      }
+    } catch {
+      showToast('Lỗi kết nối máy chủ', 'error')
+    } finally {
+      setSubmittingEdit(false)
+    }
+  }
+
+  // Delete User Action
+  const handleDeleteUser = async (c: CustomerProfile) => {
+    if (!window.confirm(`⚠️ Bạn có chắc muốn XÓA VĨNH VIỄN người dùng "${c.full_name}" (${c.phone})?`)) {
+      return
+    }
+
+    try {
+      const res = await fetch(`/api/admin/users?userId=${c.id}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        showToast(`Đã xóa tài khoản ${c.full_name}!`, 'success')
+        setCustomers(prev => prev.filter(item => item.id !== c.id))
+      } else {
+        showToast(data.error || 'Lỗi khi xóa người dùng', 'error')
+      }
+    } catch {
+      showToast('Lỗi kết nối máy chủ', 'error')
+    }
+  }
+
+  // Reset Password Action
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!resetPwdCustomer) return
@@ -58,106 +229,7 @@ export default function AdminCustomersPage() {
     }
   }
 
-  const loadCustomers = useCallback(async () => {
-    setLoading(true)
-    const supabase = createClient()
-
-    // Query profiles & orders
-    const [{ data: profiles, error: pError }, { data: orders }] = await Promise.all([
-      supabase.from('profiles').select('*').order('created_at', { ascending: false }),
-      supabase.from('orders').select('user_id, final_amount, created_at, order_status'),
-    ])
-
-    if (pError || !profiles || profiles.length === 0) {
-      // Mock demo customers if DB is fresh
-      const mockCustomers: CustomerProfile[] = [
-        {
-          id: 'mock-1',
-          full_name: 'Nguyễn Văn An (Xưởng PP)',
-          phone: '0901234567',
-          default_delivery_address: 'Khu vực Xưởng PP - Tầng 2',
-          language: 'vi',
-          created_at: new Date(Date.now() - 7 * 86400000).toISOString(),
-          total_orders: 8,
-          total_spent: 384000,
-          last_order_at: new Date(Date.now() - 3600000).toISOString(),
-        },
-        {
-          id: 'mock-2',
-          full_name: 'Trần Thị Mai (Phòng HSE)',
-          phone: '0912345678',
-          default_delivery_address: 'Tòa nhà văn phòng chính - Tầng 3',
-          language: 'vi',
-          created_at: new Date(Date.now() - 14 * 86400000).toISOString(),
-          total_orders: 15,
-          total_spent: 720000,
-          last_order_at: new Date(Date.now() - 18000000).toISOString(),
-        },
-        {
-          id: 'mock-3',
-          full_name: 'Mr. David Lee (LSP Tech)',
-          phone: '0988776655',
-          default_delivery_address: 'Khu Công nghệ LSP Tech - Cổng B',
-          language: 'en',
-          created_at: new Date(Date.now() - 3 * 86400000).toISOString(),
-          total_orders: 4,
-          total_spent: 216000,
-          last_order_at: new Date(Date.now() - 7200000).toISOString(),
-        },
-      ]
-      setCustomers(mockCustomers)
-    } else {
-      // Aggregate customer stats
-      const statsMap: Record<string, { totalOrders: number; totalSpent: number; lastOrder: string }> = {}
-      orders?.forEach(o => {
-        if (!o.user_id) return
-        if (!statsMap[o.user_id]) {
-          statsMap[o.user_id] = { totalOrders: 0, totalSpent: 0, lastOrder: o.created_at }
-        }
-        statsMap[o.user_id].totalOrders += 1
-        if (o.order_status !== 'cancelled') {
-          statsMap[o.user_id].totalSpent += o.final_amount
-        }
-      })
-
-      const list: CustomerProfile[] = profiles.map(p => ({
-        ...p,
-        total_orders: statsMap[p.id]?.totalOrders ?? 0,
-        total_spent: statsMap[p.id]?.totalSpent ?? 0,
-        last_order_at: statsMap[p.id]?.lastOrder ?? undefined,
-      }))
-      setCustomers(list)
-    }
-
-    setLoading(false)
-  }, [])
-
-  useEffect(() => {
-    loadCustomers()
-  }, [loadCustomers])
-
-  const handleUpdateAddress = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!selectedCustomer) return
-    setSaving(true)
-    const supabase = createClient()
-    const { error } = await supabase
-      .from('profiles')
-      .update({ default_delivery_address: editAddress })
-      .eq('id', selectedCustomer.id)
-
-    if (error) {
-      showToast('Cập nhật địa chỉ tạm thời (demo)', 'info')
-    } else {
-      showToast('Đã cập nhật địa chỉ giao hàng của khách!', 'success')
-    }
-
-    setCustomers(prev => prev.map(c => c.id === selectedCustomer.id ? { ...c, default_delivery_address: editAddress } : c))
-    setSelectedCustomer(null)
-    setSaving(false)
-  }
-
-  const filteredCustomers = useMemo(() => {
+  const filtered = useMemo(() => {
     if (!searchQuery.trim()) return customers
     const q = searchQuery.toLowerCase()
     return customers.filter(c =>
@@ -172,268 +244,348 @@ export default function AdminCustomersPage() {
       <AdminSidebar />
 
       <main className="admin-main">
+        {/* Header */}
         <div className="admin-page-header">
           <div>
-            <h1 className="admin-page-title">Quản lý Khách hàng</h1>
-            <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--text-sm)', marginTop: 4 }}>
-              Danh sách nhân viên LSP đã đăng ký & đặt đồ uống ({customers.length} khách hàng)
+            <h1 className="admin-page-title">Quản lý Người Dùng & Khách Hàng</h1>
+            <p style={{ margin: '4px 0 0', fontSize: '13px', color: 'var(--color-text-secondary)' }}>
+              Tạo mới, chỉnh sửa thông tin, phân quyền Admin và hỗ trợ đổi mật khẩu
             </p>
           </div>
-
-          <div style={{ display: 'flex', gap: 12 }}>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
             <input
               className="input"
-              style={{ width: 280 }}
-              placeholder="🔍 Tìm tên, SĐT, địa chỉ giao..."
+              style={{ width: 260 }}
+              placeholder="🔍 Tìm tên, SĐT, địa chỉ..."
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
             />
+            <button
+              className="btn btn-primary btn-sm"
+              onClick={() => setCreateModalOpen(true)}
+              style={{ background: 'var(--color-primary)', display: 'flex', alignItems: 'center', gap: 6 }}
+            >
+              <span>➕</span>
+              <span>Thêm Người Dùng</span>
+            </button>
             <button className="btn btn-ghost btn-sm" onClick={loadCustomers} title="Làm mới">
               🔄
             </button>
           </div>
         </div>
 
-        {/* Customer Stats Cards */}
-        <div className="admin-stats" style={{ gridTemplateColumns: 'repeat(3, 1fr)', marginBottom: 24 }}>
-          <div className="admin-stat-card">
-            <span className="admin-stat-icon">👥</span>
-            <div className="admin-stat-value">{customers.length}</div>
-            <div className="admin-stat-label">Tổng khách hàng</div>
-          </div>
-          <div className="admin-stat-card">
-            <span className="admin-stat-icon">📦</span>
-            <div className="admin-stat-value">
-              {customers.reduce((sum, c) => sum + (c.total_orders || 0), 0)}
-            </div>
-            <div className="admin-stat-label">Tổng đơn đã đặt</div>
-          </div>
-          <div className="admin-stat-card">
-            <span className="admin-stat-icon">💰</span>
-            <div className="admin-stat-value" style={{ color: 'var(--color-primary)' }}>
-              {formatPrice(customers.reduce((sum, c) => sum + (c.total_spent || 0), 0))}
-            </div>
-            <div className="admin-stat-label">Tổng chi tiêu khách hàng</div>
-          </div>
-        </div>
-
-        {/* Customer Table */}
+        {/* Table */}
         <div className="admin-table-wrap">
-          <div className="admin-table-header">
-            <span style={{ fontWeight: 700, fontSize: 'var(--text-sm)' }}>
-              Danh sách ({filteredCustomers.length})
-            </span>
-          </div>
-
           {loading ? (
-            <div style={{ padding: 48, textAlign: 'center' }}>
+            <div style={{ padding: 48, display: 'flex', justifyContent: 'center' }}>
               <span className="spinner" />
-              <p style={{ marginTop: 12, color: 'var(--color-text-secondary)' }}>Đang tải danh sách khách hàng...</p>
             </div>
-          ) : filteredCustomers.length === 0 ? (
-            <div style={{ padding: 48, textAlign: 'center', color: 'var(--color-text-secondary)' }}>
-              Không tìm thấy khách hàng nào.
+          ) : filtered.length === 0 ? (
+            <div className="empty-state">
+              <span className="empty-state-icon">👥</span>
+              <p className="empty-state-title">
+                {searchQuery ? 'Không tìm thấy người dùng' : 'Chưa có người dùng nào'}
+              </p>
             </div>
           ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table className="admin-table">
-                <thead>
-                  <tr>
-                    <th>Khách hàng</th>
-                    <th>Số điện thoại</th>
-                    <th>Điểm giao mặc định</th>
-                    <th>Ngôn ngữ</th>
-                    <th>Đơn hàng</th>
-                    <th>Tổng chi</th>
-                    <th style={{ textAlign: 'right' }}>Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredCustomers.map(customer => (
-                    <tr key={customer.id}>
-                      <td>
-                        <div style={{ fontWeight: 700, color: 'var(--color-primary-dark)' }}>
-                          {customer.full_name}
-                        </div>
-                        <div style={{ fontSize: '11px', color: 'var(--color-text-secondary)' }}>
-                          Tham gia: {new Date(customer.created_at).toLocaleDateString('vi-VN')}
-                        </div>
-                      </td>
-                      <td>
-                        <a
-                          href={`tel:${customer.phone}`}
-                          style={{ color: 'var(--color-primary)', fontWeight: 600, textDecoration: 'none' }}
-                        >
-                          📞 {customer.phone}
+            <table className="admin-table">
+              <thead>
+                <tr>
+                  <th>Khách hàng & SĐT</th>
+                  <th>Địa chỉ nhận hàng mặc định</th>
+                  <th>Phân quyền</th>
+                  <th>Tổng đơn hàng</th>
+                  <th>Tổng chi tiêu</th>
+                  <th>Ngày đăng ký</th>
+                  <th style={{ textAlign: 'right' }}>Thao tác</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.map(c => (
+                  <tr key={c.id}>
+                    <td>
+                      <div style={{ fontWeight: 700, color: '#0F172A' }}>{c.full_name}</div>
+                      <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginTop: 2 }}>
+                        <a href={`tel:${c.phone}`} style={{ color: 'inherit', textDecoration: 'none' }}>
+                          📞 {c.phone}
                         </a>
-                      </td>
-                      <td style={{ maxWidth: 220 }}>
-                        <span style={{ fontSize: '13px', color: customer.default_delivery_address ? 'var(--color-text)' : 'var(--color-text-light)' }}>
-                          📍 {customer.default_delivery_address || 'Chưa lưu điểm giao'}
-                        </span>
-                      </td>
-                      <td>
-                        <span style={{
-                          padding: '2px 8px', borderRadius: 4, fontSize: '12px', fontWeight: 600,
-                          background: customer.language === 'vi' ? '#E8F5E9' : '#E3F2FD',
-                          color: customer.language === 'vi' ? '#2E7D32' : '#1565C0',
-                        }}>
-                          {customer.language === 'vi' ? '🇻🇳 Tiếng Việt' : '🇬🇧 English'}
-                        </span>
-                      </td>
-                      <td>
-                        <span style={{ fontWeight: 700, fontSize: '14px' }}>
-                          {customer.total_orders ?? 0}
-                        </span> đơn
-                      </td>
-                      <td style={{ fontWeight: 700, color: 'var(--color-primary)' }}>
-                        {formatPrice(customer.total_spent ?? 0)}
-                      </td>
-                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      </div>
+                    </td>
+                    <td style={{ maxWidth: 220, fontSize: 13, color: '#334155' }}>
+                      <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={c.default_delivery_address || ''}>
+                        {c.default_delivery_address ? `📍 ${c.default_delivery_address}` : <span style={{ color: '#94A3B8' }}>Chưa thiết lập</span>}
+                      </div>
+                    </td>
+                    <td>
+                      <span
+                        className={`badge ${c.role === 'admin' ? 'badge-info' : 'badge-neutral'}`}
+                        style={{ fontSize: 11, fontWeight: 700 }}
+                      >
+                        {c.role === 'admin' ? '👑 Quản trị viên' : '👤 Khách hàng'}
+                      </span>
+                    </td>
+                    <td>
+                      <span style={{ fontWeight: 700, color: '#1E293B' }}>{c.total_orders || 0}</span> đơn
+                    </td>
+                    <td style={{ fontWeight: 800, color: 'var(--color-primary)' }}>
+                      {formatPrice(c.total_spent || 0)}
+                    </td>
+                    <td style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
+                      {new Date(c.created_at).toLocaleDateString('vi-VN')}
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <div style={{ display: 'inline-flex', gap: 6 }}>
                         <button
                           className="btn btn-ghost btn-sm"
-                          onClick={() => {
-                            setSelectedCustomer(customer)
-                            setEditAddress(customer.default_delivery_address || '')
-                          }}
-                          style={{ fontSize: '12px', padding: '4px 10px', marginRight: 6 }}
+                          onClick={() => openEditModal(c)}
+                          style={{ fontSize: 12, padding: '4px 8px' }}
+                          title="Sửa thông tin"
                         >
-                          ✏️ Đổi điểm giao
+                          ✏️ Sửa
                         </button>
                         <button
-                          className="btn btn-secondary btn-sm"
+                          className="btn btn-outline btn-sm"
                           onClick={() => {
-                            setResetPwdCustomer(customer)
+                            setResetPwdCustomer(c)
                             setNewPassword('123456')
                           }}
-                          style={{ fontSize: '12px', padding: '4px 10px', color: '#B45309' }}
-                          title="Đặt lại mật khẩu cho khách hàng khi liên hệ hotline"
+                          style={{ fontSize: 12, padding: '4px 8px', color: '#B45309', borderColor: '#FDE68A' }}
+                          title="Đổi mật khẩu"
                         >
-                          🔑 Đặt lại MK
+                          🔑 Đổi MK
                         </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => handleDeleteUser(c)}
+                          style={{ fontSize: 12, padding: '4px 8px', color: '#DC2626' }}
+                          title="Xóa người dùng"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </div>
-
-        {/* Modal edit default delivery address */}
-        {selectedCustomer && (
-          <div style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-            zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
-          }}>
-            <div style={{
-              background: 'white', borderRadius: 'var(--radius-xl)',
-              maxWidth: 480, width: '100%', padding: 24, boxShadow: 'var(--shadow-xl)',
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <h3 style={{ fontSize: 'var(--text-base)', fontWeight: 800, color: 'var(--color-primary-dark)' }}>
-                  Cập nhật điểm giao mặc định
-                </h3>
-                <button
-                  onClick={() => setSelectedCustomer(null)}
-                  style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer' }}
-                >
-                  ✕
-                </button>
-              </div>
-
-              <p style={{ fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)', marginBottom: 16 }}>
-                Khách hàng: <strong>{selectedCustomer.full_name}</strong> ({selectedCustomer.phone})
-              </p>
-
-              <form onSubmit={handleUpdateAddress}>
-                <div className="input-group" style={{ marginBottom: 20 }}>
-                  <label className="input-label">Vị trí giao nhận tại nhà máy LSP</label>
-                  <input
-                    className="input"
-                    placeholder="VD: Xưởng PE - Phòng vận hành tầng 1"
-                    value={editAddress}
-                    onChange={e => setEditAddress(e.target.value)}
-                    required
-                  />
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
-                  <button type="button" className="btn btn-secondary" onClick={() => setSelectedCustomer(null)}>
-                    Hủy
-                  </button>
-                  <button type="submit" className="btn btn-primary" disabled={saving}>
-                    {saving ? 'Đang lưu...' : 'Lưu thay đổi'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
-
-        {/* Modal reset customer password */}
-        {resetPwdCustomer && (
-          <div style={{
-            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
-            zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16,
-          }}>
-            <div style={{
-              background: 'white', borderRadius: 'var(--radius-xl)',
-              maxWidth: 440, width: '100%', padding: 24, boxShadow: 'var(--shadow-xl)',
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#B45309', margin: 0 }}>
-                  🔑 Đặt lại mật khẩu khách hàng
-                </h3>
-                <button
-                  onClick={() => setResetPwdCustomer(null)}
-                  style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer' }}
-                >
-                  ✕
-                </button>
-              </div>
-
-              <p style={{ fontSize: '13px', color: '#4A5568', lineHeight: 1.5, marginBottom: 16 }}>
-                Khách hàng: <strong>{resetPwdCustomer.full_name}</strong><br />
-                Số điện thoại: <strong>{resetPwdCustomer.phone}</strong>
-              </p>
-
-              <form onSubmit={handleResetPassword}>
-                <div className="input-group" style={{ marginBottom: 20 }}>
-                  <label className="input-label" style={{ fontSize: '12px', fontWeight: 700 }}>
-                    Mật khẩu mới cấp cho khách (tối thiểu 6 ký tự)
-                  </label>
-                  <input
-                    type="text"
-                    className="input"
-                    value={newPassword}
-                    onChange={e => setNewPassword(e.target.value)}
-                    required
-                    style={{ fontSize: '14px', fontWeight: 700 }}
-                  />
-                  <span style={{ fontSize: '11px', color: '#718096', marginTop: 4 }}>
-                    Gợi ý: đặt mật khẩu dễ nhớ (VD: 123456) rồi thông báo cho khách qua điện thoại/Zalo.
-                  </span>
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-                  <button type="button" className="btn btn-secondary" onClick={() => setResetPwdCustomer(null)}>
-                    Hủy
-                  </button>
-                  <button
-                    type="submit"
-                    className="btn btn-primary"
-                    style={{ background: '#B45309', borderColor: '#B45309' }}
-                    disabled={resettingPwd}
-                  >
-                    {resettingPwd ? 'Đang cập nhật...' : 'Xác nhận đặt lại MK'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
       </main>
+
+      {/* Modal: Create User */}
+      {createModalOpen && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(3px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20,
+          }}
+          onClick={() => setCreateModalOpen(false)}
+        >
+          <div
+            style={{
+              background: '#FFFFFF', borderRadius: 20, maxWidth: 480, width: '100%', padding: 24,
+              boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <h2 style={{ margin: '0 0 16px', fontSize: 18, fontWeight: 800, color: '#0F172A' }}>
+              ➕ Thêm Người Dùng Mới
+            </h2>
+            <form onSubmit={handleCreateUser} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div className="input-group">
+                <label className="input-label">Họ và tên *</label>
+                <input
+                  type="text"
+                  className="input"
+                  placeholder="Ví dụ: Nguyễn Văn A"
+                  value={createName}
+                  onChange={e => setCreateName(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="input-group">
+                <label className="input-label">Số điện thoại *</label>
+                <input
+                  type="tel"
+                  className="input"
+                  placeholder="0977999948"
+                  value={createPhone}
+                  onChange={e => setCreatePhone(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="input-group">
+                <label className="input-label">Mật khẩu khởi tạo * (tối thiểu 6 ký tự)</label>
+                <input
+                  type="text"
+                  className="input"
+                  value={createPassword}
+                  onChange={e => setCreatePassword(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="input-group">
+                <label className="input-label">Địa chỉ nhận hàng mặc định</label>
+                <input
+                  type="text"
+                  className="input"
+                  placeholder="Ví dụ: Xưởng PP - Tầng 2..."
+                  value={createAddress}
+                  onChange={e => setCreateAddress(e.target.value)}
+                />
+              </div>
+
+              <div className="input-group">
+                <label className="input-label">Phân quyền</label>
+                <select
+                  className="input"
+                  value={createRole}
+                  onChange={e => setCreateRole(e.target.value as any)}
+                >
+                  <option value="customer">👤 Khách hàng (Được giảm 20% nếu là NV)</option>
+                  <option value="admin">👑 Quản trị viên (Truy cập được trang Admin)</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 10 }}>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setCreateModalOpen(false)}>
+                  Hủy
+                </button>
+                <button type="submit" className="btn btn-primary btn-sm" disabled={submittingCreate}>
+                  {submittingCreate ? 'Đang tạo...' : 'Tạo Người Dùng'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Edit User */}
+      {editCustomer && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(3px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20,
+          }}
+          onClick={() => setEditCustomer(null)}
+        >
+          <div
+            style={{
+              background: '#FFFFFF', borderRadius: 20, maxWidth: 480, width: '100%', padding: 24,
+              boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <h2 style={{ margin: '0 0 16px', fontSize: 18, fontWeight: 800, color: '#0F172A' }}>
+              ✏️ Chỉnh Sửa Thông Tin Người Dùng
+            </h2>
+            <form onSubmit={handleUpdateUser} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div className="input-group">
+                <label className="input-label">Họ và tên</label>
+                <input
+                  type="text"
+                  className="input"
+                  value={editName}
+                  onChange={e => setEditName(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="input-group">
+                <label className="input-label">Số điện thoại</label>
+                <input
+                  type="tel"
+                  className="input"
+                  value={editPhone}
+                  onChange={e => setEditPhone(e.target.value)}
+                  required
+                />
+              </div>
+
+              <div className="input-group">
+                <label className="input-label">Địa chỉ nhận hàng</label>
+                <input
+                  type="text"
+                  className="input"
+                  value={editAddress}
+                  onChange={e => setEditAddress(e.target.value)}
+                />
+              </div>
+
+              <div className="input-group">
+                <label className="input-label">Vai trò / Quyền hạn</label>
+                <select
+                  className="input"
+                  value={editRole}
+                  onChange={e => setEditRole(e.target.value as any)}
+                >
+                  <option value="customer">👤 Khách hàng</option>
+                  <option value="admin">👑 Quản trị viên (Admin)</option>
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 10 }}>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setEditCustomer(null)}>
+                  Hủy
+                </button>
+                <button type="submit" className="btn btn-primary btn-sm" disabled={submittingEdit}>
+                  {submittingEdit ? 'Đang lưu...' : 'Lưu Thay Đổi'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Reset Password */}
+      {resetPwdCustomer && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(3px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20,
+          }}
+          onClick={() => setResetPwdCustomer(null)}
+        >
+          <div
+            style={{
+              background: '#FFFFFF', borderRadius: 20, maxWidth: 440, width: '100%', padding: 24,
+              boxShadow: '0 25px 50px -12px rgba(0,0,0,0.25)',
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            <h2 style={{ margin: '0 0 8px', fontSize: 18, fontWeight: 800, color: '#0F172A' }}>
+              🔑 Đặt Lại Mật Khẩu
+            </h2>
+            <p style={{ margin: '0 0 16px', fontSize: 13, color: '#64748B' }}>
+              Người dùng: <strong>{resetPwdCustomer.full_name}</strong> ({resetPwdCustomer.phone})
+            </p>
+            <form onSubmit={handleResetPassword} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <div className="input-group">
+                <label className="input-label">Mật khẩu mới</label>
+                <input
+                  type="text"
+                  className="input"
+                  value={newPassword}
+                  onChange={e => setNewPassword(e.target.value)}
+                  placeholder="Nhập mật khẩu mới..."
+                  required
+                />
+              </div>
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 8 }}>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={() => setResetPwdCustomer(null)}>
+                  Hủy
+                </button>
+                <button type="submit" className="btn btn-primary btn-sm" disabled={resettingPwd}>
+                  {resettingPwd ? 'Đang đặt lại...' : 'Xác Nhận Đổi Mật Khẩu'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

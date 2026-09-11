@@ -146,6 +146,24 @@
   white-space: nowrap;
 }
 
+.pillPending {
+  background: #FFFBEB;
+  color: #B45309;
+  border: 1px solid #FDE68A;
+}
+
+.pillConfirmed {
+  background: #EFF6FF;
+  color: #1D4ED8;
+  border: 1px solid #BFDBFE;
+}
+
+.pillPreparing {
+  background: #F5F3FF;
+  color: #6D28D9;
+  border: 1px solid #DDD6FE;
+}
+
 .pillDelivering {
   background: #FEF3C7;
   color: #D97706;
@@ -154,6 +172,11 @@
 .pillCompleted {
   background: #E8F5E9;
   color: #2D6A4F;
+}
+
+.pillCancelled {
+  background: #FEE2E2;
+  color: #B91C1C;
 }
 
 .orderTime {

@@ -123,6 +123,25 @@ export default function OrdersPage() {
               ? 'https://images.unsplash.com/photo-1536256263959-770b48d82b0a?w=500&q=80'
               : 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=500&q=80'
 
+            const badge = (() => {
+              switch (order.order_status) {
+                case 'pending':
+                  return { cls: styles.pillPending, txt: lang === 'vi' ? 'Chờ xác nhận' : 'Pending' }
+                case 'confirmed':
+                  return { cls: styles.pillConfirmed, txt: lang === 'vi' ? 'Đã xác nhận' : 'Confirmed' }
+                case 'preparing':
+                  return { cls: styles.pillPreparing, txt: lang === 'vi' ? 'Đang pha chế' : 'Preparing' }
+                case 'delivering':
+                  return { cls: styles.pillDelivering, txt: lang === 'vi' ? 'Đang giao' : 'Delivering' }
+                case 'delivered':
+                  return { cls: styles.pillCompleted, txt: lang === 'vi' ? 'Đã giao' : 'Delivered' }
+                case 'cancelled':
+                  return { cls: styles.pillCancelled, txt: lang === 'vi' ? 'Đã hủy' : 'Cancelled' }
+                default:
+                  return { cls: styles.pillCompleted, txt: order.order_status }
+              }
+            })()
+
             return (
               <Link
                 key={order.id}
@@ -138,7 +157,7 @@ export default function OrdersPage() {
                 <div className={styles.orderMain}>
                   <div className={styles.orderCode}>{order.order_number}</div>
                   <div className={styles.orderPricing}>
-                    {formatPrice(order.final_amount)} • 3 items
+                    {formatPrice(order.final_amount)}
                   </div>
                   <div className={styles.orderLocation}>
                     {order.delivery_address.split('\n')[0]}
@@ -147,10 +166,8 @@ export default function OrdersPage() {
 
                 {/* Right Status Badge & Time */}
                 <div className={styles.orderStatusCol}>
-                  <span className={`${styles.statusPill} ${isDelivering ? styles.pillDelivering : styles.pillCompleted}`}>
-                    {isDelivering
-                      ? (lang === 'vi' ? 'Đang giao' : 'Delivering')
-                      : (lang === 'vi' ? 'Hoàn thành' : 'Completed')}
+                  <span className={`${styles.statusPill} ${badge.cls}`}>
+                    {badge.txt}
                   </span>
                   <span className={styles.orderTime}>{formattedTime}</span>
                 </div>

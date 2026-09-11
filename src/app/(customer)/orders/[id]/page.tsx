@@ -93,61 +93,9 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     return () => { sub.unsubscribe() }
   }, [id, lang, showToast])
 
-  if (loading) return (
-    <div style={{ display: 'flex', justifyContent: 'center', padding: 64 }}>
-      <span className="spinner" />
-    </div>
-  )
-
-  if (!order) return null
-
-  // Timeline steps configuration matching Screen 8
-  const steps = [
-    {
-      title_vi: 'Đã nhận đơn',
-      title_en: 'Order Placed',
-      time: '09:41 - Sep 11, 2026',
-      desc_vi: 'Quầy One Coffee đã nhận được đơn',
-      desc_en: 'Order confirmed by counter',
-      icon: '✓',
-      isCompleted: true,
-      isActive: false,
-    },
-    {
-      title_vi: 'Đang pha chế',
-      title_en: 'Preparing Your Drinks',
-      time: '09:45 - Sep 11, 2026',
-      desc_vi: 'Đang chuẩn bị thức uống theo yêu cầu',
-      desc_en: 'Barista is crafting your beverage',
-      icon: '✓',
-      isCompleted: true,
-      isActive: false,
-    },
-    {
-      title_vi: 'Đang giao hàng',
-      title_en: 'Out for Delivery',
-      time: '09:50 - Sep 11, 2026',
-      desc_vi: 'Nước đang trên đường chuyển đến vị trí của bạn!',
-      desc_en: 'Your drinks are on the way!',
-      icon: '🛵',
-      isCompleted: false,
-      isActive: true,
-    },
-    {
-      title_vi: 'Đã giao thành công',
-      title_en: 'Delivered',
-      time: 'Dự kiến 10:00',
-      desc_vi: 'Chúc bạn một ngày làm việc vui vẻ!',
-      desc_en: 'Enjoy your delicious coffee!',
-      icon: '○',
-      isCompleted: false,
-      isActive: false,
-    },
-  ]
-
   if (loading) {
     return (
-      <div style={{ padding: 48, display: 'flex', justifyContent: 'center' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', padding: 64 }}>
         <span className="spinner" />
       </div>
     )
@@ -174,6 +122,94 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
     )
   }
 
+  const createdDate = new Date(order.created_at)
+  const createdTimeStr = createdDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  const createdDateStr = createdDate.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })
+  const orderTimeLabel = `${createdTimeStr} - ${createdDateStr}`
+
+  const isPending = order.order_status === 'pending'
+  const isConfirmed = order.order_status === 'confirmed'
+  const isPreparing = order.order_status === 'preparing'
+  const isDelivering = order.order_status === 'delivering'
+  const isDelivered = order.order_status === 'delivered'
+  const isCancelled = order.order_status === 'cancelled'
+
+  // Dynamic Timeline steps matching real order status
+  const steps = [
+    {
+      title_vi: 'Đã nhận đơn',
+      title_en: 'Order Placed',
+      time: orderTimeLabel,
+      desc_vi: isPending
+        ? 'Quầy One Coffee đã nhận được đơn, đang chờ xác nhận.'
+        : 'Quầy One Coffee đã tiếp nhận đơn hàng.',
+      desc_en: isPending
+        ? 'Order received, waiting for confirmation.'
+        : 'Order received by counter.',
+      icon: isPending ? '⏳' : '✓',
+      isCompleted: !isPending,
+      isActive: isPending,
+    },
+    {
+      title_vi: 'Xác nhận & Pha chế',
+      title_en: 'Confirmed & Preparing',
+      time: isPending
+        ? (lang === 'vi' ? 'Chờ xác nhận' : 'Pending')
+        : (lang === 'vi' ? 'Đang thực hiện' : 'In progress'),
+      desc_vi: isPreparing || isConfirmed
+        ? 'Barista One Coffee đang chuẩn bị thức uống của bạn.'
+        : ['delivering', 'delivered'].includes(order.order_status)
+        ? 'Đã pha chế xong, thức uống sẵn sàng giao.'
+        : 'Sẽ pha chế ngay sau khi xác nhận đơn.',
+      desc_en: isPreparing || isConfirmed
+        ? 'Barista is crafting your beverage.'
+        : ['delivering', 'delivered'].includes(order.order_status)
+        ? 'Beverages prepared and ready.'
+        : 'Will prepare after order confirmation.',
+      icon: ['delivering', 'delivered'].includes(order.order_status) ? '✓' : '☕',
+      isCompleted: ['delivering', 'delivered'].includes(order.order_status),
+      isActive: isConfirmed || isPreparing,
+    },
+    {
+      title_vi: 'Đang giao hàng',
+      title_en: 'Out for Delivery',
+      time: isDelivering
+        ? (lang === 'vi' ? 'Đang trên đường giao' : 'On the way')
+        : isDelivered
+        ? (lang === 'vi' ? 'Đã giao' : 'Delivered')
+        : (lang === 'vi' ? 'Dự kiến sau khi pha chế' : 'Est. after prep'),
+      desc_vi: isDelivering
+        ? 'Nước đang trên đường chuyển đến vị trí của bạn!'
+        : isDelivered
+        ? 'Đã vận chuyển đến điểm nhận.'
+        : 'Nhân viên sẽ giao ngay sau khi chuẩn bị xong.',
+      desc_en: isDelivering
+        ? 'Your drinks are on the way!'
+        : isDelivered
+        ? 'Delivered to your location.'
+        : 'Drinks will be dispatched once prepared.',
+      icon: isDelivered ? '✓' : '🛵',
+      isCompleted: isDelivered,
+      isActive: isDelivering,
+    },
+    {
+      title_vi: 'Đã giao thành công',
+      title_en: 'Delivered',
+      time: isDelivered
+        ? (lang === 'vi' ? 'Hoàn tất' : 'Completed')
+        : (lang === 'vi' ? 'Bước cuối' : 'Final step'),
+      desc_vi: isDelivered
+        ? 'Cảm ơn bạn! Chúc bạn thưởng thức đồ uống ngon miệng ❤️'
+        : 'Hoàn tất đơn hàng và thưởng thức đồ uống.',
+      desc_en: isDelivered
+        ? 'Thank you! Enjoy your delicious coffee ❤️'
+        : 'Complete order and enjoy drinks.',
+      icon: isDelivered ? '🎉' : '○',
+      isCompleted: isDelivered,
+      isActive: isDelivered,
+    },
+  ]
+
   const totalItemsCount = items.reduce((sum, i) => sum + i.quantity, 0)
 
   return (
@@ -192,6 +228,13 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         </h1>
         <div style={{ width: '28px' }} />
       </header>
+
+      {isCancelled && (
+        <div style={{ background: '#FEE2E2', border: '1px solid #FCA5A5', color: '#991B1B', borderRadius: '14px', padding: '14px 16px', marginBottom: '16px', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span>❌</span>
+          <span>{lang === 'vi' ? 'Đơn hàng này đã bị hủy. Quý khách vui lòng liên hệ quầy hoặc đặt lại đơn mới.' : 'This order has been cancelled.'}</span>
+        </div>
+      )}
 
       {/* Vertical Stepper matching Screen 8 */}
       <div className={styles.timelineCard}>

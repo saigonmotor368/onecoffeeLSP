@@ -216,6 +216,38 @@ export default function AdminOrderDetailPage({ params }: { params: Promise<{ id:
                 </button>
               </div>
             </div>
+
+            {/* Danger Zone: Delete Order */}
+            <div className="admin-table-wrap" style={{ padding: 20, borderColor: '#FECACA', background: '#FFF5F5' }}>
+              <h3 style={{ fontWeight: 700, marginBottom: 8, fontSize: 'var(--text-base)', color: '#DC2626' }}>
+                ⚠️ Xóa đơn (Gian lận / Spam)
+              </h3>
+              <p style={{ fontSize: '12px', color: '#7F1D1D', margin: '0 0 14px', lineHeight: 1.4 }}>
+                Sử dụng khi phát hiện đơn hàng ảo hoặc gian lận. Đơn hàng và toàn bộ dữ liệu liên quan sẽ bị xóa vĩnh viễn.
+              </p>
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                onClick={async () => {
+                  if (window.confirm(`Bạn có chắc chắn muốn XÓA VĨNH VIỄN đơn hàng #${order.order_number}?`)) {
+                    const res = await fetch('/api/admin/orders/delete', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ orderId: order.id }),
+                    })
+                    if (res.ok) {
+                      showToast('Đã xóa đơn hàng thành công', 'success')
+                      router.replace('/admin/orders')
+                    } else {
+                      showToast('Lỗi khi xóa đơn hàng', 'error')
+                    }
+                  }
+                }}
+                style={{ width: '100%', color: '#DC2626', borderColor: '#DC2626', background: '#FFFFFF' }}
+              >
+                🗑️ Xóa đơn hàng này
+              </button>
+            </div>
           </div>
         </div>
       </main>
