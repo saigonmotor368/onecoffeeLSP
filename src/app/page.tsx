@@ -9,7 +9,7 @@ import { LANGUAGE_OPTIONS } from '@/lib/i18n'
 
 export default function WelcomePage() {
   const router = useRouter()
-  const { lang, setLang, t } = useLang()
+  const { lang, setLang } = useLang()
 
   useEffect(() => {
     const checkSession = async () => {
@@ -23,7 +23,10 @@ export default function WelcomePage() {
 
   return (
     <div className={styles.pageContainer}>
-      {/* Floating Language Switcher at Top */}
+      {/* Background with Green Top, Cream Arch, and Roasted Coffee Beans */}
+      <div className={styles.bgImage} />
+
+      {/* Floating Language Switcher at Top Right */}
       <header className={styles.topBar}>
         <div className={styles.langPills}>
           {LANGUAGE_OPTIONS.map(opt => (
@@ -40,38 +43,33 @@ export default function WelcomePage() {
         </div>
       </header>
 
-      {/* Center Piece: Arched Cream Card matching Screen 1 */}
-      <main className={styles.centerSection}>
-        <div className={styles.archedCard}>
-          {/* Circular Brand Logo (transparent PNG) */}
-          <div className={styles.logoWrapper}>
-            <Image
-              src="/logo-circle.png"
-              alt="One Coffee Logo"
-              width={116}
-              height={116}
-              priority
-              className={styles.logoImg}
-            />
-          </div>
+      {/* Brand & Slogan Content centered in the Cream Arch */}
+      <main className={styles.brandContent}>
+        {/* Transparent Logo */}
+        <div className={styles.logoWrapper}>
+          <Image
+            src="/logo-circle.png"
+            alt="One Coffee Logo"
+            width={124}
+            height={124}
+            priority
+            className={styles.logoImg}
+          />
+        </div>
 
-          {/* Brand Heading */}
-          <h1 className={styles.brandTitle}>ONE COFFEE</h1>
+        {/* Brand Heading */}
+        <h1 className={styles.brandTitle}>ONE COFFEE</h1>
 
-          {/* Slogan matching Screen 1 layout */}
-          <div className={styles.sloganContainer}>
-            <p className={styles.sloganLine1}>
-              Good Coffee <span className={styles.sloganDash}>—</span>
-            </p>
-            <p className={styles.sloganLine2}>Brighter Workdays</p>
-          </div>
+        {/* Slogan matching Screen 1 layout */}
+        <div className={styles.sloganContainer}>
+          <p className={styles.sloganLine1}>
+            Good Coffee <span className={styles.sloganDash}>—</span>
+          </p>
+          <p className={styles.sloganLine2}>Brighter Workdays</p>
         </div>
       </main>
 
-      {/* Foreground Real Roasted Coffee Beans (Screen 1) */}
-      <div className={styles.coffeeBeansForeground} />
-
-      {/* Bottom Actions sitting directly on Coffee Beans (Screen 1) */}
+      {/* Bottom Actions sitting directly over Roasted Coffee Beans */}
       <footer className={styles.bottomSection}>
         <button
           type="button"
