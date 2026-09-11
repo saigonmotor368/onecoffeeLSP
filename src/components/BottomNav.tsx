@@ -12,10 +12,18 @@ const navItems = [
   { href: '/profile', icon: '👤', label_vi: 'Tài khoản',  label_en: 'More' },
 ]
 
+const MAIN_NAV_PATHS = ['/home', '/menu', '/orders', '/profile']
+
 export default function BottomNav() {
   const pathname = usePathname()
   const { totalItems } = useCart()
   const { lang } = useLang()
+
+  // Only display bottom navigation on main customer tabs.
+  // Hide on detail pages (/menu/[id], /cart, /checkout, /orders/[id]) to prevent button overlap.
+  if (!MAIN_NAV_PATHS.includes(pathname)) {
+    return null
+  }
 
   return (
     <nav className={styles.nav} role="navigation" aria-label="Bottom navigation">
