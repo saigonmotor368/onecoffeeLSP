@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { use } from 'react'
-import { menuProducts, addons, getProductImage } from '@/lib/menu-data'
+import { menuProducts, addons, getProductImage, type MenuProduct } from '@/lib/menu-data'
 import { useCart, useLang, useToast } from '@/lib/providers'
-import { formatPrice } from '@/lib/utils'
+import { formatPrice, toVndPrice } from '@/lib/utils'
+import { createClient } from '@/lib/supabase/client'
 import styles from './product.module.css'
 
 export default function ProductPage({ params }: { params: Promise<{ id: string }> }) {
@@ -15,7 +16,45 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
   const { addItem } = useCart()
   const { showToast } = useToast()
 
-  const product = menuProducts.find(p => p.id === id) || menuProducts[0]
+  const [product, setProduct] = useState<MenuProduct>(() => {
+    return menuProducts.find(p => p.id === id) || menuProducts[0]
+  })
+
+  useEffect(() => {
+    if (!id) return
+    const found = menuProducts.find(p => p.id === id)
+    if (found) {
+      setProduct(found)
+      return
+    }
+
+    // Lookup from Supabase by UUID
+    const supabase = createClient()
+    supabase
+      .from('products')
+      .select('*, categories(slug)')
+      .eq('id', id)
+      .single()
+      .then(({ data }) => {
+        if (data) {
+          const d = data as any
+          setProduct({
+            id: d.id,
+            category_slug: d.categories?.slug || 'coffee',
+            name_vi: d.name_vi,
+            name_en: d.name_en,
+            description_vi: d.description_vi,
+            description_en: d.description_en,
+            price_m: d.price_m,
+            price_l: d.price_l,
+            image_url: d.image_url,
+            is_featured: d.is_featured,
+            is_new: d.is_new,
+            is_recommended: d.is_recommended,
+          })
+        }
+      })
+  }, [id])
 
   const [size, setSize] = useState<'M' | 'L'>(() => {
     if (product.price_m) return 'M'
@@ -30,12 +69,14 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
   const titleVi = product.name_vi
   const imageUrl = getProductImage(product)
 
-  const unitPrice = (size === 'M' ? product.price_m : product.price_l) ?? (product.price_m || product.price_l || 48)
+  const rawUnitPrice = (size === 'M' ? product.price_m : product.price_l) ?? (product.price_m || product.price_l || 48)
+  const unitPrice = toVndPrice(rawUnitPrice)
   const addonTotal = selectedAddons.reduce((sum, aId) => {
     const addon = addons.find(a => a.id === aId)
-    return sum + (addon?.price ?? 0)
+    return sum + toVndPrice(addon?.price ?? 10)
   }, 0)
-  const totalPrice = (unitPrice + addonTotal) * qty * 1000
+  const calculatedUnitPrice = unitPrice + addonTotal
+  const totalPrice = calculatedUnitPrice * qty
 
   const handleAddToCart = () => {
     addItem({
@@ -44,7 +85,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
       name_en: product.name_en,
       size,
       quantity: qty,
-      unit_price: (unitPrice + addonTotal) * 1000,
+      unit_price: calculatedUnitPrice,
       addon_ids: selectedAddons,
       notes,
       image_url: imageUrl,
@@ -92,7 +133,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
           <h1 className={styles.mainTitle}>{titleEn}</h1>
           <p className={styles.subTitle}>{titleVi}</p>
           <div className={styles.priceTag}>
-            {formatPrice(unitPrice * 1000)}
+            {formatPrice(calculatedUnitPrice)}
           </div>
         </div>
 
@@ -107,7 +148,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                 onClick={() => setSize('M')}
               >
                 <span className={styles.sizeTitle}>M</span>
-                <span className={styles.sizeCost}>{formatPrice(product.price_m * 1000)}</span>
+                <span className={styles.sizeCost}>{formatPrice(product.price_m)}</span>
               </button>
               <button
                 type="button"
@@ -115,7 +156,7 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
                 onClick={() => setSize('L')}
               >
                 <span className={styles.sizeTitle}>L</span>
-                <span className={styles.sizeCost}>{formatPrice(product.price_l * 1000)}</span>
+                <span className={styles.sizeCost}>{formatPrice(product.price_l)}</span>
               </button>
             </div>
           </div>

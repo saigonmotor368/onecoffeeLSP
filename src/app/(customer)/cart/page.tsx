@@ -12,11 +12,30 @@ import styles from './cart.module.css'
 export default function CartPage() {
   const router = useRouter()
   const { lang } = useLang()
-  const { items, updateQuantity, clearCart, subtotal } = useCart()
+  const {
+    items,
+    updateQuantity,
+    clearCart,
+    subtotal,
+    freeShippingThreshold,
+    isFreeShipping,
+    remainingForFreeShipping,
+    shippingFee,
+    employeeDiscountPercent,
+    employeeDiscount,
+    appliedVoucher,
+    voucherDiscount,
+    finalAmount,
+    applyVoucher,
+    removeVoucher,
+  } = useCart()
+
   const { showToast } = useToast()
 
   const [selectedLocation, setSelectedLocation] = useState<string>(DEFAULT_LOCATION.name_en)
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false)
+  const [voucherCodeInput, setVoucherCodeInput] = useState('')
+  const [applyingVoucher, setApplyingVoucher] = useState(false)
 
   useEffect(() => {
     const saved = localStorage.getItem('oc_delivery_location')
@@ -26,6 +45,22 @@ export default function CartPage() {
   const handleLocationSelect = (locName: string) => {
     setSelectedLocation(locName)
     localStorage.setItem('oc_delivery_location', locName)
+  }
+
+  const handleApplyVoucher = async () => {
+    if (!voucherCodeInput.trim()) {
+      showToast(lang === 'vi' ? 'Vui lòng nhập mã khuyến mãi' : 'Please enter a voucher code', 'warning')
+      return
+    }
+    setApplyingVoucher(true)
+    const res = await applyVoucher(voucherCodeInput)
+    setApplyingVoucher(false)
+    if (res.success) {
+      showToast(res.message, 'success')
+      setVoucherCodeInput('')
+    } else {
+      showToast(res.message, 'error')
+    }
   }
 
   if (items.length === 0) {
@@ -50,9 +85,11 @@ export default function CartPage() {
     )
   }
 
+  const freeshipPercent = Math.min(100, Math.round((subtotal / freeShippingThreshold) * 100))
+
   return (
     <div className={styles.pageContainer}>
-      {/* Header matching Screen 5 */}
+      {/* Header */}
       <header className={styles.header}>
         <h1 className={styles.title}>{lang === 'vi' ? 'Giỏ hàng' : 'Your Cart'}</h1>
         <button
@@ -69,7 +106,32 @@ export default function CartPage() {
         </button>
       </header>
 
-      {/* Cart Items List matching Screen 5 */}
+      {/* Free Shipping Progress Card */}
+      <div className={styles.freeshipCard}>
+        <div className={styles.freeshipHeader}>
+          <span>🚚</span>
+          {isFreeShipping ? (
+            <span className={styles.freeshipSuccess}>
+              {lang === 'vi' ? '🎉 Bạn đã được MIỄN PHÍ giao hàng tận tay!' : '🎉 You qualified for FREE Delivery!'}
+            </span>
+          ) : (
+            <span>
+              {lang === 'vi'
+                ? `Thêm ${formatPrice(remainingForFreeShipping)} để được `
+                : `Add ${formatPrice(remainingForFreeShipping)} more for `}
+              <strong style={{ color: '#1E4D3B' }}>{lang === 'vi' ? 'MIỄN PHÍ SHIP' : 'FREE SHIP'}</strong>
+            </span>
+          )}
+        </div>
+        <div className={styles.freeshipProgressTrack}>
+          <div
+            className={styles.freeshipProgressBar}
+            style={{ width: `${freeshipPercent}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Cart Items List */}
       <div className={styles.itemsList}>
         {items.map(item => {
           const name = lang === 'vi' ? item.name_vi : item.name_en
@@ -90,7 +152,7 @@ export default function CartPage() {
                   Size {item.size} — {formatPrice(item.unit_price)}
                 </p>
 
-                {/* Quantity Stepper matching Screen 5 */}
+                {/* Quantity Stepper */}
                 <div className={styles.stepperWrap}>
                   <button
                     className={styles.stepperBtn}
@@ -108,7 +170,7 @@ export default function CartPage() {
                 </div>
               </div>
 
-              {/* Right Line Total matching Screen 5 */}
+              {/* Right Line Total */}
               <div className={styles.itemTotal}>
                 {formatPrice(lineTotal)}
               </div>
@@ -117,7 +179,94 @@ export default function CartPage() {
         })}
       </div>
 
-      {/* Delivery Location Section matching Screen 5 */}
+      {/* Internal Employee Discount Badge */}
+      {employeeDiscountPercent > 0 && (
+        <div className={styles.employeeCard}>
+          <div className={styles.employeeInfo}>
+            <span className={styles.employeeBadge}>LSP STAFF</span>
+            <span className={styles.employeeText}>
+              {lang === 'vi'
+                ? `Ưu đãi nhân viên nội bộ LSP (-${employeeDiscountPercent}%)`
+                : `Internal LSP Staff Discount (-${employeeDiscountPercent}%)`}
+            </span>
+          </div>
+          <span className={styles.employeeSavings}>
+            -{formatPrice(employeeDiscount)}
+          </span>
+        </div>
+      )}
+
+      {/* Voucher Input & Applied Voucher */}
+      <div className={styles.voucherSection}>
+        <div style={{ fontSize: '13px', fontWeight: 700, color: '#1A202C' }}>
+          {lang === 'vi' ? '🎫 Voucher & Khuyến mãi' : '🎫 Vouchers & Promotions'}
+        </div>
+
+        {appliedVoucher ? (
+          <div className={styles.appliedVoucherTag}>
+            <div className={styles.voucherTagLeft}>
+              <span>✓</span>
+              <span>
+                {appliedVoucher.code} ({appliedVoucher.type === 'percent' ? `-${appliedVoucher.value}%` : `-${formatPrice(appliedVoucher.value)}`})
+              </span>
+              <span style={{ fontWeight: 800, color: '#2B6CB0', marginLeft: '4px' }}>
+                (-{formatPrice(voucherDiscount)})
+              </span>
+            </div>
+            <button
+              className={styles.btnRemoveVoucher}
+              onClick={() => {
+                removeVoucher()
+                showToast(lang === 'vi' ? 'Đã hủy voucher' : 'Voucher removed', 'info')
+              }}
+              title={lang === 'vi' ? 'Xóa voucher' : 'Remove voucher'}
+            >
+              ✕
+            </button>
+          </div>
+        ) : (
+          <div className={styles.voucherInputRow}>
+            <input
+              type="text"
+              className={styles.voucherInput}
+              placeholder={lang === 'vi' ? 'Nhập mã voucher (VD: WELCOME10)' : 'Enter promo code'}
+              value={voucherCodeInput}
+              onChange={e => setVoucherCodeInput(e.target.value.toUpperCase())}
+              onKeyDown={e => { if (e.key === 'Enter') handleApplyVoucher() }}
+            />
+            <button
+              className={styles.btnApplyVoucher}
+              onClick={handleApplyVoucher}
+              disabled={applyingVoucher}
+            >
+              {applyingVoucher ? '...' : (lang === 'vi' ? 'Áp dụng' : 'Apply')}
+            </button>
+          </div>
+        )}
+
+        {/* Quick voucher hints */}
+        {!appliedVoucher && (
+          <div className={styles.quickVouchers}>
+            <span className={styles.quickVoucherLabel}>{lang === 'vi' ? 'Gợi ý mã:' : 'Available:'}</span>
+            <button
+              type="button"
+              className={styles.quickVoucherPill}
+              onClick={() => { setVoucherCodeInput('WELCOME10') }}
+            >
+              WELCOME10 (-10%)
+            </button>
+            <button
+              type="button"
+              className={styles.quickVoucherPill}
+              onClick={() => { setVoucherCodeInput('LSP50K') }}
+            >
+              LSP50K (-50k)
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Delivery Location Section */}
       <div
         className={styles.locationBox}
         onClick={() => setIsLocationModalOpen(true)}
@@ -125,25 +274,61 @@ export default function CartPage() {
         <span className={styles.locationPin}>📍</span>
         <div className={styles.locationDetails}>
           <span className={styles.locationHead}>
-            {lang === 'vi' ? 'Điểm nhận nước' : 'Delivery Location'}
+            {lang === 'vi' ? 'Điểm nhận nước tại LSP (21 điểm)' : 'Delivery Destination (21 Zones)'}
           </span>
           <span className={styles.locationName}>{selectedLocation}</span>
         </div>
         <span className={styles.locationArrow}>›</span>
       </div>
 
-      {/* Bottom Summary & Button matching Screen 5 */}
+      {/* Bill Breakdown Card */}
+      <div className={styles.billCard}>
+        <div className={styles.billTitle}>
+          {lang === 'vi' ? 'Chi tiết thanh toán' : 'Payment Breakdown'}
+        </div>
+        <div className={styles.billRow}>
+          <span>{lang === 'vi' ? 'Tạm tính tiền món' : 'Item Subtotal'}</span>
+          <span>{formatPrice(subtotal)}</span>
+        </div>
+        {employeeDiscount > 0 && (
+          <div className={styles.billRowGreen}>
+            <span>{lang === 'vi' ? 'Chiết khấu nhân viên LSP (-20%)' : 'LSP Staff Discount (-20%)'}</span>
+            <span>-{formatPrice(employeeDiscount)}</span>
+          </div>
+        )}
+        {voucherDiscount > 0 && (
+          <div className={styles.billRowGreen}>
+            <span>{lang === 'vi' ? `Mã khuyến mãi (${appliedVoucher?.code})` : `Voucher (${appliedVoucher?.code})`}</span>
+            <span>-{formatPrice(voucherDiscount)}</span>
+          </div>
+        )}
+        <div className={styles.billRow}>
+          <span>{lang === 'vi' ? 'Phí giao hàng tận nơi' : 'Delivery Fee'}</span>
+          <span style={{ fontWeight: isFreeShipping ? 700 : 500, color: isFreeShipping ? '#2F855A' : '#1A202C' }}>
+            {isFreeShipping ? (lang === 'vi' ? 'Miễn phí (Freeship)' : 'Free') : formatPrice(shippingFee)}
+          </span>
+        </div>
+        <div className={styles.billDivider} />
+        <div className={styles.billRowTotal}>
+          <span>{lang === 'vi' ? 'Tổng thanh toán' : 'Total Amount'}</span>
+          <span style={{ color: '#1E4D3B' }}>{formatPrice(finalAmount)}</span>
+        </div>
+      </div>
+
+      {/* Sticky Bottom Bar */}
       <div className={styles.bottomBar}>
-        <div className={styles.totalRow}>
-          <span className={styles.totalLabel}>{lang === 'vi' ? 'Tổng cộng' : 'Total'}</span>
-          <span className={styles.totalAmount}>{formatPrice(subtotal)}</span>
+        <div className={styles.bottomTotalRow}>
+          <span className={styles.bottomTotalLabel}>
+            {lang === 'vi' ? 'Tổng thanh toán' : 'Total Amount'}
+          </span>
+          <span className={styles.bottomTotalAmount}>{formatPrice(finalAmount)}</span>
         </div>
 
         <button
           className={styles.btnProceed}
           onClick={() => router.push('/checkout')}
         >
-          {lang === 'vi' ? 'Tiến hành đặt hàng' : 'Proceed to Payment'}
+          {lang === 'vi' ? 'Tiến hành đặt hàng →' : 'Proceed to Checkout →'}
         </button>
       </div>
 

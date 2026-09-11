@@ -11,8 +11,10 @@ const NAV_ITEMS = [
   { href: '/admin',           icon: '📊', label: 'Dashboard' },
   { href: '/admin/orders',    icon: '📋', label: 'Đơn hàng' },
   { href: '/admin/menu',      icon: '☕', label: 'Quản lý Menu' },
+  { href: '/admin/banners',   icon: '🎨', label: 'Quản lý Banner' },
   { href: '/admin/customers', icon: '👥', label: 'Khách hàng' },
   { href: '/admin/vouchers',  icon: '🎫', label: 'Voucher' },
+  { href: '/admin/settings',  icon: '⚙️', label: 'Cài đặt hệ thống' },
   { href: '/admin/reports',   icon: '📈', label: 'Báo cáo doanh thu' },
 ]
 

@@ -1,5 +1,5 @@
 .pageContainer {
-  padding: 16px 20px 140px;
+  padding: 16px 20px 180px;
   background: #F8F9FA;
   min-height: 100%;
   display: flex;
@@ -37,7 +37,7 @@
   font-size: 14px;
 }
 
-/* Header matching Screen 5 */
+/* Header */
 .header {
   display: flex;
   align-items: center;
@@ -65,7 +65,45 @@
   padding: 4px 8px;
 }
 
-/* Items List matching Screen 5 */
+/* Free Shipping Banner */
+.freeshipCard {
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  border-radius: 16px;
+  padding: 14px 16px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+}
+
+.freeshipHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #2D3748;
+  margin-bottom: 8px;
+}
+
+.freeshipProgressTrack {
+  height: 8px;
+  background: #EDF2F7;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.freeshipProgressBar {
+  height: 100%;
+  background: linear-gradient(90deg, #38A169 0%, #2D5A3D 100%);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+.freeshipSuccess {
+  color: #2F855A;
+  font-weight: 700;
+}
+
+/* Items List */
 .itemsList {
   display: flex;
   flex-direction: column;
@@ -119,7 +157,6 @@
   margin: 2px 0 6px;
 }
 
-/* Quantity Stepper matching Screen 5 */
 .stepperWrap {
   display: flex;
   align-items: center;
@@ -162,7 +199,7 @@
   white-space: nowrap;
 }
 
-/* Delivery Location Box matching Screen 5 */
+/* Delivery Location Box */
 .locationBox {
   display: flex;
   align-items: center;
@@ -213,7 +250,204 @@
   font-weight: 600;
 }
 
-/* Bottom Bar matching Screen 5 */
+/* Employee Discount Card */
+.employeeCard {
+  background: #F0FFF4;
+  border: 1px solid #C6F6D5;
+  border-radius: 16px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.employeeInfo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.employeeBadge {
+  background: #38A169;
+  color: white;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 999px;
+  text-transform: uppercase;
+}
+
+.employeeText {
+  font-size: 13px;
+  font-weight: 600;
+  color: #22543D;
+}
+
+.employeeSavings {
+  font-size: 14px;
+  font-weight: 800;
+  color: #2F855A;
+}
+
+/* Voucher Section */
+.voucherSection {
+  background: #FFFFFF;
+  border: 1px solid #EDF2F7;
+  border-radius: 16px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.voucherInputRow {
+  display: flex;
+  gap: 8px;
+}
+
+.voucherInput {
+  flex: 1;
+  padding: 10px 14px;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  outline: none;
+  background: #FAFAFA;
+}
+
+.voucherInput:focus {
+  border-color: #1E4D3B;
+  background: #FFFFFF;
+}
+
+.btnApplyVoucher {
+  padding: 10px 16px;
+  background: #1E4D3B;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  white-space: nowrap;
+}
+
+.btnApplyVoucher:hover {
+  opacity: 0.9;
+}
+
+.appliedVoucherTag {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #EBF8FF;
+  border: 1px solid #BEE3F8;
+  border-radius: 10px;
+  padding: 8px 12px;
+}
+
+.voucherTagLeft {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #2B6CB0;
+}
+
+.btnRemoveVoucher {
+  background: none;
+  border: none;
+  color: #E53E3E;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+
+.quickVouchers {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.quickVoucherLabel {
+  font-size: 11px;
+  color: #718096;
+}
+
+.quickVoucherPill {
+  background: #EDF2F7;
+  border: 1px dashed #CBD5E0;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #4A5568;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.quickVoucherPill:hover {
+  background: #E2E8F0;
+  color: #1A202C;
+}
+
+/* Bill Breakdown Card */
+.billCard {
+  background: #FFFFFF;
+  border: 1px solid #EDF2F7;
+  border-radius: 16px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.billTitle {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1A202C;
+  margin-bottom: 2px;
+}
+
+.billRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  color: #4A5568;
+}
+
+.billRowGreen {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  color: #2F855A;
+  font-weight: 600;
+}
+
+.billDivider {
+  height: 1px;
+  background: #EDF2F7;
+  margin: 4px 0;
+}
+
+.billRowTotal {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 15px;
+  font-weight: 800;
+  color: #1A202C;
+}
+
+/* Sticky Bottom Bar */
 .bottomBar {
   position: fixed;
   bottom: 0;
@@ -223,30 +457,30 @@
   margin: 0 auto;
   background: #FFFFFF;
   border-top: 1px solid #EDF2F7;
-  padding: 16px 20px 24px;
+  padding: 14px 20px 22px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
   z-index: 20;
-  box-shadow: 0 -4px 16px rgba(0,0,0,0.04);
+  box-shadow: 0 -4px 16px rgba(0,0,0,0.05);
 }
 
-.totalRow {
+.bottomTotalRow {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: space-between;
 }
 
-.totalLabel {
-  font-size: 15px;
+.bottomTotalLabel {
+  font-size: 14px;
   font-weight: 700;
   color: #4A5568;
 }
 
-.totalAmount {
-  font-size: 20px;
+.bottomTotalAmount {
+  font-size: 22px;
   font-weight: 800;
-  color: #1A202C;
+  color: #1E4D3B;
 }
 
 .btnProceed {

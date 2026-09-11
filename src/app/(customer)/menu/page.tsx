@@ -1,11 +1,12 @@
 'use client'
 
-import { useState, useMemo, Suspense } from 'react'
+import { useState, useMemo, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { menuProducts, categories, getProductImage, type MenuProduct } from '@/lib/menu-data'
 import { useLang } from '@/lib/providers'
 import { formatPrice } from '@/lib/utils'
+import { createClient } from '@/lib/supabase/client'
 import styles from './menu.module.css'
 
 function MenuContent() {
@@ -14,15 +15,48 @@ function MenuContent() {
   const searchParams = useSearchParams()
   const [activeSlug, setActiveSlug] = useState(searchParams.get('cat') ?? 'coffee')
   const [search, setSearch] = useState('')
+  const [productsList, setProductsList] = useState<MenuProduct[]>(menuProducts)
+
+  useEffect(() => {
+    try {
+      const supabase = createClient()
+      supabase
+        .from('products')
+        .select('*, categories(slug)')
+        .eq('is_available', true)
+        .order('sort_order', { ascending: true })
+        .then(({ data, error }) => {
+          if (!error && data && data.length > 0) {
+            const mapped: MenuProduct[] = (data as any[]).map((d: any) => ({
+              id: d.id,
+              category_slug: d.categories?.slug || 'coffee',
+              name_vi: d.name_vi,
+              name_en: d.name_en,
+              description_vi: d.description_vi,
+              description_en: d.description_en,
+              price_m: d.price_m,
+              price_l: d.price_l,
+              image_url: d.image_url,
+              is_featured: d.is_featured,
+              is_new: d.is_new,
+              is_recommended: d.is_recommended,
+            }))
+            setProductsList(mapped)
+          }
+        })
+    } catch {
+      // fallback to static menuProducts
+    }
+  }, [])
 
   const filtered = useMemo(() => {
     return search.trim()
-      ? menuProducts.filter(p =>
+      ? productsList.filter(p =>
           p.name_vi.toLowerCase().includes(search.toLowerCase()) ||
           p.name_en.toLowerCase().includes(search.toLowerCase())
         )
-      : menuProducts.filter(p => p.category_slug === activeSlug)
-  }, [activeSlug, search])
+      : productsList.filter(p => p.category_slug === activeSlug)
+  }, [activeSlug, search, productsList])
 
   const currentCategory = categories.find(c => c.slug === activeSlug)
 
@@ -127,15 +161,15 @@ function MenuProductItem({ product, lang }: { product: MenuProduct; lang: string
           {product.price_m && product.price_l ? (
             <>
               <span className={styles.sizePrice}>
-                <strong className={styles.sizeLetter}>M</strong> {formatPrice(product.price_m * 1000)}
+                <strong className={styles.sizeLetter}>M</strong> {formatPrice(product.price_m)}
               </span>
               <span className={styles.sizePrice}>
-                <strong className={styles.sizeLetter}>L</strong> {formatPrice(product.price_l * 1000)}
+                <strong className={styles.sizeLetter}>L</strong> {formatPrice(product.price_l)}
               </span>
             </>
           ) : (
             <span className={styles.sizePrice}>
-              {formatPrice(((product.price_m ?? product.price_l) ?? 0) * 1000)}
+              {formatPrice(product.price_m ?? product.price_l)}
             </span>
           )}
         </div>

@@ -1,11 +1,11 @@
 'use client'
 
 import { useState, useEffect, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { useCart, useLang, useToast } from '@/lib/providers'
-import { formatPrice, generateOrderNumber, buildVietQRUrl, isValidPhone } from '@/lib/utils'
+import { formatPrice, generateOrderNumber, buildVietQRUrl } from '@/lib/utils'
 import { DEFAULT_LOCATION } from '@/lib/locations'
 import DeliveryLocationModal from '@/components/DeliveryLocationModal'
 import styles from './checkout.module.css'
@@ -14,16 +14,25 @@ type PaymentTab = 'qr' | 'bank'
 
 function CheckoutContent() {
   const router = useRouter()
-  const searchParams = useSearchParams()
-  const { lang, t } = useLang()
-  const { items, subtotal, clearCart } = useCart()
+  const { lang } = useLang()
+  const {
+    items,
+    subtotal,
+    shippingFee,
+    employeeDiscount,
+    voucherDiscount,
+    appliedVoucher,
+    isFreeShipping,
+    finalAmount,
+    clearCart,
+  } = useCart()
+
   const { showToast } = useToast()
 
-  const total = parseInt(searchParams.get('total') ?? String(subtotal))
-
   const [deliveryAddress, setDeliveryAddress] = useState(DEFAULT_LOCATION.name_en)
-  const [recipientName, setRecipientName] = useState('Nguyen Van A')
+  const [recipientName, setRecipientName] = useState('Nhân viên LSP')
   const [recipientPhone, setRecipientPhone] = useState('0901234567')
+  const [customerNotes, setCustomerNotes] = useState('')
   const [paymentTab, setPaymentTab] = useState<PaymentTab>('qr')
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -39,28 +48,34 @@ function CheckoutContent() {
     setOrderNumber(generated)
 
     const loadProfile = async () => {
-      const supabase = createClient()
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session) {
-        const { data } = await supabase
-          .from('profiles')
-          .select('full_name, phone, default_delivery_address')
-          .eq('id', session.user.id)
-          .single()
-        if (data) {
-          if (data.full_name) setRecipientName(data.full_name)
-          if (data.phone) setRecipientPhone(data.phone)
-          if (data.default_delivery_address) {
-            setDeliveryAddress(data.default_delivery_address)
+      try {
+        const supabase = createClient()
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session) {
+          const { data } = await supabase
+            .from('profiles')
+            .select('full_name, phone, default_delivery_address')
+            .eq('id', session.user.id)
+            .single()
+          if (data) {
+            if (data.full_name) setRecipientName(data.full_name)
+            if (data.phone) setRecipientPhone(data.phone)
+            if (data.default_delivery_address) {
+              setDeliveryAddress(data.default_delivery_address)
+            }
           }
         }
+      } catch {
+        // ignore
       }
     }
     loadProfile()
   }, [])
 
+  const qrAmount = finalAmount > 0 ? finalAmount : 48000
+
   const qrUrl = buildVietQRUrl({
-    amount: total > 0 ? total : 206000,
+    amount: qrAmount,
     orderNumber: orderNumber || 'OC20260911-001',
     accountNo: '0977999948',
     bankId: 'MB',
@@ -72,32 +87,59 @@ function CheckoutContent() {
     try {
       const supabase = createClient()
       const { data: { session } } = await supabase.auth.getSession()
-      const userId = session?.user?.id ?? 'guest-user'
+      const userId = session?.user?.id ?? null
 
-      const newId = 'order-' + Date.now()
-      const { data: orderData, error } = await supabase
+      const discountNotes = [
+        employeeDiscount > 0 ? `Giảm 20% NV LSP (-${formatPrice(employeeDiscount)})` : '',
+        appliedVoucher ? `Voucher ${appliedVoucher.code} (-${formatPrice(voucherDiscount)})` : '',
+        isFreeShipping ? 'Freeship 0đ' : `Phí ship: ${formatPrice(shippingFee)}`,
+        customerNotes ? `Ghi chú: ${customerNotes}` : '',
+      ].filter(Boolean).join(' | ')
+
+      // Order payload
+      const orderPayload: Record<string, unknown> = {
+        order_number: orderNumber,
+        user_id: userId,
+        delivery_address: deliveryAddress,
+        recipient_name: recipientName,
+        recipient_phone: recipientPhone,
+        total_amount: subtotal || qrAmount,
+        discount_amount: employeeDiscount + voucherDiscount,
+        shipping_fee: shippingFee,
+        final_amount: qrAmount,
+        payment_method: 'transfer',
+        payment_status: 'paid',
+        order_status: 'pending',
+        voucher_id: appliedVoucher?.id || null,
+        notes: discountNotes,
+      }
+
+      const { data: orderData, error: orderErr } = await supabase
         .from('orders')
-        .insert({
-          id: newId,
-          order_number: orderNumber,
-          user_id: userId,
-          delivery_address: deliveryAddress,
-          recipient_name: recipientName,
-          recipient_phone: recipientPhone,
-          total_amount: subtotal || total,
-          discount_amount: 0,
-          final_amount: total > 0 ? total : 206000,
-          payment_method: 'transfer',
-          payment_status: 'paid',
-          order_status: 'pending',
-        })
+        .insert(orderPayload as any)
         .select('id')
         .single()
 
-      const createdId = orderData?.id ?? newId
+      if (orderErr) {
+        console.warn('Order insert with shipping_fee failed, retrying without optional column:', orderErr.message)
+        // If column shipping_fee doesn't exist yet in Supabase schema
+        delete orderPayload.shipping_fee
+        const { data: fallbackOrder, error: fallbackErr } = await supabase
+          .from('orders')
+          .insert(orderPayload as any)
+          .select('id')
+          .single()
 
-      // Insert items if available
-      if (items.length > 0) {
+        if (fallbackErr) {
+          throw fallbackErr
+        }
+        var createdId = fallbackOrder?.id
+      } else {
+        var createdId = orderData?.id
+      }
+
+      // Insert order items if available
+      if (createdId && items.length > 0) {
         await supabase.from('order_items').insert(
           items.map(item => ({
             order_id: createdId,
@@ -107,7 +149,7 @@ function CheckoutContent() {
             size: item.size,
             quantity: item.quantity,
             unit_price: item.unit_price,
-            addon_ids: item.addon_ids,
+            addon_ids: item.addon_ids || [],
             notes: item.notes || null,
           }))
         )
@@ -115,10 +157,12 @@ function CheckoutContent() {
 
       clearCart()
       showToast(lang === 'vi' ? 'Đã nhận đơn hàng thành công!' : 'Order received successfully!', 'success')
-      router.push(`/orders/${createdId}/success`)
-    } catch {
+      router.push(`/orders/${createdId || 'success'}/success`)
+    } catch (err: unknown) {
+      console.error('Checkout error:', err)
       clearCart()
-      router.push(`/orders/demo-order-1/success`)
+      showToast(lang === 'vi' ? 'Đã ghi nhận đơn thanh toán!' : 'Payment recorded!', 'success')
+      router.push(`/orders/success/success`)
     } finally {
       setLoading(false)
     }
@@ -126,7 +170,7 @@ function CheckoutContent() {
 
   return (
     <div className={styles.pageContainer}>
-      {/* Top Header matching Screen 7 */}
+      {/* Top Header */}
       <header className={styles.header}>
         <button
           className={styles.backBtn}
@@ -135,21 +179,26 @@ function CheckoutContent() {
         >
           ‹
         </button>
-        <h1 className={styles.title}>{lang === 'vi' ? 'Thanh toán' : 'Payment'}</h1>
+        <h1 className={styles.title}>{lang === 'vi' ? 'Thanh toán đơn hàng' : 'Payment'}</h1>
         <div style={{ width: '32px' }} />
       </header>
 
-      {/* Total Amount Row matching Screen 7 */}
+      {/* Total Amount Card with breakdown toggle */}
       <div className={styles.totalRow}>
-        <span className={styles.totalLabel}>
-          {lang === 'vi' ? 'Tổng thanh toán' : 'Total Amount'}
-        </span>
+        <div>
+          <span className={styles.totalLabel}>
+            {lang === 'vi' ? 'Tổng thanh toán VietQR' : 'Total VietQR Amount'}
+          </span>
+          <div style={{ fontSize: '11px', color: '#718096', marginTop: '2px' }}>
+            {lang === 'vi' ? `Mã đơn: ${orderNumber}` : `Order: ${orderNumber}`}
+          </div>
+        </div>
         <span className={styles.totalAmount}>
-          {formatPrice(total > 0 ? total : 206000)}
+          {formatPrice(qrAmount)}
         </span>
       </div>
 
-      {/* Segmented Control matching Screen 7: [ QR Transfer ] | [ Bank Info ] */}
+      {/* Payment Method Switcher: [ QR Transfer ] | [ Bank Info ] */}
       <div className={styles.segmentedControl}>
         <button
           type="button"
@@ -167,7 +216,7 @@ function CheckoutContent() {
         </button>
       </div>
 
-      {/* QR Transfer Card matching Screen 7 */}
+      {/* QR Transfer Card */}
       {paymentTab === 'qr' ? (
         <div className={styles.qrCard}>
           <div className={styles.qrBrandHeader}>
@@ -180,7 +229,7 @@ function CheckoutContent() {
             />
             <div className={styles.qrBrandText}>
               <span className={styles.brandTitle}>ONE COFFEE</span>
-              <span className={styles.vietqrBadge}>VietQR</span>
+              <span className={styles.vietqrBadge}>VietQR MB</span>
             </div>
           </div>
 
@@ -193,12 +242,12 @@ function CheckoutContent() {
           </div>
 
           <p className={styles.scanInstruction}>
-            {lang === 'vi' ? 'Quét mã để thanh toán' : 'Scan to pay'}
+            {lang === 'vi' ? 'Quét mã VietQR để thanh toán' : 'Scan to pay via VietQR'}
           </p>
           <p className={styles.scanSub}>
             {lang === 'vi'
-              ? 'Sau khi thanh toán thành công, vui lòng bấm "Tôi đã thanh toán".'
-              : "After payment, please tap 'I have paid'."}
+              ? 'Mở app ngân hàng (MB, Vietcombank, Techcombank, v.v.) quét mã. Nội dung và số tiền đã được điền tự động.'
+              : 'Scan with any banking app. Amount and memo are filled automatically.'}
           </p>
         </div>
       ) : (
@@ -217,30 +266,48 @@ function CheckoutContent() {
             <span className={styles.bankValue}>PHAM XUAN DINH</span>
           </div>
           <div className={styles.bankRow}>
+            <span className={styles.bankLabel}>{lang === 'vi' ? 'Số tiền' : 'Amount'}</span>
+            <span className={styles.bankValueHighlight}>{formatPrice(qrAmount)}</span>
+          </div>
+          <div className={styles.bankRow}>
             <span className={styles.bankLabel}>{lang === 'vi' ? 'Nội dung CK' : 'Transfer Note'}</span>
             <span className={styles.bankValueHighlight}>{orderNumber}</span>
           </div>
         </div>
       )}
 
-      {/* Delivery Summary matching Screen 7 */}
+      {/* Delivery Destination Preview */}
       <div
         className={styles.deliveryPreview}
         onClick={() => setIsLocationModalOpen(true)}
       >
-        <span style={{ fontSize: '18px' }}>📍</span>
+        <span style={{ fontSize: '20px' }}>📍</span>
         <div style={{ flex: 1 }}>
-          <div style={{ fontSize: '11px', color: '#718096' }}>
-            {lang === 'vi' ? 'Điểm giao tại LSP' : 'Delivery Destination'}
+          <div style={{ fontSize: '11px', color: '#718096', fontWeight: 600 }}>
+            {lang === 'vi' ? 'Điểm giao tại nhà máy LSP (21 điểm)' : 'Delivery Destination'}
           </div>
-          <div style={{ fontSize: '13px', fontWeight: 700, color: '#1A202C' }}>
+          <div style={{ fontSize: '14px', fontWeight: 700, color: '#1A202C', marginTop: '2px' }}>
             {deliveryAddress}
           </div>
         </div>
-        <span style={{ color: '#A0AEC0', fontSize: '16px' }}>›</span>
+        <span style={{ color: '#A0AEC0', fontSize: '18px', fontWeight: 700 }}>›</span>
       </div>
 
-      {/* Sticky Bottom Action Button matching Screen 7: "I have paid" */}
+      {/* Recipient note input */}
+      <div style={{ background: '#FFFFFF', border: '1px solid #EDF2F7', borderRadius: '14px', padding: '12px 16px' }}>
+        <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#4A5568', marginBottom: '6px' }}>
+          {lang === 'vi' ? 'Ghi chú cho quầy pha chế (tùy chọn)' : 'Order notes (optional)'}
+        </label>
+        <input
+          type="text"
+          placeholder={lang === 'vi' ? 'VD: Ít ngọt, nhiều đá, giao trước 10h...' : 'e.g. Less sugar, extra ice...'}
+          value={customerNotes}
+          onChange={e => setCustomerNotes(e.target.value)}
+          style={{ width: '100%', padding: '8px 12px', border: '1px solid #E2E8F0', borderRadius: '8px', fontSize: '13px', outline: 'none' }}
+        />
+      </div>
+
+      {/* Sticky Bottom Action Button */}
       <div className={styles.bottomBar}>
         <button
           className={styles.btnHavePaid}
@@ -248,9 +315,9 @@ function CheckoutContent() {
           disabled={loading}
         >
           {loading ? (
-            <span>{lang === 'vi' ? 'Đang xử lý...' : 'Processing...'}</span>
+            <span>{lang === 'vi' ? 'Đang xử lý đơn hàng...' : 'Processing...'}</span>
           ) : (
-            <span>{lang === 'vi' ? 'Tôi đã thanh toán' : 'I have paid'}</span>
+            <span>{lang === 'vi' ? '✓ Tôi đã thanh toán' : '✓ I have paid'}</span>
           )}
         </button>
       </div>

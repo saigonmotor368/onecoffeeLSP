@@ -57,9 +57,9 @@
 
 /* Hero Banner matching Screen 2 */
 .heroBanner {
-  background: #1E4D3B;
+  background: linear-gradient(135deg, #1E4D3B 0%, #2D5A3D 100%);
   border-radius: 20px;
-  padding: 20px 22px;
+  padding: 18px 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -67,13 +67,77 @@
   overflow: hidden;
   box-shadow: 0 8px 24px rgba(30, 77, 59, 0.25);
   cursor: pointer;
-  min-height: 125px;
+  min-height: 135px;
+  transition: transform 0.2s ease;
+}
+
+.heroBanner:hover {
+  transform: translateY(-2px);
 }
 
 .bannerContent {
   display: flex;
   flex-direction: column;
   z-index: 2;
+  flex: 1;
+  padding-right: 12px;
+}
+
+.bannerBadge {
+  display: inline-block;
+  width: fit-content;
+  background: rgba(255, 255, 255, 0.2);
+  color: #FEFCBF;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 2px 8px;
+  border-radius: 999px;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  backdrop-filter: blur(4px);
+}
+
+.bannerTitleText {
+  font-size: 17px;
+  font-weight: 800;
+  color: #FFFFFF;
+  margin: 0 0 4px;
+  line-height: 1.2;
+}
+
+.bannerSubText {
+  font-size: 12px;
+  color: #E2E8F0;
+  margin: 0;
+  line-height: 1.35;
+  opacity: 0.9;
+}
+
+.bannerDots {
+  position: absolute;
+  bottom: 8px;
+  left: 20px;
+  display: flex;
+  gap: 6px;
+  z-index: 3;
+}
+
+.bannerDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.35);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.bannerDotActive {
+  width: 18px;
+  border-radius: 999px;
+  background: #FFFFFF;
 }
 
 .bannerScriptLine1,
@@ -99,12 +163,12 @@
 }
 
 .bannerDrinkWrap {
-  width: 90px;
-  height: 90px;
+  width: 86px;
+  height: 86px;
   border-radius: 50%;
   overflow: hidden;
   box-shadow: 0 4px 16px rgba(0,0,0,0.3);
-  border: 2px solid rgba(255, 255, 255, 0.3);
+  border: 2px solid rgba(255, 255, 255, 0.4);
   flex-shrink: 0;
 }
 

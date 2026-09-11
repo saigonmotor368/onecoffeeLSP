@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useLang } from '@/lib/providers'
 import { formatPrice } from '@/lib/utils'
 import { LSP_LOCATIONS, DEFAULT_LOCATION } from '@/lib/locations'
+import { getBanners, type BannerItem, DEFAULT_BANNERS } from '@/lib/settings'
 import DeliveryLocationModal from '@/components/DeliveryLocationModal'
 import styles from './home.module.css'
 
@@ -18,36 +19,61 @@ export default function HomePage() {
   const [selectedLocation, setSelectedLocation] = useState<string>(DEFAULT_LOCATION.name_en)
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false)
 
+  // Dynamic Banners
+  const [banners, setBanners] = useState<BannerItem[]>(DEFAULT_BANNERS)
+  const [bannerIndex, setBannerIndex] = useState(0)
+
   useEffect(() => {
+    // Load banners
+    getBanners().then(list => {
+      const active = list.filter(b => b.is_active !== false)
+      if (active.length > 0) setBanners(active)
+    })
+
     // Load saved location from localStorage or profile
     const saved = localStorage.getItem('oc_delivery_location')
     if (saved) setSelectedLocation(saved)
 
     const loadProfile = async () => {
-      const supabase = createClient()
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session) {
-        const { data } = await supabase
-          .from('profiles')
-          .select('full_name, default_delivery_address')
-          .eq('id', session.user.id)
-          .single()
-        if (data) {
-          setProfile(data)
-          if (data.default_delivery_address) {
-            setSelectedLocation(data.default_delivery_address)
-            localStorage.setItem('oc_delivery_location', data.default_delivery_address)
+      try {
+        const supabase = createClient()
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session) {
+          const { data } = await supabase
+            .from('profiles')
+            .select('full_name, default_delivery_address')
+            .eq('id', session.user.id)
+            .single()
+          if (data) {
+            setProfile(data)
+            if (data.default_delivery_address) {
+              setSelectedLocation(data.default_delivery_address)
+              localStorage.setItem('oc_delivery_location', data.default_delivery_address)
+            }
           }
         }
+      } catch {
+        // ignore
       }
     }
     loadProfile()
   }, [])
 
+  // Auto-rotate banners
+  useEffect(() => {
+    if (banners.length <= 1) return
+    const interval = setInterval(() => {
+      setBannerIndex(prev => (prev + 1) % banners.length)
+    }, 5000)
+    return () => clearInterval(interval)
+  }, [banners.length])
+
   const handleLocationSelect = (locName: string) => {
     setSelectedLocation(locName)
     localStorage.setItem('oc_delivery_location', locName)
   }
+
+  const currentBanner = banners[bannerIndex] || banners[0]
 
   // Popular items matching mockup Screen 2 (Drinks & Bakery)
   const popularDrinks = [
@@ -59,9 +85,9 @@ export default function HomePage() {
       image: 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=500&auto=format&fit=crop&q=80',
     },
     {
-      id: 'matcha-latte',
-      name_vi: 'Matcha Latte',
-      name_en: 'Matcha Latte',
+      id: 'matcha-latte-da',
+      name_vi: 'Matcha Latte Đá',
+      name_en: 'Iced Matcha Latte',
       price: 54000,
       image: 'https://images.unsplash.com/photo-1536256263959-770b48d82b0a?w=500&auto=format&fit=crop&q=80',
     },
@@ -76,14 +102,14 @@ export default function HomePage() {
       id: 'tra-sua-thai-do',
       name_vi: 'Trà Sữa Thái Đỏ',
       name_en: 'Thai Red Milk Tea',
-      price: 54000,
+      price: 50000,
       image: 'https://images.unsplash.com/photo-1558857563-b37cf0e23485?w=500&auto=format&fit=crop&q=80',
     },
   ]
 
   return (
     <div className={styles.page}>
-      {/* Top Header matching Screen 2 */}
+      {/* Top Header */}
       <header className={styles.header}>
         <div className={styles.headerGreeting}>
           <p className={styles.greetingSub}>
@@ -100,30 +126,58 @@ export default function HomePage() {
           aria-label="Profile"
         >
           <div className={styles.avatarCircle}>
-            {profile?.full_name ? profile.full_name.slice(0, 2).toUpperCase() : 'ND'}
+            {profile?.full_name ? profile.full_name.slice(0, 2).toUpperCase() : 'LSP'}
           </div>
         </button>
       </header>
 
-      {/* Hero Banner with Artistic Typography matching Screen 2 */}
-      <div className={styles.heroBanner} onClick={() => router.push('/menu')}>
+      {/* Dynamic Hero Banner */}
+      <div
+        className={styles.heroBanner}
+        onClick={() => router.push(currentBanner.link_url || '/menu')}
+      >
         <div className={styles.bannerContent}>
-          <p className={styles.bannerScriptLine1}>Good Coffee</p>
-          <p className={styles.bannerScriptLine2}>Brighter</p>
-          <p className={styles.bannerScriptLine3}>Workdays</p>
+          {currentBanner.badge_vi && (
+            <span className={styles.bannerBadge}>
+              {lang === 'vi' ? currentBanner.badge_vi : (currentBanner.badge_en || currentBanner.badge_vi)}
+            </span>
+          )}
+          <h2 className={styles.bannerTitleText}>
+            {lang === 'vi' ? currentBanner.title_vi : currentBanner.title_en}
+          </h2>
+          {(currentBanner.subtitle_vi || currentBanner.subtitle_en) && (
+            <p className={styles.bannerSubText}>
+              {lang === 'vi' ? currentBanner.subtitle_vi : (currentBanner.subtitle_en || currentBanner.subtitle_vi)}
+            </p>
+          )}
         </div>
+
         <div className={styles.bannerDrinkWrap}>
           <img
-            src="https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=500&q=80"
-            alt="One Coffee Drink"
+            src={currentBanner.image_url}
+            alt={currentBanner.title_en}
             className={styles.bannerDrinkImg}
           />
         </div>
+
+        {/* Carousel indicators if multiple banners */}
+        {banners.length > 1 && (
+          <div className={styles.bannerDots} onClick={e => e.stopPropagation()}>
+            {banners.map((b, idx) => (
+              <button
+                key={b.id || idx}
+                className={`${styles.bannerDot} ${idx === bannerIndex ? styles.bannerDotActive : ''}`}
+                onClick={() => setBannerIndex(idx)}
+                aria-label={`Banner ${idx + 1}`}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* 3 Quick Action Cards matching Screen 2 */}
+      {/* 3 Quick Action Cards */}
       <div className={styles.quickActionsGrid}>
-        {/* Card 1: Order Now (Active Dark Green) */}
+        {/* Card 1: Order Now */}
         <Link href="/menu" className={`${styles.quickCard} ${styles.quickCardActive}`}>
           <div className={styles.quickCardIcon}>☕</div>
           <span className={styles.quickCardLabel}>
@@ -148,7 +202,7 @@ export default function HomePage() {
         </Link>
       </div>
 
-      {/* Delivery Location Pill Card matching Screen 2 */}
+      {/* Delivery Location Pill Card */}
       <div
         className={styles.locationCard}
         onClick={() => setIsLocationModalOpen(true)}
@@ -158,7 +212,7 @@ export default function HomePage() {
         </div>
         <div className={styles.locationInfo}>
           <span className={styles.locationLabel}>
-            {lang === 'vi' ? 'Điểm nhận nước' : 'Delivery Location'}
+            {lang === 'vi' ? 'Điểm nhận nước (21 vị trí LSP)' : 'Delivery Destination'}
           </span>
           <span className={styles.locationValue}>
             {selectedLocation}
@@ -167,11 +221,11 @@ export default function HomePage() {
         <span className={styles.locationChevron}>›</span>
       </div>
 
-      {/* Popular Drinks Section matching Screen 2 */}
+      {/* Popular Drinks Section */}
       <section className={styles.popularSection}>
         <div className={styles.sectionHeader}>
           <h2 className={styles.sectionTitle}>
-            {lang === 'vi' ? 'Món phổ biến' : 'Popular Drinks'}
+            {lang === 'vi' ? 'Món nổi bật One Coffee' : 'Popular Items'}
           </h2>
           <Link href="/menu" className={styles.seeAllLink}>
             {lang === 'vi' ? 'Xem tất cả' : 'See All'}
@@ -203,7 +257,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* 21 Locations Modal (Screen 6) */}
+      {/* 21 Locations Modal */}
       <DeliveryLocationModal
         isOpen={isLocationModalOpen}
         onClose={() => setIsLocationModalOpen(false)}

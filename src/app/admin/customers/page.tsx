@@ -79,6 +79,7 @@ export default function AdminCustomersPage() {
       // Aggregate customer stats
       const statsMap: Record<string, { totalOrders: number; totalSpent: number; lastOrder: string }> = {}
       orders?.forEach(o => {
+        if (!o.user_id) return
         if (!statsMap[o.user_id]) {
           statsMap[o.user_id] = { totalOrders: 0, totalSpent: 0, lastOrder: o.created_at }
         }

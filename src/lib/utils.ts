@@ -1,6 +1,13 @@
-// Format price in Vietnamese style: 48,000đ
-export function formatPrice(amount: number): string {
-  return new Intl.NumberFormat('vi-VN').format(amount) + 'đ'
+// Normalize price to VND (e.g. 48 -> 48000, 48000 -> 48000)
+export function toVndPrice(price: number | null | undefined): number {
+  if (!price || isNaN(price)) return 0
+  return price < 1000 ? price * 1000 : Math.round(price)
+}
+
+// Format price in Vietnamese style: 48.000đ
+export function formatPrice(amount: number | null | undefined): string {
+  const vnd = toVndPrice(amount)
+  return new Intl.NumberFormat('vi-VN').format(vnd) + 'đ'
 }
 
 // Generate order number: OC20260911-001

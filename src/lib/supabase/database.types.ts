@@ -192,12 +192,13 @@ export type Database = {
         Row: {
           id: string
           order_number: string
-          user_id: string
+          user_id: string | null
           delivery_address: string
           recipient_name: string
           recipient_phone: string
           total_amount: number
           discount_amount: number
+          shipping_fee?: number
           final_amount: number
           payment_method: 'cash' | 'transfer'
           payment_status: 'pending' | 'paid' | 'failed'
@@ -210,12 +211,13 @@ export type Database = {
         Insert: {
           id?: string
           order_number?: string
-          user_id: string
+          user_id?: string | null
           delivery_address: string
           recipient_name: string
           recipient_phone: string
           total_amount: number
           discount_amount?: number
+          shipping_fee?: number
           final_amount: number
           payment_method: 'cash' | 'transfer'
           payment_status?: 'pending' | 'paid' | 'failed' | string
@@ -229,6 +231,10 @@ export type Database = {
           delivery_address?: string
           recipient_name?: string
           recipient_phone?: string
+          total_amount?: number
+          discount_amount?: number
+          shipping_fee?: number
+          final_amount?: number
           payment_status?: 'pending' | 'paid' | 'failed' | string
           order_status?: 'pending' | 'confirmed' | 'preparing' | 'delivering' | 'delivered' | 'cancelled' | string
           notes?: string | null
@@ -308,6 +314,69 @@ export type Database = {
         Update: {
           score?: number
           comment?: string | null
+        }
+        Relationships: []
+      }
+      banners: {
+        Row: {
+          id: string
+          title_vi: string
+          title_en: string
+          subtitle_vi: string | null
+          subtitle_en: string | null
+          badge_vi: string | null
+          badge_en: string | null
+          image_url: string
+          link_url: string | null
+          is_active: boolean
+          sort_order: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          title_vi: string
+          title_en: string
+          subtitle_vi?: string | null
+          subtitle_en?: string | null
+          badge_vi?: string | null
+          badge_en?: string | null
+          image_url: string
+          link_url?: string | null
+          is_active?: boolean
+          sort_order?: number
+          created_at?: string
+        }
+        Update: {
+          title_vi?: string
+          title_en?: string
+          subtitle_vi?: string | null
+          subtitle_en?: string | null
+          badge_vi?: string | null
+          badge_en?: string | null
+          image_url?: string
+          link_url?: string | null
+          is_active?: boolean
+          sort_order?: number
+        }
+        Relationships: []
+      }
+      system_settings: {
+        Row: {
+          key: string
+          value: Json
+          description: string | null
+          updated_at: string
+        }
+        Insert: {
+          key: string
+          value: Json
+          description?: string | null
+          updated_at?: string
+        }
+        Update: {
+          value?: Json
+          description?: string | null
+          updated_at?: string
         }
         Relationships: []
       }

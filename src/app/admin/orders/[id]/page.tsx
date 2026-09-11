@@ -138,11 +138,32 @@ export default function AdminOrderDetailPage({ params }: { params: Promise<{ id:
                   ))}
                 </tbody>
               </table>
-              <div style={{ padding: '12px 20px', borderTop: '1px solid var(--color-border-light)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ fontWeight: 600 }}>Tổng cộng</span>
-                <span style={{ fontSize: 'var(--text-xl)', fontWeight: 800, color: 'var(--color-primary)' }}>
-                  {formatPrice(order.final_amount)}
-                </span>
+              <div style={{ padding: '16px 20px', borderTop: '1px solid var(--color-border-light)', display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>
+                  <span>Tạm tính tiền món</span>
+                  <span>{formatPrice(order.total_amount)}</span>
+                </div>
+                {order.discount_amount ? (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-sm)', color: '#2F855A', fontWeight: 600 }}>
+                    <span>Giảm giá & Khuyến mãi</span>
+                    <span>-{formatPrice(order.discount_amount)}</span>
+                  </div>
+                ) : null}
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>
+                  <span>Phí giao hàng</span>
+                  <span>{(order as { shipping_fee?: number }).shipping_fee ? formatPrice((order as { shipping_fee?: number }).shipping_fee) : 'Miễn phí (0đ)'}</span>
+                </div>
+                {order.notes && (
+                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', background: '#F8FAFC', padding: '6px 10px', borderRadius: '6px', marginTop: 4 }}>
+                    📝 {order.notes}
+                  </div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8, marginTop: 4, borderTop: '1px dashed var(--color-border)' }}>
+                  <span style={{ fontWeight: 700 }}>Tổng thanh toán</span>
+                  <span style={{ fontSize: 'var(--text-xl)', fontWeight: 800, color: 'var(--color-primary)' }}>
+                    {formatPrice(order.final_amount)}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
