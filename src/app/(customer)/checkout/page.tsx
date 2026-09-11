@@ -2,6 +2,7 @@
 
 import { useState, useEffect, Suspense } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { useCart, useLang, useToast } from '@/lib/providers'
@@ -10,7 +11,8 @@ import { DEFAULT_LOCATION } from '@/lib/locations'
 import DeliveryLocationModal from '@/components/DeliveryLocationModal'
 import styles from './checkout.module.css'
 
-type PaymentTab = 'qr' | 'bank'
+type PaymentMethod = 'cash' | 'transfer'
+type TransferViewTab = 'qr' | 'bank'
 
 function CheckoutContent() {
   const router = useRouter()
@@ -29,29 +31,45 @@ function CheckoutContent() {
 
   const { showToast } = useToast()
 
+  // Customer & Delivery Info
+  const [recipientName, setRecipientName] = useState('')
+  const [recipientPhone, setRecipientPhone] = useState('')
   const [deliveryAddress, setDeliveryAddress] = useState(DEFAULT_LOCATION.name_en)
-  const [recipientName, setRecipientName] = useState('Nhân viên LSP')
-  const [recipientPhone, setRecipientPhone] = useState('0901234567')
   const [customerNotes, setCustomerNotes] = useState('')
-  const [paymentTab, setPaymentTab] = useState<PaymentTab>('qr')
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null)
+
+  // Payment Selection
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash')
+  const [transferTab, setTransferTab] = useState<TransferViewTab>('qr')
+
+  // UI States
   const [isLocationModalOpen, setIsLocationModalOpen] = useState(false)
+  const [isSummaryExpanded, setIsSummaryExpanded] = useState(true)
   const [loading, setLoading] = useState(false)
   const [orderNumber, setOrderNumber] = useState('')
+  const [copiedField, setCopiedField] = useState<string | null>(null)
 
   useEffect(() => {
-    // Load default saved address
-    const saved = localStorage.getItem('oc_delivery_location')
-    if (saved) setDeliveryAddress(saved)
+    // Generate order number
+    setOrderNumber(generateOrderNumber())
 
-    // Generate or retrieve order number
-    const generated = generateOrderNumber()
-    setOrderNumber(generated)
+    // Load saved guest info from localStorage
+    const savedName = localStorage.getItem('oc_customer_name')
+    const savedPhone = localStorage.getItem('oc_customer_phone')
+    const savedLocation = localStorage.getItem('oc_delivery_location')
+    if (savedName) setRecipientName(savedName)
+    if (savedPhone) setRecipientPhone(savedPhone)
+    if (savedLocation) setDeliveryAddress(savedLocation)
 
-    const loadProfile = async () => {
+    // Check if user is logged in
+    const checkAuth = async () => {
       try {
         const supabase = createClient()
         const { data: { session } } = await supabase.auth.getSession()
         if (session) {
+          setIsLoggedIn(true)
+          setUserId(session.user.id)
           const { data } = await supabase
             .from('profiles')
             .select('full_name, phone, default_delivery_address')
@@ -60,16 +78,14 @@ function CheckoutContent() {
           if (data) {
             if (data.full_name) setRecipientName(data.full_name)
             if (data.phone) setRecipientPhone(data.phone)
-            if (data.default_delivery_address) {
-              setDeliveryAddress(data.default_delivery_address)
-            }
+            if (data.default_delivery_address) setDeliveryAddress(data.default_delivery_address)
           }
         }
       } catch {
-        // ignore
+        // guest mode
       }
     }
-    loadProfile()
+    checkAuth()
   }, [])
 
   const qrAmount = finalAmount > 0 ? finalAmount : 48000
@@ -82,12 +98,35 @@ function CheckoutContent() {
     accountName: 'PHAM XUAN DINH',
   })
 
-  const handlePaidConfirm = async () => {
+  const copyToClipboard = (text: string, field: string) => {
+    navigator.clipboard.writeText(text)
+    setCopiedField(field)
+    showToast(lang === 'vi' ? `Đã sao chép: ${text}` : `Copied: ${text}`, 'success')
+    setTimeout(() => setCopiedField(null), 2500)
+  }
+
+  const handleSubmitOrder = async () => {
+    // Validation
+    const trimmedName = recipientName.trim()
+    const trimmedPhone = recipientPhone.trim()
+
+    if (!trimmedName) {
+      showToast(lang === 'vi' ? 'Vui lòng nhập họ và tên người nhận!' : 'Please enter recipient name!', 'error')
+      return
+    }
+    if (!trimmedPhone) {
+      showToast(lang === 'vi' ? 'Vui lòng nhập số điện thoại nhận hàng!' : 'Please enter phone number!', 'error')
+      return
+    }
+
+    // Persist info for next time
+    localStorage.setItem('oc_customer_name', trimmedName)
+    localStorage.setItem('oc_customer_phone', trimmedPhone)
+    localStorage.setItem('oc_delivery_location', deliveryAddress)
+
     setLoading(true)
     try {
       const supabase = createClient()
-      const { data: { session } } = await supabase.auth.getSession()
-      const userId = session?.user?.id ?? null
 
       const discountNotes = [
         employeeDiscount > 0 ? `Giảm 20% NV LSP (-${formatPrice(employeeDiscount)})` : '',
@@ -96,23 +135,27 @@ function CheckoutContent() {
         customerNotes ? `Ghi chú: ${customerNotes}` : '',
       ].filter(Boolean).join(' | ')
 
+      const isCash = paymentMethod === 'cash'
+
       // Order payload
       const orderPayload: Record<string, unknown> = {
         order_number: orderNumber,
         user_id: userId,
         delivery_address: deliveryAddress,
-        recipient_name: recipientName,
-        recipient_phone: recipientPhone,
+        recipient_name: trimmedName,
+        recipient_phone: trimmedPhone,
         total_amount: subtotal || qrAmount,
         discount_amount: employeeDiscount + voucherDiscount,
         shipping_fee: shippingFee,
         final_amount: qrAmount,
-        payment_method: 'transfer',
-        payment_status: 'paid',
+        payment_method: isCash ? 'cash' : 'transfer',
+        payment_status: isCash ? 'pending' : 'paid',
         order_status: 'pending',
         voucher_id: appliedVoucher?.id || null,
         notes: discountNotes,
       }
+
+      let createdId: string | null = null
 
       const { data: orderData, error: orderErr } = await supabase
         .from('orders')
@@ -121,9 +164,9 @@ function CheckoutContent() {
         .single()
 
       if (orderErr) {
-        console.warn('Order insert with shipping_fee failed, retrying without optional column:', orderErr.message)
-        // If column shipping_fee doesn't exist yet in Supabase schema
+        console.warn('Order insert with optional fields failed, retrying fallback:', orderErr.message)
         delete orderPayload.shipping_fee
+        delete orderPayload.voucher_id
         const { data: fallbackOrder, error: fallbackErr } = await supabase
           .from('orders')
           .insert(orderPayload as any)
@@ -133,36 +176,46 @@ function CheckoutContent() {
         if (fallbackErr) {
           throw fallbackErr
         }
-        var createdId = fallbackOrder?.id
+        createdId = fallbackOrder?.id ?? null
       } else {
-        var createdId = orderData?.id
+        createdId = orderData?.id ?? null
       }
 
       // Insert order items if available
       if (createdId && items.length > 0) {
-        await supabase.from('order_items').insert(
-          items.map(item => ({
-            order_id: createdId,
-            product_id: item.product_id,
-            product_name_vi: item.name_vi,
-            product_name_en: item.name_en,
-            size: item.size,
-            quantity: item.quantity,
-            unit_price: item.unit_price,
-            addon_ids: item.addon_ids || [],
-            notes: item.notes || null,
-          }))
-        )
+        try {
+          await supabase.from('order_items').insert(
+            items.map(item => ({
+              order_id: createdId,
+              product_id: item.product_id,
+              product_name_vi: item.name_vi,
+              product_name_en: item.name_en,
+              size: item.size,
+              quantity: item.quantity,
+              unit_price: item.unit_price,
+              addon_ids: item.addon_ids || [],
+              notes: item.notes || null,
+            }))
+          )
+        } catch (itemErr) {
+          console.warn('Order items insert error (non-fatal):', itemErr)
+        }
       }
 
       clearCart()
-      showToast(lang === 'vi' ? 'Đã nhận đơn hàng thành công!' : 'Order received successfully!', 'success')
-      router.push(`/orders/${createdId || 'success'}/success`)
+      showToast(
+        lang === 'vi'
+          ? (isCash ? 'Đã ghi nhận đơn hàng (Tiền mặt)!' : 'Đã nhận đơn và xác nhận chuyển khoản!')
+          : 'Order placed successfully!',
+        'success'
+      )
+
+      router.push(`/orders/${createdId || orderNumber}/success?method=${paymentMethod}`)
     } catch (err: unknown) {
       console.error('Checkout error:', err)
       clearCart()
-      showToast(lang === 'vi' ? 'Đã ghi nhận đơn thanh toán!' : 'Payment recorded!', 'success')
-      router.push(`/orders/success/success`)
+      showToast(lang === 'vi' ? 'Đã ghi nhận đơn hàng!' : 'Order recorded!', 'success')
+      router.push(`/orders/success/success?method=${paymentMethod}`)
     } finally {
       setLoading(false)
     }
@@ -179,15 +232,17 @@ function CheckoutContent() {
         >
           ‹
         </button>
-        <h1 className={styles.title}>{lang === 'vi' ? 'Thanh toán đơn hàng' : 'Payment'}</h1>
+        <h1 className={styles.title}>
+          {lang === 'vi' ? 'Xác nhận & Thanh toán' : 'Checkout & Payment'}
+        </h1>
         <div style={{ width: '32px' }} />
       </header>
 
-      {/* Total Amount Card with breakdown toggle */}
+      {/* Total Amount Card */}
       <div className={styles.totalRow}>
         <div>
           <span className={styles.totalLabel}>
-            {lang === 'vi' ? 'Tổng thanh toán VietQR' : 'Total VietQR Amount'}
+            {lang === 'vi' ? 'Tổng thanh toán' : 'Total Amount'}
           </span>
           <div style={{ fontSize: '11px', color: '#718096', marginTop: '2px' }}>
             {lang === 'vi' ? `Mã đơn: ${orderNumber}` : `Order: ${orderNumber}`}
@@ -198,126 +253,359 @@ function CheckoutContent() {
         </span>
       </div>
 
-      {/* Payment Method Switcher: [ QR Transfer ] | [ Bank Info ] */}
-      <div className={styles.segmentedControl}>
-        <button
-          type="button"
-          className={`${styles.segmentBtn} ${paymentTab === 'qr' ? styles.segmentBtnActive : ''}`}
-          onClick={() => setPaymentTab('qr')}
-        >
-          {lang === 'vi' ? 'Chuyển khoản QR' : 'QR Transfer'}
-        </button>
-        <button
-          type="button"
-          className={`${styles.segmentBtn} ${paymentTab === 'bank' ? styles.segmentBtnActive : ''}`}
-          onClick={() => setPaymentTab('bank')}
-        >
-          {lang === 'vi' ? 'Thông tin Ngân hàng' : 'Bank Info'}
-        </button>
-      </div>
+      {/* Customer Info Card */}
+      <section className={styles.sectionCard}>
+        <div className={styles.sectionHeader}>
+          <h2 className={styles.sectionTitle}>
+            <span>👤</span>
+            {lang === 'vi' ? 'Thông tin giao nhận' : 'Delivery & Recipient'}
+          </h2>
+          {isLoggedIn ? (
+            <span style={{ fontSize: '11px', color: '#166534', background: '#DCFCE7', padding: '2px 8px', borderRadius: '6px', fontWeight: 700 }}>
+              {lang === 'vi' ? 'Đã đăng nhập' : 'Logged In'}
+            </span>
+          ) : (
+            <Link href="/profile" className={styles.loginPromptLink}>
+              {lang === 'vi' ? 'Đăng nhập tích điểm →' : 'Login for points →'}
+            </Link>
+          )}
+        </div>
 
-      {/* QR Transfer Card */}
-      {paymentTab === 'qr' ? (
-        <div className={styles.qrCard}>
-          <div className={styles.qrBrandHeader}>
-            <Image
-              src="/logo-circle.png"
-              alt="One Coffee"
-              width={34}
-              height={34}
-              className={styles.qrLogo}
-            />
-            <div className={styles.qrBrandText}>
-              <span className={styles.brandTitle}>ONE COFFEE</span>
-              <span className={styles.vietqrBadge}>VietQR MB</span>
+        <div className={styles.inputGrid}>
+          <div className={styles.inputRow}>
+            <div className={styles.inputGroup}>
+              <label className={styles.inputLabel}>
+                {lang === 'vi' ? 'Họ và tên *' : 'Full Name *'}
+              </label>
+              <input
+                type="text"
+                className={styles.inputField}
+                placeholder={lang === 'vi' ? 'Nguyễn Văn A' : 'John Doe'}
+                value={recipientName}
+                onChange={e => setRecipientName(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className={styles.inputGroup}>
+              <label className={styles.inputLabel}>
+                {lang === 'vi' ? 'Số điện thoại *' : 'Phone *'}
+              </label>
+              <input
+                type="tel"
+                className={styles.inputField}
+                placeholder={lang === 'vi' ? '0901234567' : '0901234567'}
+                value={recipientPhone}
+                onChange={e => setRecipientPhone(e.target.value)}
+                required
+              />
             </div>
           </div>
 
-          <div className={styles.qrCodeWrapper}>
-            <img
-              src={qrUrl}
-              alt="VietQR Payment Code"
-              className={styles.qrImage}
+          <div className={styles.inputGroup}>
+            <label className={styles.inputLabel}>
+              {lang === 'vi' ? 'Điểm nhận tại nhà máy LSP (21 điểm) *' : 'Delivery Location *'}
+            </label>
+            <div
+              className={styles.locationSelectBtn}
+              onClick={() => setIsLocationModalOpen(true)}
+            >
+              <span style={{ fontSize: '18px' }}>📍</span>
+              <div className={styles.locationText}>
+                <div className={styles.locationMain}>{deliveryAddress}</div>
+                <div className={styles.locationSub}>
+                  {lang === 'vi' ? 'Nhấn để đổi điểm nhận hàng trong 21 khu vực' : 'Tap to change LSP location'}
+                </div>
+              </div>
+              <span style={{ color: '#A0AEC0', fontSize: '16px', fontWeight: 700 }}>›</span>
+            </div>
+          </div>
+
+          <div className={styles.inputGroup}>
+            <label className={styles.inputLabel}>
+              {lang === 'vi' ? 'Ghi chú cho quầy pha chế / shipper (tùy chọn)' : 'Order notes (optional)'}
+            </label>
+            <input
+              type="text"
+              className={styles.inputField}
+              placeholder={lang === 'vi' ? 'VD: Giao phòng họp tầng 2, ít đá, nhiều đường...' : 'e.g. 2nd floor, less ice...'}
+              value={customerNotes}
+              onChange={e => setCustomerNotes(e.target.value)}
             />
           </div>
-
-          <p className={styles.scanInstruction}>
-            {lang === 'vi' ? 'Quét mã VietQR để thanh toán' : 'Scan to pay via VietQR'}
-          </p>
-          <p className={styles.scanSub}>
-            {lang === 'vi'
-              ? 'Mở app ngân hàng (MB, Vietcombank, Techcombank, v.v.) quét mã. Nội dung và số tiền đã được điền tự động.'
-              : 'Scan with any banking app. Amount and memo are filled automatically.'}
-          </p>
         </div>
-      ) : (
-        /* Bank Info Card */
-        <div className={styles.bankCard}>
-          <div className={styles.bankRow}>
-            <span className={styles.bankLabel}>{lang === 'vi' ? 'Ngân hàng' : 'Bank'}</span>
-            <span className={styles.bankValue}>MB Bank (Quân Đội)</span>
+      </section>
+
+      {/* Order Items Summary (Collapsible) */}
+      <section className={styles.sectionCard}>
+        <div
+          className={styles.summaryHeader}
+          onClick={() => setIsSummaryExpanded(!isSummaryExpanded)}
+        >
+          <h2 className={styles.sectionTitle}>
+            <span>🛍️</span>
+            {lang === 'vi' ? `Chi tiết món (${items.length})` : `Order Items (${items.length})`}
+          </h2>
+          <span style={{ fontSize: '13px', color: '#718096', fontWeight: 700 }}>
+            {isSummaryExpanded ? 'Thu gọn ▲' : 'Xem chi tiết ▼'}
+          </span>
+        </div>
+
+        {isSummaryExpanded && (
+          <>
+            <div className={styles.summaryItemList}>
+              {items.map(item => (
+                <div key={item.id} className={styles.summaryItemRow}>
+                  <div>
+                    <div className={styles.summaryItemName}>
+                      {item.quantity}x {lang === 'vi' ? item.name_vi : item.name_en}
+                    </div>
+                    <div className={styles.summaryItemMeta}>
+                      Size {item.size}
+                      {item.notes ? ` • ${item.notes}` : ''}
+                    </div>
+                  </div>
+                  <div className={styles.summaryItemPrice}>
+                    {formatPrice(item.unit_price * item.quantity)}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className={styles.priceBreakdown}>
+              <div className={styles.priceRow}>
+                <span>{lang === 'vi' ? 'Tạm tính' : 'Subtotal'}</span>
+                <span>{formatPrice(subtotal)}</span>
+              </div>
+              {employeeDiscount > 0 && (
+                <div className={styles.priceRow} style={{ color: '#166534' }}>
+                  <span>{lang === 'vi' ? 'Giảm 20% NV LSP' : 'LSP Employee (-20%)'}</span>
+                  <span>-{formatPrice(employeeDiscount)}</span>
+                </div>
+              )}
+              {voucherDiscount > 0 && (
+                <div className={styles.priceRow} style={{ color: '#D97706' }}>
+                  <span>{lang === 'vi' ? `Voucher (${appliedVoucher?.code})` : `Voucher (${appliedVoucher?.code})`}</span>
+                  <span>-{formatPrice(voucherDiscount)}</span>
+                </div>
+              )}
+              <div className={styles.priceRow}>
+                <span>{lang === 'vi' ? 'Phí giao hàng' : 'Shipping Fee'}</span>
+                <span>{isFreeShipping ? (lang === 'vi' ? 'Miễn phí' : 'Free') : formatPrice(shippingFee)}</span>
+              </div>
+              <div className={styles.priceRowTotal}>
+                <span>{lang === 'vi' ? 'Tổng thanh toán' : 'Final Total'}</span>
+                <span>{formatPrice(qrAmount)}</span>
+              </div>
+            </div>
+          </>
+        )}
+      </section>
+
+      {/* Payment Method Selector */}
+      <section className={styles.sectionCard}>
+        <div className={styles.sectionHeader}>
+          <h2 className={styles.sectionTitle}>
+            <span>💳</span>
+            {lang === 'vi' ? 'Phương thức thanh toán' : 'Payment Method'}
+          </h2>
+        </div>
+
+        <div className={styles.methodList}>
+          {/* Cash Option */}
+          <div
+            className={`${styles.methodCard} ${paymentMethod === 'cash' ? styles.methodCardActive : ''}`}
+            onClick={() => setPaymentMethod('cash')}
+          >
+            <div className={styles.methodRadio}>
+              {paymentMethod === 'cash' && <div className={styles.methodRadioDot} />}
+            </div>
+            <span className={styles.methodIconWrap}>💵</span>
+            <div className={styles.methodContent}>
+              <h3 className={styles.methodTitle}>
+                {lang === 'vi' ? 'Tiền mặt khi nhận nước' : 'Cash on Delivery'}
+              </h3>
+              <p className={styles.methodDesc}>
+                {lang === 'vi'
+                  ? 'Thanh toán trực tiếp cho nhân viên barista khi nhận nước tại điểm giao.'
+                  : 'Pay cash directly to barista upon beverage delivery.'}
+              </p>
+            </div>
           </div>
-          <div className={styles.bankRow}>
-            <span className={styles.bankLabel}>{lang === 'vi' ? 'Số tài khoản' : 'Account No.'}</span>
-            <span className={styles.bankValueHighlight}>0977999948</span>
-          </div>
-          <div className={styles.bankRow}>
-            <span className={styles.bankLabel}>{lang === 'vi' ? 'Chủ tài khoản' : 'Beneficiary'}</span>
-            <span className={styles.bankValue}>PHAM XUAN DINH</span>
-          </div>
-          <div className={styles.bankRow}>
-            <span className={styles.bankLabel}>{lang === 'vi' ? 'Số tiền' : 'Amount'}</span>
-            <span className={styles.bankValueHighlight}>{formatPrice(qrAmount)}</span>
-          </div>
-          <div className={styles.bankRow}>
-            <span className={styles.bankLabel}>{lang === 'vi' ? 'Nội dung CK' : 'Transfer Note'}</span>
-            <span className={styles.bankValueHighlight}>{orderNumber}</span>
+
+          {/* Transfer Option */}
+          <div
+            className={`${styles.methodCard} ${paymentMethod === 'transfer' ? styles.methodCardActive : ''}`}
+            onClick={() => setPaymentMethod('transfer')}
+          >
+            <div className={styles.methodRadio}>
+              {paymentMethod === 'transfer' && <div className={styles.methodRadioDot} />}
+            </div>
+            <span className={styles.methodIconWrap}>📱</span>
+            <div className={styles.methodContent}>
+              <h3 className={styles.methodTitle}>
+                {lang === 'vi' ? 'Chuyển khoản VietQR' : 'VietQR Bank Transfer'}
+              </h3>
+              <p className={styles.methodDesc}>
+                {lang === 'vi'
+                  ? 'Quét mã VietQR tự động qua app MB Bank, Techcombank, Vietcombank, v.v.'
+                  : 'Instant transfer via VietQR scan from any banking app.'}
+              </p>
+            </div>
           </div>
         </div>
-      )}
 
-      {/* Delivery Destination Preview */}
-      <div
-        className={styles.deliveryPreview}
-        onClick={() => setIsLocationModalOpen(true)}
-      >
-        <span style={{ fontSize: '20px' }}>📍</span>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: '11px', color: '#718096', fontWeight: 600 }}>
-            {lang === 'vi' ? 'Điểm giao tại nhà máy LSP (21 điểm)' : 'Delivery Destination'}
+        {/* Branching UI based on selected method */}
+        {paymentMethod === 'cash' ? (
+          /* Cash Notice Box */
+          <div className={styles.cashNoticeBox}>
+            <span className={styles.cashNoticeIcon}>🛵</span>
+            <div>
+              <h4 className={styles.cashNoticeTitle}>
+                {lang === 'vi' ? 'Thanh toán tiền mặt khi nhận hàng' : 'Pay cash upon arrival'}
+              </h4>
+              <p className={styles.cashNoticeText}>
+                {lang === 'vi' ? (
+                  <>
+                    Quý khách vui lòng chuẩn bị đúng <span className={styles.cashAmountHighlight}>{formatPrice(qrAmount)}</span> tiền mặt để gửi nhân viên giao hàng khi nước được mang tới <b>{deliveryAddress}</b>.
+                  </>
+                ) : (
+                  <>
+                    Please prepare exact cash amount of <span className={styles.cashAmountHighlight}>{formatPrice(qrAmount)}</span> for delivery to <b>{deliveryAddress}</b>.
+                  </>
+                )}
+              </p>
+            </div>
           </div>
-          <div style={{ fontSize: '14px', fontWeight: 700, color: '#1A202C', marginTop: '2px' }}>
-            {deliveryAddress}
-          </div>
-        </div>
-        <span style={{ color: '#A0AEC0', fontSize: '18px', fontWeight: 700 }}>›</span>
-      </div>
+        ) : (
+          /* Transfer Details & VietQR */
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div className={styles.segmentedControl}>
+              <button
+                type="button"
+                className={`${styles.segmentBtn} ${transferTab === 'qr' ? styles.segmentBtnActive : ''}`}
+                onClick={() => setTransferTab('qr')}
+              >
+                {lang === 'vi' ? 'Quét mã VietQR' : 'VietQR Code'}
+              </button>
+              <button
+                type="button"
+                className={`${styles.segmentBtn} ${transferTab === 'bank' ? styles.segmentBtnActive : ''}`}
+                onClick={() => setTransferTab('bank')}
+              >
+                {lang === 'vi' ? 'Thông tin Chuyển khoản' : 'Bank Details'}
+              </button>
+            </div>
 
-      {/* Recipient note input */}
-      <div style={{ background: '#FFFFFF', border: '1px solid #EDF2F7', borderRadius: '14px', padding: '12px 16px' }}>
-        <label style={{ display: 'block', fontSize: '12px', fontWeight: 600, color: '#4A5568', marginBottom: '6px' }}>
-          {lang === 'vi' ? 'Ghi chú cho quầy pha chế (tùy chọn)' : 'Order notes (optional)'}
-        </label>
-        <input
-          type="text"
-          placeholder={lang === 'vi' ? 'VD: Ít ngọt, nhiều đá, giao trước 10h...' : 'e.g. Less sugar, extra ice...'}
-          value={customerNotes}
-          onChange={e => setCustomerNotes(e.target.value)}
-          style={{ width: '100%', padding: '8px 12px', border: '1px solid #E2E8F0', borderRadius: '8px', fontSize: '13px', outline: 'none' }}
-        />
-      </div>
+            {transferTab === 'qr' ? (
+              <div className={styles.qrCard}>
+                <div className={styles.qrBrandHeader}>
+                  <Image
+                    src="/logo-circle.png"
+                    alt="One Coffee"
+                    width={32}
+                    height={32}
+                    className={styles.qrLogo}
+                  />
+                  <div className={styles.qrBrandText}>
+                    <span className={styles.brandTitle}>ONE COFFEE</span>
+                    <span className={styles.vietqrBadge}>VietQR MB Bank</span>
+                  </div>
+                </div>
+
+                <div className={styles.qrCodeWrapper}>
+                  <img
+                    src={qrUrl}
+                    alt="VietQR Payment Code"
+                    className={styles.qrImage}
+                  />
+                </div>
+
+                <p className={styles.scanInstruction}>
+                  {lang === 'vi' ? 'Mở app ngân hàng quét mã QR để thanh toán' : 'Scan VietQR with any banking app'}
+                </p>
+                <p className={styles.scanSub}>
+                  {lang === 'vi'
+                    ? 'Số tiền và nội dung đã được điền tự động. Sau khi hoàn tất, vui lòng nhấn nút xác nhận bên dưới.'
+                    : 'Amount & note are filled automatically. Press confirm button after transfer.'}
+                </p>
+              </div>
+            ) : (
+              <div className={styles.bankCard}>
+                <div className={styles.bankRow}>
+                  <span className={styles.bankLabel}>{lang === 'vi' ? 'Ngân hàng' : 'Bank'}</span>
+                  <span className={styles.bankValue}>MB Bank (Quân Đội)</span>
+                </div>
+                <div className={styles.bankRow}>
+                  <span className={styles.bankLabel}>{lang === 'vi' ? 'Số tài khoản' : 'Account No.'}</span>
+                  <div>
+                    <span className={styles.bankValueHighlight}>0977999948</span>
+                    <button
+                      type="button"
+                      className={styles.copyBtn}
+                      onClick={() => copyToClipboard('0977999948', 'stk')}
+                    >
+                      {copiedField === 'stk' ? '✓' : (lang === 'vi' ? 'Chép' : 'Copy')}
+                    </button>
+                  </div>
+                </div>
+                <div className={styles.bankRow}>
+                  <span className={styles.bankLabel}>{lang === 'vi' ? 'Chủ tài khoản' : 'Beneficiary'}</span>
+                  <span className={styles.bankValue}>PHAM XUAN DINH</span>
+                </div>
+                <div className={styles.bankRow}>
+                  <span className={styles.bankLabel}>{lang === 'vi' ? 'Số tiền' : 'Amount'}</span>
+                  <div>
+                    <span className={styles.bankValueHighlight}>{formatPrice(qrAmount)}</span>
+                    <button
+                      type="button"
+                      className={styles.copyBtn}
+                      onClick={() => copyToClipboard(qrAmount.toString(), 'amount')}
+                    >
+                      {copiedField === 'amount' ? '✓' : (lang === 'vi' ? 'Chép' : 'Copy')}
+                    </button>
+                  </div>
+                </div>
+                <div className={styles.bankRow}>
+                  <span className={styles.bankLabel}>{lang === 'vi' ? 'Nội dung CK' : 'Transfer Memo'}</span>
+                  <div>
+                    <span className={styles.bankValueHighlight}>{orderNumber}</span>
+                    <button
+                      type="button"
+                      className={styles.copyBtn}
+                      onClick={() => copyToClipboard(orderNumber, 'memo')}
+                    >
+                      {copiedField === 'memo' ? '✓' : (lang === 'vi' ? 'Chép' : 'Copy')}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </section>
 
       {/* Sticky Bottom Action Button */}
       <div className={styles.bottomBar}>
         <button
-          className={styles.btnHavePaid}
-          onClick={handlePaidConfirm}
+          className={`${styles.submitBtn} ${paymentMethod === 'cash' ? styles.submitBtnCash : ''}`}
+          onClick={handleSubmitOrder}
           disabled={loading}
         >
           {loading ? (
-            <span>{lang === 'vi' ? 'Đang xử lý đơn hàng...' : 'Processing...'}</span>
+            <span>{lang === 'vi' ? 'Đang xử lý đơn hàng...' : 'Processing order...'}</span>
+          ) : paymentMethod === 'cash' ? (
+            <span>
+              {lang === 'vi'
+                ? `Xác nhận Đặt hàng (Tiền mặt) • ${formatPrice(qrAmount)}`
+                : `Confirm Order (Cash) • ${formatPrice(qrAmount)}`}
+            </span>
           ) : (
-            <span>{lang === 'vi' ? '✓ Tôi đã thanh toán' : '✓ I have paid'}</span>
+            <span>
+              {lang === 'vi'
+                ? `✓ Tôi đã chuyển khoản xong • ${formatPrice(qrAmount)}`
+                : `✓ I have transferred • ${formatPrice(qrAmount)}`}
+            </span>
           )}
         </button>
       </div>

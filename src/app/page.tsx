@@ -1,6 +1,5 @@
 'use client'
 
-import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import styles from './welcome.module.css'
 import { useLang } from '@/lib/providers'
@@ -9,16 +8,6 @@ import { LANGUAGE_OPTIONS } from '@/lib/i18n'
 export default function WelcomePage() {
   const router = useRouter()
   const { lang, setLang } = useLang()
-
-  useEffect(() => {
-    const checkSession = async () => {
-      const { createClient } = await import('@/lib/supabase/client')
-      const supabase = createClient()
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session) router.replace('/home')
-    }
-    checkSession()
-  }, [router])
 
   return (
     <div className={styles.pageContainer}>
@@ -50,8 +39,8 @@ export default function WelcomePage() {
             src="/logo-original-transparent.png?v=2026"
             alt="One Coffee Logo"
             className={styles.logoImg}
-            width={126}
-            height={126}
+            width={130}
+            height={130}
           />
         </div>
 
@@ -70,22 +59,14 @@ export default function WelcomePage() {
         </div>
       </main>
 
-      {/* Bottom Actions sitting directly over Roasted Coffee Beans */}
+      {/* Bottom Actions */}
       <footer className={styles.bottomSection}>
         <button
           type="button"
           className={styles.btnGetStarted}
           onClick={() => router.push('/home')}
         >
-          {lang === 'vi' ? 'Bắt đầu đặt món' : 'Get Started'}
-        </button>
-
-        <button
-          type="button"
-          className={styles.btnLogin}
-          onClick={() => router.push('/auth/login')}
-        >
-          {lang === 'vi' ? 'Đăng nhập / Login' : 'Login'}
+          {lang === 'vi' ? 'Bắt đầu đặt món →' : 'Start Ordering →'}
         </button>
 
         <p className={styles.factoryTagline}>

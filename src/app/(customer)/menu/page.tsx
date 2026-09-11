@@ -9,11 +9,16 @@ import { formatPrice } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import styles from './menu.module.css'
 
+const allCategories = [
+  { slug: 'all', name_vi: 'Tất cả', name_en: 'All Menu', icon: '✨', sort_order: 0 },
+  ...categories,
+]
+
 function MenuContent() {
   const { t, lang } = useLang()
   const router = useRouter()
   const searchParams = useSearchParams()
-  const [activeSlug, setActiveSlug] = useState(searchParams.get('cat') ?? 'coffee')
+  const [activeSlug, setActiveSlug] = useState(searchParams.get('cat') ?? 'all')
   const [search, setSearch] = useState('')
   const [productsList, setProductsList] = useState<MenuProduct[]>(menuProducts)
 
@@ -50,19 +55,21 @@ function MenuContent() {
   }, [])
 
   const filtered = useMemo(() => {
-    return search.trim()
-      ? productsList.filter(p =>
-          p.name_vi.toLowerCase().includes(search.toLowerCase()) ||
-          p.name_en.toLowerCase().includes(search.toLowerCase())
-        )
-      : productsList.filter(p => p.category_slug === activeSlug)
+    if (search.trim()) {
+      return productsList.filter(p =>
+        p.name_vi.toLowerCase().includes(search.toLowerCase()) ||
+        p.name_en.toLowerCase().includes(search.toLowerCase())
+      )
+    }
+    if (activeSlug === 'all') return productsList
+    return productsList.filter(p => p.category_slug === activeSlug)
   }, [activeSlug, search, productsList])
 
-  const currentCategory = categories.find(c => c.slug === activeSlug)
+  const currentCategory = allCategories.find(c => c.slug === activeSlug)
 
   return (
     <div className={styles.page}>
-      {/* Header matching Screen 3 */}
+      {/* Header */}
       <header className={styles.header}>
         <h1 className={styles.title}>{t('menu')}</h1>
         <div className={styles.searchBox}>
@@ -80,11 +87,11 @@ function MenuContent() {
         </div>
       </header>
 
-      {/* Category Pills matching Screen 3 */}
+      {/* Category Pills with 'Tất cả' */}
       {!search && (
         <div className={styles.categoryPillsWrap}>
           <div className={styles.categoryPills}>
-            {categories.map(cat => {
+            {allCategories.map(cat => {
               const isActive = activeSlug === cat.slug
               const label = lang === 'vi' ? `${cat.icon} ${cat.name_vi}` : `${cat.icon} ${cat.name_en}`
               return (
@@ -101,37 +108,69 @@ function MenuContent() {
         </div>
       )}
 
-      {/* Category Section Header matching Screen 3 */}
-      {!search && currentCategory && (
-        <div className={styles.sectionHeader}>
-          <h2 className={styles.sectionTitle}>
-            {currentCategory.icon} {lang === 'vi' ? currentCategory.name_vi : currentCategory.name_en}
-          </h2>
-        </div>
-      )}
-
+      {/* Search results summary */}
       {search && (
         <p className={styles.searchResults}>
-          {lang === 'vi' ? `Kết quả cho "${search}"` : `Results for "${search}"`} ({filtered.length})
+          {lang === 'vi' ? `Kết quả tìm kiếm cho "${search}"` : `Search results for "${search}"`} ({filtered.length})
         </p>
       )}
 
-      {/* Product List matching Screen 3 */}
-      {filtered.length === 0 ? (
-        <div className="empty-state">
-          <span className="empty-state-icon">☕</span>
-          <p className="empty-state-title">
-            {lang === 'vi' ? 'Không tìm thấy món' : 'No items found'}
-          </p>
-          <p className="empty-state-desc">
-            {lang === 'vi' ? 'Thử tìm từ khóa khác nhé' : 'Try searching another keyword'}
-          </p>
+      {/* When searching or viewing single category */}
+      {(search || activeSlug !== 'all') && (
+        <div>
+          {!search && currentCategory && (
+            <div className={styles.sectionHeader}>
+              <h2 className={styles.sectionTitle}>
+                {currentCategory.icon} {lang === 'vi' ? currentCategory.name_vi : currentCategory.name_en}
+                <span className={styles.sectionCount}>({filtered.length})</span>
+              </h2>
+            </div>
+          )}
+
+          {filtered.length === 0 ? (
+            <div className="empty-state">
+              <span className="empty-state-icon">☕</span>
+              <p className="empty-state-title">
+                {lang === 'vi' ? 'Không tìm thấy món' : 'No items found'}
+              </p>
+              <p className="empty-state-desc">
+                {lang === 'vi' ? 'Thử tìm từ khóa khác nhé' : 'Try searching another keyword'}
+              </p>
+            </div>
+          ) : (
+            <div className={styles.productList}>
+              {filtered.map(product => (
+                <MenuProductItem key={product.id} product={product} lang={lang} />
+              ))}
+            </div>
+          )}
         </div>
-      ) : (
-        <div className={styles.productList}>
-          {filtered.map(product => (
-            <MenuProductItem key={product.id} product={product} lang={lang} />
-          ))}
+      )}
+
+      {/* FULL CATALOG VIEW: when 'all' is active and not searching */}
+      {activeSlug === 'all' && !search && (
+        <div className={styles.catalogAll}>
+          {categories.map(cat => {
+            const catItems = productsList.filter(p => p.category_slug === cat.slug)
+            if (catItems.length === 0) return null
+
+            return (
+              <section key={cat.slug} className={styles.catalogSection}>
+                <div className={styles.sectionHeader}>
+                  <h2 className={styles.sectionTitle}>
+                    {cat.icon} {lang === 'vi' ? cat.name_vi : cat.name_en}
+                    <span className={styles.sectionCount}>({catItems.length})</span>
+                  </h2>
+                </div>
+
+                <div className={styles.productList}>
+                  {catItems.map(product => (
+                    <MenuProductItem key={product.id} product={product} lang={lang} />
+                  ))}
+                </div>
+              </section>
+            )
+          })}
         </div>
       )}
 
@@ -152,7 +191,7 @@ function MenuProductItem({ product, lang }: { product: MenuProduct; lang: string
         <img src={imageUrl} alt={primaryName} className={styles.thumbnail} />
       </div>
 
-      {/* Info matching Screen 3 */}
+      {/* Info */}
       <div className={styles.productInfo}>
         <h3 className={styles.productName}>{primaryName}</h3>
         <p className={styles.productSub}>{secondaryName}</p>
@@ -175,7 +214,7 @@ function MenuProductItem({ product, lang }: { product: MenuProduct; lang: string
         </div>
       </div>
 
-      {/* Square Dark Green + Button matching Screen 3 */}
+      {/* Square Dark Green + Button */}
       <div className={styles.addBtnSquare}>
         +
       </div>

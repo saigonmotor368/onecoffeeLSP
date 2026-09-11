@@ -6,7 +6,7 @@ import { AppProvider } from '@/lib/providers'
 const jakarta = Plus_Jakarta_Sans({
   subsets: ['latin', 'vietnamese'],
   weight: ['400', '500', '600', '700', '800'],
-  variable: '--font-sans',
+  variable: '--font-jakarta',
   display: 'swap',
 })
 

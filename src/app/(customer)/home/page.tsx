@@ -9,6 +9,7 @@ import { useLang } from '@/lib/providers'
 import { formatPrice } from '@/lib/utils'
 import { LSP_LOCATIONS, DEFAULT_LOCATION } from '@/lib/locations'
 import { getBanners, type BannerItem, DEFAULT_BANNERS } from '@/lib/settings'
+import { menuProducts, getProductImage } from '@/lib/menu-data'
 import DeliveryLocationModal from '@/components/DeliveryLocationModal'
 import styles from './home.module.css'
 
@@ -75,37 +76,35 @@ export default function HomePage() {
 
   const currentBanner = banners[bannerIndex] || banners[0]
 
-  // Popular items matching mockup Screen 2 (Drinks & Bakery)
-  const popularDrinks = [
-    {
-      id: 'cafe-muoi-long-son',
-      name_vi: 'Cà Phê Kem Muối Long Sơn',
-      name_en: 'Salted Foam Coffee',
-      price: 48000,
-      image: 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=500&auto=format&fit=crop&q=80',
-    },
-    {
-      id: 'matcha-latte-da',
-      name_vi: 'Matcha Latte Đá',
-      name_en: 'Iced Matcha Latte',
-      price: 54000,
-      image: 'https://images.unsplash.com/photo-1536256263959-770b48d82b0a?w=500&auto=format&fit=crop&q=80',
-    },
-    {
-      id: 'banh-croissant-bo-phap',
-      name_vi: 'Bánh Croissant Bơ Pháp',
-      name_en: 'French Butter Croissant',
-      price: 35000,
-      image: 'https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=500&auto=format&fit=crop&q=80',
-    },
-    {
-      id: 'tra-sua-thai-do',
-      name_vi: 'Trà Sữa Thái Đỏ',
-      name_en: 'Thai Red Milk Tea',
-      price: 50000,
-      image: 'https://images.unsplash.com/photo-1558857563-b37cf0e23485?w=500&auto=format&fit=crop&q=80',
-    },
+  // Top 15 Popular items across all categories (Coffee, Milk Tea, Matcha, Frappe, Fruit Tea, Food)
+  const featuredIds = [
+    'cafe-kem-muoi-long-son',
+    'cafe-sua-da-dac-biet',
+    'bac-xiu-da',
+    'cafe-caramel-macchiato',
+    'matcha-nuoc-dua-foam-lanh',
+    'matcha-latte-da',
+    'tra-sua-thai-do',
+    'tra-dao-cam-sa-hat-chia',
+    'tra-sen-vang',
+    'pho-mai-dau-tay-da-xay',
+    'cookie-oreo-da-xay',
+    'banh-croissant-bo-phap',
+    'sandwich-thit-nguoi-pho-mai',
+    'banh-tiramisu-ca-phe',
+    'tra-sua-thai-xanh-tran-chau',
   ]
+
+  const popularDrinks = featuredIds.map(id => {
+    const item = menuProducts.find(p => p.id === id) || menuProducts[0]
+    return {
+      id: item.id,
+      name_vi: item.name_vi,
+      name_en: item.name_en,
+      price: (item.price_m || item.price_l || 0) * 1000,
+      image: getProductImage(item),
+    }
+  })
 
   return (
     <div className={styles.page}>

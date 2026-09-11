@@ -1,126 +1,237 @@
 .page {
   min-height: 100dvh;
-  background: linear-gradient(160deg, var(--color-primary-dark) 0%, var(--color-primary) 50%, var(--color-primary-light) 100%);
+  background: linear-gradient(160deg, #123326 0%, #1E4D3B 50%, #2A6650 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: var(--space-6);
+  padding: 24px 20px;
 }
 
 .content {
   width: 100%;
-  max-width: 360px;
+  max-width: 400px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-5);
+  gap: 16px;
   animation: fade-in-up 500ms ease both;
 }
 
-/* Animated check */
+/* Animated check circle */
 .checkCircle {
-  width: 100px;
-  height: 100px;
+  width: 88px;
+  height: 88px;
   border-radius: 50%;
-  background: rgba(255,255,255,0.15);
+  background: rgba(255, 255, 255, 0.15);
   backdrop-filter: blur(12px);
-  border: 3px solid rgba(255,255,255,0.3);
+  border: 3px solid rgba(255, 255, 255, 0.3);
   display: flex;
   align-items: center;
   justify-content: center;
-  animation: scale-in 400ms ease both;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.checkCircleCash {
+  background: rgba(245, 158, 11, 0.2) !important;
+  border-color: rgba(245, 158, 11, 0.5) !important;
 }
 
 .checkMark {
-  font-size: 48px;
-  color: var(--color-accent);
-  animation: scale-in 600ms ease both;
+  font-size: 42px;
+  color: #D4AF37;
+  line-height: 1;
+}
+
+.methodBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.methodBadgeCash {
+  background: #FEF3C7;
+  color: #92400E;
+}
+
+.methodBadgeTransfer {
+  background: #DCFCE7;
+  color: #166534;
 }
 
 .title {
-  font-size: var(--text-2xl);
+  font-size: 22px;
   font-weight: 800;
-  color: white;
+  color: #FFFFFF;
   text-align: center;
+  margin: 0;
 }
 
 .subtitle {
-  font-size: var(--text-base);
-  color: rgba(255,255,255,0.8);
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.85);
   text-align: center;
-  line-height: 1.6;
+  line-height: 1.5;
+  margin: 0;
 }
 
-.orderNumCard {
-  background: rgba(255,255,255,0.12);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(255,255,255,0.2);
-  border-radius: var(--radius-lg);
-  padding: var(--space-4) var(--space-6);
-  text-align: center;
+/* Notification Instruction Box */
+.noticeBox {
   width: 100%;
+  border-radius: 16px;
+  padding: 14px 16px;
+  backdrop-filter: blur(8px);
+  font-size: 12px;
+  line-height: 1.5;
+  box-sizing: border-box;
 }
 
-.orderNumLabel {
-  font-size: var(--text-xs);
-  color: rgba(255,255,255,0.65);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  margin-bottom: var(--space-1);
+.noticeBoxCash {
+  background: rgba(254, 243, 199, 0.18);
+  border: 1px solid rgba(253, 230, 138, 0.4);
+  color: #FEF3C7;
 }
 
-.orderNum {
-  font-size: var(--text-xl);
+.noticeBoxTransfer {
+  background: rgba(220, 252, 231, 0.18);
+  border: 1px solid rgba(187, 247, 208, 0.4);
+  color: #DCFCE7;
+}
+
+.noticeHighlight {
   font-weight: 800;
-  color: var(--color-accent);
-  letter-spacing: 0.05em;
+  color: #FBBF24;
 }
 
-.estimateCard {
-  background: rgba(255,255,255,0.1);
-  border-radius: var(--radius-lg);
-  padding: var(--space-4);
+/* Order Details Card */
+.detailsCard {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-sizing: border-box;
+}
+
+.detailRow {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  width: 100%;
+  justify-content: space-between;
+  font-size: 13px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.estimateIcon { font-size: 32px; }
+.detailRow:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.detailLabel {
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+}
+
+.detailValue {
+  color: #FFFFFF;
+  font-weight: 700;
+  text-align: right;
+}
+
+.detailValueHighlight {
+  color: #F6E05E;
+  font-weight: 800;
+  font-size: 15px;
+}
+
+/* Estimate Card */
+.estimateCard {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-sizing: border-box;
+}
+
+.estimateIcon {
+  font-size: 28px;
+}
 
 .estimateTitle {
-  font-size: var(--text-sm);
-  color: rgba(255,255,255,0.7);
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+  margin: 0;
 }
 
 .estimateTime {
-  font-size: var(--text-lg);
+  font-size: 15px;
   font-weight: 700;
-  color: white;
+  color: #FFFFFF;
+  margin: 2px 0 0;
 }
 
+/* Action Buttons */
 .actions {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: 10px;
   width: 100%;
+  margin-top: 4px;
 }
 
-/* Override btn colors for dark bg */
-.actions .btn-primary {
-  background: var(--color-accent) !important;
-  color: var(--color-primary-dark) !important;
+.primaryBtn {
+  width: 100%;
+  padding: 14px;
+  border-radius: 14px;
+  background: #D4AF37;
+  color: #123326;
+  border: none;
+  font-size: 14px;
+  font-weight: 800;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);
 }
-.actions .btn-outline {
-  border-color: rgba(255,255,255,0.5) !important;
-  color: white !important;
+
+.primaryBtn:hover {
+  background: #ECC94B;
 }
-.actions .btn-outline:hover {
-  background: rgba(255,255,255,0.1) !important;
+
+.secondaryBtn {
+  width: 100%;
+  padding: 13px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #FFFFFF;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.secondaryBtn:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .autoRedirect {
-  font-size: var(--text-xs);
-  color: rgba(255,255,255,0.4);
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
   text-align: center;
+  margin: 0;
 }

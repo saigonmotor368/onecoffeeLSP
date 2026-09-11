@@ -1,13 +1,15 @@
 .pageContainer {
-  padding: 16px 20px 100px;
+  padding: 16px 20px 120px;
   background: #F8F9FA;
-  min-height: 100%;
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
   gap: 16px;
+  max-width: 480px;
+  margin: 0 auto;
 }
 
-/* Header matching Screen 7 */
+/* Header */
 .header {
   display: flex;
   align-items: center;
@@ -32,7 +34,7 @@
   margin: 0;
 }
 
-/* Total Amount Row matching Screen 7 */
+/* Total Amount Row */
 .totalRow {
   display: flex;
   align-items: baseline;
@@ -56,7 +58,246 @@
   color: #1E4D3B;
 }
 
-/* Segmented Control matching Screen 7: [ QR Transfer ] | [ Bank Info ] */
+/* Card Section General */
+.sectionCard {
+  background: #FFFFFF;
+  border: 1px solid #EDF2F7;
+  border-radius: 16px;
+  padding: 16px 18px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sectionTitle {
+  font-size: 14px;
+  font-weight: 800;
+  color: #1A202C;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+}
+
+/* Auth / Profile notice */
+.loginPromptBanner {
+  background: #F0FDF4;
+  border: 1px solid #DCFCE7;
+  border-radius: 10px;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #166534;
+}
+
+.loginPromptLink {
+  color: #1E4D3B;
+  font-weight: 700;
+  text-decoration: underline;
+  cursor: pointer;
+  background: none;
+  border: none;
+  font-size: 12px;
+  padding: 0;
+}
+
+/* Form Inputs */
+.inputGrid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.inputRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.inputGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.inputLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: #4A5568;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.inputField {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #E2E8F0;
+  border-radius: 10px;
+  font-size: 13px;
+  color: #1A202C;
+  background: #FFFFFF;
+  outline: none;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.inputField:focus {
+  border-color: #1E4D3B;
+  box-shadow: 0 0 0 2px rgba(30, 77, 59, 0.1);
+}
+
+/* Delivery destination selector */
+.locationSelectBtn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #F7FAFC;
+  border: 1px solid #E2E8F0;
+  border-radius: 12px;
+  padding: 10px 14px;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s;
+}
+
+.locationSelectBtn:hover {
+  border-color: #CBD5E0;
+  background: #EDF2F7;
+}
+
+.locationText {
+  flex: 1;
+}
+
+.locationMain {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1A202C;
+}
+
+.locationSub {
+  font-size: 11px;
+  color: #718096;
+  margin-top: 1px;
+}
+
+/* Payment Method Cards */
+.methodList {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.methodCard {
+  border: 1.5px solid #E2E8F0;
+  border-radius: 14px;
+  padding: 12px 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: all 0.2s ease;
+  background: #FFFFFF;
+}
+
+.methodCardActive {
+  border-color: #1E4D3B !important;
+  background: #F4F9F6 !important;
+  box-shadow: 0 2px 8px rgba(30, 77, 59, 0.08);
+}
+
+.methodRadio {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid #CBD5E0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.methodCardActive .methodRadio {
+  border-color: #1E4D3B;
+  background: #1E4D3B;
+}
+
+.methodRadioDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #FFFFFF;
+}
+
+.methodIconWrap {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.methodContent {
+  flex: 1;
+}
+
+.methodTitle {
+  font-size: 13px;
+  font-weight: 800;
+  color: #1A202C;
+  margin: 0 0 2px;
+}
+
+.methodDesc {
+  font-size: 11px;
+  color: #718096;
+  margin: 0;
+  line-height: 1.3;
+}
+
+/* Cash Instruction Box */
+.cashNoticeBox {
+  background: #FFFBEB;
+  border: 1px solid #FEF3C7;
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.cashNoticeIcon {
+  font-size: 24px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.cashNoticeTitle {
+  font-size: 13px;
+  font-weight: 800;
+  color: #92400E;
+  margin: 0 0 4px;
+}
+
+.cashNoticeText {
+  font-size: 12px;
+  color: #78350F;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.cashAmountHighlight {
+  font-weight: 800;
+  color: #B45309;
+}
+
+/* Segmented Control for QR vs Bank details */
 .segmentedControl {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -67,11 +308,11 @@
 }
 
 .segmentBtn {
-  padding: 10px 14px;
-  border-radius: 11px;
+  padding: 8px 12px;
+  border-radius: 10px;
   border: none;
   background: transparent;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 700;
   color: #718096;
   cursor: pointer;
@@ -81,26 +322,25 @@
 .segmentBtnActive {
   background: #1E4D3B !important;
   color: #FFFFFF !important;
-  box-shadow: 0 2px 8px rgba(30, 77, 59, 0.25);
+  box-shadow: 0 2px 8px rgba(30, 77, 59, 0.2);
 }
 
-/* QR Transfer Card matching Screen 7 */
+/* QR Card */
 .qrCard {
   background: #FFFFFF;
   border: 1px solid #EDF2F7;
-  border-radius: 20px;
-  padding: 22px 20px;
+  border-radius: 16px;
+  padding: 18px 16px;
   display: flex;
   flex-direction: column;
   align-items: center;
-  box-shadow: 0 4px 16px rgba(0,0,0,0.03);
 }
 
 .qrBrandHeader {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 16px;
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
 .qrLogo {
@@ -111,11 +351,11 @@
 .qrBrandText {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .brandTitle {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 800;
   color: #1E4D3B;
   letter-spacing: 0.05em;
@@ -124,21 +364,21 @@
 .vietqrBadge {
   background: #EBF8FF;
   color: #0284C7;
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 800;
   padding: 2px 6px;
   border-radius: 6px;
 }
 
 .qrCodeWrapper {
-  width: 220px;
-  height: 220px;
+  width: 200px;
+  height: 200px;
   background: #FFFFFF;
   border-radius: 14px;
   padding: 8px;
   border: 1px solid #E2E8F0;
   box-shadow: 0 2px 10px rgba(0,0,0,0.06);
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 
 .qrImage {
@@ -148,7 +388,7 @@
 }
 
 .scanInstruction {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   color: #1A202C;
   margin: 0 0 4px;
@@ -156,7 +396,7 @@
 }
 
 .scanSub {
-  font-size: 12px;
+  font-size: 11px;
   color: #718096;
   margin: 0;
   text-align: center;
@@ -164,23 +404,22 @@
   line-height: 1.4;
 }
 
-/* Bank Info Card */
+/* Bank details */
 .bankCard {
   background: #FFFFFF;
   border: 1px solid #EDF2F7;
-  border-radius: 20px;
-  padding: 20px;
+  border-radius: 16px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+  gap: 10px;
 }
 
 .bankRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-bottom: 10px;
+  padding-bottom: 8px;
   border-bottom: 1px solid #EDF2F7;
 }
 
@@ -190,39 +429,108 @@
 }
 
 .bankLabel {
-  font-size: 13px;
+  font-size: 12px;
   color: #718096;
   font-weight: 500;
 }
 
 .bankValue {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
   color: #1A202C;
 }
 
 .bankValueHighlight {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 800;
   color: #1E4D3B;
   background: #F4F9F6;
-  padding: 4px 10px;
-  border-radius: 8px;
+  padding: 3px 8px;
+  border-radius: 6px;
 }
 
-/* Delivery destination card */
-.deliveryPreview {
+.copyBtn {
+  background: #EDF2F7;
+  border: none;
+  border-radius: 6px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #4A5568;
+  cursor: pointer;
+  margin-left: 6px;
+  transition: all 0.2s;
+}
+
+.copyBtn:hover {
+  background: #E2E8F0;
+  color: #1A202C;
+}
+
+/* Order Summary Box */
+.summaryHeader {
   display: flex;
   align-items: center;
-  gap: 12px;
-  background: #FFFFFF;
-  border: 1px solid #EDF2F7;
-  border-radius: 14px;
-  padding: 12px 16px;
+  justify-content: space-between;
   cursor: pointer;
 }
 
-/* Bottom Bar matching Screen 7 */
+.summaryItemList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #E2E8F0;
+}
+
+.summaryItemRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  font-size: 12px;
+}
+
+.summaryItemName {
+  font-weight: 700;
+  color: #1A202C;
+}
+
+.summaryItemMeta {
+  font-size: 11px;
+  color: #718096;
+}
+
+.summaryItemPrice {
+  font-weight: 700;
+  color: #1E4D3B;
+}
+
+.priceBreakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid #EDF2F7;
+  font-size: 12px;
+}
+
+.priceRow {
+  display: flex;
+  justify-content: space-between;
+  color: #718096;
+}
+
+.priceRowTotal {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  font-weight: 800;
+  color: #1E4D3B;
+  padding-top: 6px;
+  border-top: 1px solid #E2E8F0;
+}
+
+/* Bottom Bar */
 .bottomBar {
   position: fixed;
   bottom: 0;
@@ -232,11 +540,12 @@
   margin: 0 auto;
   background: #FFFFFF;
   border-top: 1px solid #EDF2F7;
-  padding: 14px 20px 24px;
+  padding: 12px 20px 24px;
   z-index: 20;
+  box-shadow: 0 -4px 16px rgba(0,0,0,0.04);
 }
 
-.btnHavePaid {
+.submitBtn {
   width: 100%;
   padding: 15px 20px;
   border-radius: 14px;
@@ -244,12 +553,30 @@
   color: #FFFFFF;
   border: none;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 800;
   cursor: pointer;
   box-shadow: 0 4px 16px rgba(30, 77, 59, 0.3);
   transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
 }
 
-.btnHavePaid:hover {
+.submitBtn:hover {
   background: #25634D;
+}
+
+.submitBtn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+.submitBtnCash {
+  background: #D97706 !important;
+  box-shadow: 0 4px 16px rgba(217, 119, 6, 0.3) !important;
+}
+
+.submitBtnCash:hover {
+  background: #B45309 !important;
 }
