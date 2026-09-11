@@ -7,8 +7,6 @@ import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { useCart, useLang, useToast } from '@/lib/providers'
 import { formatPrice, generateOrderNumber, buildVietQRUrl } from '@/lib/utils'
-import { DEFAULT_LOCATION } from '@/lib/locations'
-import DeliveryLocationModal from '@/components/DeliveryLocationModal'
 import styles from './checkout.module.css'
 
 type PaymentMethod = 'cash' | 'transfer'
@@ -37,7 +35,7 @@ function CheckoutContent() {
   // Customer & Delivery Info
   const [recipientName, setRecipientName] = useState('')
   const [recipientPhone, setRecipientPhone] = useState('')
-  const [deliveryAddress, setDeliveryAddress] = useState(DEFAULT_LOCATION.name_en)
+  const [deliveryAddress, setDeliveryAddress] = useState('')
   const [customerNotes, setCustomerNotes] = useState('')
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
@@ -45,9 +43,6 @@ function CheckoutContent() {
   // Payment Selection
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash')
   const [transferTab, setTransferTab] = useState<TransferViewTab>('qr')
-
-  // UI States
-  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false)
   const [isSummaryExpanded, setIsSummaryExpanded] = useState(true)
   const [loading, setLoading] = useState(false)
   const [orderNumber, setOrderNumber] = useState('')
@@ -112,6 +107,7 @@ function CheckoutContent() {
     // Validation
     const trimmedName = recipientName.trim()
     const trimmedPhone = recipientPhone.trim()
+    const trimmedAddress = deliveryAddress.trim()
 
     if (!trimmedName) {
       showToast(lang === 'vi' ? 'Vui lòng nhập họ và tên người nhận!' : 'Please enter recipient name!', 'error')
@@ -121,11 +117,15 @@ function CheckoutContent() {
       showToast(lang === 'vi' ? 'Vui lòng nhập số điện thoại nhận hàng!' : 'Please enter phone number!', 'error')
       return
     }
+    if (!trimmedAddress) {
+      showToast(lang === 'vi' ? 'Vui lòng nhập địa chỉ giao hàng!' : 'Please enter delivery address!', 'error')
+      return
+    }
 
     // Persist info for next time
     localStorage.setItem('oc_customer_name', trimmedName)
     localStorage.setItem('oc_customer_phone', trimmedPhone)
-    localStorage.setItem('oc_delivery_location', deliveryAddress)
+    localStorage.setItem('oc_delivery_location', trimmedAddress)
 
     setLoading(true)
     try {
@@ -144,7 +144,7 @@ function CheckoutContent() {
       const orderPayload: Record<string, unknown> = {
         order_number: orderNumber,
         user_id: userId,
-        delivery_address: deliveryAddress,
+        delivery_address: trimmedAddress,
         recipient_name: trimmedName,
         recipient_phone: trimmedPhone,
         total_amount: subtotal || qrAmount,
@@ -307,21 +307,23 @@ function CheckoutContent() {
 
           <div className={styles.inputGroup}>
             <label className={styles.inputLabel}>
-              {lang === 'vi' ? 'Điểm nhận tại nhà máy LSP (21 điểm) *' : 'Delivery Location *'}
+              {lang === 'vi' ? 'Địa chỉ giao hàng tận nơi *' : 'Delivery Address *'}
             </label>
-            <div
-              className={styles.locationSelectBtn}
-              onClick={() => setIsLocationModalOpen(true)}
-            >
-              <span style={{ fontSize: '18px' }}>📍</span>
-              <div className={styles.locationText}>
-                <div className={styles.locationMain}>{deliveryAddress}</div>
-                <div className={styles.locationSub}>
-                  {lang === 'vi' ? 'Nhấn để đổi điểm nhận hàng trong 21 khu vực' : 'Tap to change LSP location'}
-                </div>
-              </div>
-              <span style={{ color: '#A0AEC0', fontSize: '16px', fontWeight: 700 }}>›</span>
-            </div>
+            <input
+              type="text"
+              className={styles.inputField}
+              placeholder={
+                lang === 'vi'
+                  ? 'Nhập địa chỉ giao hàng (VD: Tòa nhà điều hành, Cổng 2, hoặc địa chỉ lân cận...)'
+                  : 'Enter delivery address (e.g. Admin Building, Gate 2, nearby address...)'
+              }
+              value={deliveryAddress}
+              onChange={e => {
+                setDeliveryAddress(e.target.value)
+                localStorage.setItem('oc_delivery_location', e.target.value)
+              }}
+              required
+            />
           </div>
 
           <div className={styles.inputGroup}>
@@ -663,17 +665,6 @@ function CheckoutContent() {
           )}
         </button>
       </div>
-
-      {/* 21 Locations Modal */}
-      <DeliveryLocationModal
-        isOpen={isLocationModalOpen}
-        onClose={() => setIsLocationModalOpen(false)}
-        selectedLocation={deliveryAddress}
-        onSelect={loc => {
-          setDeliveryAddress(loc)
-          localStorage.setItem('oc_delivery_location', loc)
-        }}
-      />
     </div>
   )
 }

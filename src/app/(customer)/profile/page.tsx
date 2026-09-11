@@ -5,8 +5,6 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useLang, useToast } from '@/lib/providers'
-import { DEFAULT_LOCATION } from '@/lib/locations'
-import DeliveryLocationModal from '@/components/DeliveryLocationModal'
 import styles from './profile.module.css'
 
 export default function ProfilePage() {
@@ -21,8 +19,9 @@ export default function ProfilePage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [loading, setLoading] = useState(true)
 
-  const [selectedLocation, setSelectedLocation] = useState(DEFAULT_LOCATION.name_en)
-  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false)
+  const [selectedLocation, setSelectedLocation] = useState('')
+  const [tempAddress, setTempAddress] = useState('')
+  const [showAddressModal, setShowAddressModal] = useState(false)
   const [showInfoModal, setShowInfoModal] = useState(false)
   const [showHelpModal, setShowHelpModal] = useState(false)
   const [showAboutModal, setShowAboutModal] = useState(false)
@@ -88,7 +87,7 @@ export default function ProfilePage() {
     sessionStorage.clear()
     setProfile(null)
     setIsLoggedIn(false)
-    setSelectedLocation(DEFAULT_LOCATION.name_en)
+    setSelectedLocation('')
     showToast(
       lang === 'vi' ? 'Đã xóa toàn bộ bộ nhớ đệm! Bạn có thể test như khách mới.' : 'Cache cleared! Ready to test as new customer.',
       'success'
@@ -188,12 +187,18 @@ export default function ProfilePage() {
           </div>
         )}
 
-        {/* 2. Delivery Locations (21 locations in factory) */}
-        <div className={styles.menuItem} onClick={() => setIsLocationModalOpen(true)}>
+        {/* 2. Default Delivery Address */}
+        <div
+          className={styles.menuItem}
+          onClick={() => {
+            setTempAddress(selectedLocation)
+            setShowAddressModal(true)
+          }}
+        >
           <div className={styles.menuItemLeft}>
             <span className={styles.menuIcon}>📍</span>
             <span className={styles.menuText}>
-              {lang === 'vi' ? 'Vị trí nhận nước (21 điểm LSP)' : 'Delivery Locations'}
+              {lang === 'vi' ? 'Địa chỉ giao hàng mặc định' : 'Default Delivery Address'}
             </span>
           </div>
           <span className={styles.chevron}>›</span>
@@ -269,17 +274,60 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* 21 Locations Modal */}
-      <DeliveryLocationModal
-        isOpen={isLocationModalOpen}
-        onClose={() => setIsLocationModalOpen(false)}
-        selectedLocation={selectedLocation}
-        onSelect={loc => {
-          setSelectedLocation(loc)
-          localStorage.setItem('oc_delivery_location', loc)
-          showToast(lang === 'vi' ? `Đã chọn: ${loc}` : `Selected: ${loc}`, 'success')
-        }}
-      />
+      {/* Edit Address Modal */}
+      {showAddressModal && (
+        <div className={styles.modalBackdrop} onClick={() => setShowAddressModal(false)}>
+          <div className={styles.modalBox} onClick={e => e.stopPropagation()}>
+            <h3 style={{ margin: '0 0 8px', fontSize: '16px', fontWeight: 800, color: '#1E4D3B' }}>
+              📍 {lang === 'vi' ? 'Địa chỉ giao hàng mặc định' : 'Default Delivery Address'}
+            </h3>
+            <p style={{ fontSize: '12px', color: '#718096', margin: '0 0 8px' }}>
+              {lang === 'vi'
+                ? 'Nhập địa chỉ nhận hàng tại nhà máy LSP hoặc khu vực lân cận để tự động điền khi đặt hàng.'
+                : 'Enter your preferred delivery address for fast checkout.'}
+            </p>
+            <input
+              type="text"
+              className={styles.modalInput}
+              placeholder={lang === 'vi' ? 'VD: Tòa nhà điều hành, Cổng 2, đường ABC...' : 'e.g. Admin Building, Gate 2...'}
+              value={tempAddress}
+              onChange={e => setTempAddress(e.target.value)}
+              autoFocus
+            />
+            <div className={styles.modalActionRow}>
+              <button className={styles.modalCancelBtn} onClick={() => setShowAddressModal(false)}>
+                {lang === 'vi' ? 'Hủy' : 'Cancel'}
+              </button>
+              <button
+                className={styles.modalSaveBtn}
+                onClick={async () => {
+                  const val = tempAddress.trim()
+                  setSelectedLocation(val)
+                  localStorage.setItem('oc_delivery_location', val)
+                  if (isLoggedIn) {
+                    try {
+                      const supabase = createClient()
+                      const { data: { session } } = await supabase.auth.getSession()
+                      if (session) {
+                        await supabase
+                          .from('profiles')
+                          .update({ default_delivery_address: val })
+                          .eq('id', session.user.id)
+                      }
+                    } catch {
+                      // non-fatal
+                    }
+                  }
+                  showToast(lang === 'vi' ? 'Đã lưu địa chỉ giao hàng!' : 'Address saved!', 'success')
+                  setShowAddressModal(false)
+                }}
+              >
+                {lang === 'vi' ? 'Lưu địa chỉ' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Info Modal */}
       {showInfoModal && (

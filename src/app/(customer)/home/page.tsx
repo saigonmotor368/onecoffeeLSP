@@ -7,18 +7,15 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useLang } from '@/lib/providers'
 import { formatPrice } from '@/lib/utils'
-import { LSP_LOCATIONS, DEFAULT_LOCATION } from '@/lib/locations'
 import { getBanners, type BannerItem, DEFAULT_BANNERS } from '@/lib/settings'
 import { menuProducts, getProductImage } from '@/lib/menu-data'
-import DeliveryLocationModal from '@/components/DeliveryLocationModal'
 import styles from './home.module.css'
 
 export default function HomePage() {
   const { lang } = useLang()
   const router = useRouter()
   const [profile, setProfile] = useState<{ full_name: string; default_delivery_address: string | null } | null>(null)
-  const [selectedLocation, setSelectedLocation] = useState<string>(DEFAULT_LOCATION.name_en)
-  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false)
+  const [selectedLocation, setSelectedLocation] = useState<string>('')
 
   // Dynamic Banners
   const [banners, setBanners] = useState<BannerItem[]>(DEFAULT_BANNERS)
@@ -68,11 +65,6 @@ export default function HomePage() {
     }, 5000)
     return () => clearInterval(interval)
   }, [banners.length])
-
-  const handleLocationSelect = (locName: string) => {
-    setSelectedLocation(locName)
-    localStorage.setItem('oc_delivery_location', locName)
-  }
 
   const currentBanner = banners[bannerIndex] || banners[0]
 
@@ -201,23 +193,30 @@ export default function HomePage() {
         </Link>
       </div>
 
-      {/* Delivery Location Pill Card */}
-      <div
-        className={styles.locationCard}
-        onClick={() => setIsLocationModalOpen(true)}
-      >
+      {/* Delivery Address Pill Card */}
+      <div className={styles.locationCard}>
         <div className={styles.locationIconWrap}>
           <span style={{ fontSize: '18px' }}>📍</span>
         </div>
         <div className={styles.locationInfo}>
           <span className={styles.locationLabel}>
-            {lang === 'vi' ? 'Điểm nhận nước (21 vị trí LSP)' : 'Delivery Destination'}
+            {lang === 'vi' ? 'Địa chỉ nhận hàng (LSP & khu vực lân cận)' : 'Delivery Address'}
           </span>
-          <span className={styles.locationValue}>
-            {selectedLocation}
-          </span>
+          <input
+            type="text"
+            className={styles.locationInputInline}
+            placeholder={
+              lang === 'vi'
+                ? 'Nhập địa chỉ nhận hàng của bạn...'
+                : 'Enter delivery address...'
+            }
+            value={selectedLocation}
+            onChange={e => {
+              setSelectedLocation(e.target.value)
+              localStorage.setItem('oc_delivery_location', e.target.value)
+            }}
+          />
         </div>
-        <span className={styles.locationChevron}>›</span>
       </div>
 
       {/* Popular Drinks Section */}
@@ -258,14 +257,6 @@ export default function HomePage() {
           ))}
         </div>
       </section>
-
-      {/* 21 Locations Modal */}
-      <DeliveryLocationModal
-        isOpen={isLocationModalOpen}
-        onClose={() => setIsLocationModalOpen(false)}
-        selectedLocation={selectedLocation}
-        onSelect={handleLocationSelect}
-      />
     </div>
   )
 }

@@ -5,8 +5,6 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useCart, useLang, useToast } from '@/lib/providers'
 import { formatPrice } from '@/lib/utils'
-import { DEFAULT_LOCATION } from '@/lib/locations'
-import DeliveryLocationModal from '@/components/DeliveryLocationModal'
 import styles from './cart.module.css'
 
 export default function CartPage() {
@@ -34,8 +32,7 @@ export default function CartPage() {
 
   const { showToast } = useToast()
 
-  const [selectedLocation, setSelectedLocation] = useState<string>(DEFAULT_LOCATION.name_en)
-  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false)
+  const [selectedLocation, setSelectedLocation] = useState<string>('')
   const [voucherCodeInput, setVoucherCodeInput] = useState('')
   const [applyingVoucher, setApplyingVoucher] = useState(false)
 
@@ -43,11 +40,6 @@ export default function CartPage() {
     const saved = localStorage.getItem('oc_delivery_location')
     if (saved) setSelectedLocation(saved)
   }, [])
-
-  const handleLocationSelect = (locName: string) => {
-    setSelectedLocation(locName)
-    localStorage.setItem('oc_delivery_location', locName)
-  }
 
   const handleApplyVoucher = async () => {
     if (!voucherCodeInput.trim()) {
@@ -281,19 +273,28 @@ export default function CartPage() {
         )}
       </div>
 
-      {/* Delivery Location Section */}
-      <div
-        className={styles.locationBox}
-        onClick={() => setIsLocationModalOpen(true)}
-      >
-        <span className={styles.locationPin}>📍</span>
-        <div className={styles.locationDetails}>
-          <span className={styles.locationHead}>
-            {lang === 'vi' ? 'Điểm nhận nước tại LSP (21 điểm)' : 'Delivery Destination (21 Zones)'}
-          </span>
-          <span className={styles.locationName}>{selectedLocation}</span>
+      {/* Delivery Address Section */}
+      <div className={styles.locationBox}>
+        <div className={styles.locationHeaderRow}>
+          <span className={styles.locationPin}>📍</span>
+          <label className={styles.locationHead}>
+            {lang === 'vi' ? 'Địa chỉ giao hàng' : 'Delivery Address'}
+          </label>
         </div>
-        <span className={styles.locationArrow}>›</span>
+        <input
+          type="text"
+          className={styles.locationInput}
+          placeholder={
+            lang === 'vi'
+              ? 'Nhập địa chỉ nhận hàng (VD: Tòa nhà điều hành, Cổng 2, khu vực lân cận...)'
+              : 'Enter delivery address (e.g. Admin Building, Gate 2, nearby...)'
+          }
+          value={selectedLocation}
+          onChange={e => {
+            setSelectedLocation(e.target.value)
+            localStorage.setItem('oc_delivery_location', e.target.value)
+          }}
+        />
       </div>
 
       {/* Bill Breakdown Card */}
@@ -346,14 +347,6 @@ export default function CartPage() {
           {lang === 'vi' ? 'Tiến hành đặt hàng →' : 'Proceed to Checkout →'}
         </button>
       </div>
-
-      {/* 21 Locations Modal */}
-      <DeliveryLocationModal
-        isOpen={isLocationModalOpen}
-        onClose={() => setIsLocationModalOpen(false)}
-        selectedLocation={selectedLocation}
-        onSelect={handleLocationSelect}
-      />
     </div>
   )
 }
