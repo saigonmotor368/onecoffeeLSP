@@ -3,8 +3,9 @@
 import { use, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { useLang } from '@/lib/providers'
+import { useLang, useToast } from '@/lib/providers'
 import { formatPrice } from '@/lib/utils'
+import { addRecentOrder, playDeliveringSound, playCompletedSound } from '@/lib/notifications'
 import styles from './order-detail.module.css'
 import type { Database } from '@/lib/supabase/database.types'
 
@@ -15,6 +16,7 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
   const { id } = use(params)
   const router = useRouter()
   const { lang } = useLang()
+  const { showToast } = useToast()
   const [order, setOrder] = useState<Order | null>(null)
   const [items, setItems] = useState<OrderItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -52,6 +54,9 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         }
       }
 
+      if (foundOrder) {
+        addRecentOrder(foundOrder.id, foundOrder.order_number)
+      }
       setOrder(foundOrder)
       setItems(foundItems)
       setLoading(false)
@@ -66,14 +71,27 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         event: 'UPDATE',
         schema: 'public',
         table: 'orders',
-        filter: `id=eq.${id}`,
       }, payload => {
-        setOrder(payload.new as Order)
+        const updated = payload.new as Order
+        if (updated && (updated.id === id || updated.order_number === id)) {
+          setOrder(prev => {
+            if (prev) {
+              if (prev.order_status !== 'delivering' && updated.order_status === 'delivering') {
+                playDeliveringSound()
+                showToast(lang === 'vi' ? '🛵 Đơn hàng đang được giao đến bạn!' : '🛵 Order is on the way!', 'info')
+              } else if (prev.order_status !== 'delivered' && updated.order_status === 'delivered') {
+                playCompletedSound()
+                showToast(lang === 'vi' ? '🎉 Đơn hàng đã giao thành công! Chúc bạn ngon miệng ❤️' : '🎉 Order delivered! Enjoy ❤️', 'success')
+              }
+            }
+            return updated
+          })
+        }
       })
       .subscribe()
 
     return () => { sub.unsubscribe() }
-  }, [id])
+  }, [id, lang, showToast])
 
   if (loading) return (
     <div style={{ display: 'flex', justifyContent: 'center', padding: 64 }}>

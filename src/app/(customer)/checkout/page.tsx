@@ -7,6 +7,12 @@ import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { useCart, useLang, useToast } from '@/lib/providers'
 import { formatPrice, generateOrderNumber, buildVietQRUrl } from '@/lib/utils'
+import {
+  playOrderPlacedSound,
+  sendDeviceNotification,
+  requestNotificationPermission,
+  addRecentOrder,
+} from '@/lib/notifications'
 import styles from './checkout.module.css'
 
 type PaymentMethod = 'cash' | 'transfer'
@@ -351,6 +357,29 @@ function CheckoutContent() {
       }
 
       clearCart()
+
+      const targetOrderId = createdId || orderNumber
+      addRecentOrder(targetOrderId, orderNumber)
+
+      // Play success chime sound 🎶
+      playOrderPlacedSound()
+
+      // Send device notification
+      requestNotificationPermission().then(granted => {
+        if (granted) {
+          sendDeviceNotification(
+            lang === 'vi' ? '☕ Đặt đơn One Coffee thành công!' : '☕ Order Placed Successfully!',
+            {
+              body: lang === 'vi'
+                ? `Mã đơn #${orderNumber}. Đang chuyển thông tin đến quầy pha chế!`
+                : `Order #${orderNumber} has been sent to the baristas!`,
+              tag: `placed-${orderNumber}`,
+              data: { url: `/orders/${targetOrderId}` },
+            }
+          )
+        }
+      })
+
       showToast(
         lang === 'vi'
           ? (isCash ? 'Đã ghi nhận đơn hàng (Tiền mặt)!' : 'Đã nhận đơn và xác nhận chuyển khoản!')
@@ -358,10 +387,12 @@ function CheckoutContent() {
         'success'
       )
 
-      router.push(`/orders/${createdId || orderNumber}/success?method=${paymentMethod}`)
+      router.push(`/orders/${targetOrderId}/success?method=${paymentMethod}`)
     } catch (err: unknown) {
       console.error('Checkout error:', err)
       clearCart()
+      addRecentOrder(orderNumber, orderNumber)
+      playOrderPlacedSound()
       showToast(lang === 'vi' ? 'Đã ghi nhận đơn hàng!' : 'Order recorded!', 'success')
       router.push(`/orders/success/success?method=${paymentMethod}`)
     } finally {

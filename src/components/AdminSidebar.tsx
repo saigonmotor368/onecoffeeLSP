@@ -4,8 +4,13 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-
-import { playNotificationSound } from '@/lib/utils'
+import {
+  playAdminNewOrderSound,
+  sendDeviceNotification,
+  requestNotificationPermission,
+  getNotificationPermission,
+} from '@/lib/notifications'
+import { formatPrice } from '@/lib/utils'
 
 const NAV_ITEMS = [
   { href: '/admin',           icon: '📊', label: 'Dashboard' },
@@ -23,6 +28,13 @@ export default function AdminSidebar({ pendingCount: propPendingCount }: { pendi
   const router = useRouter()
   const [pendingCount, setPendingCount] = useState(propPendingCount ?? 0)
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [notificationActive, setNotificationActive] = useState(false)
+
+  useEffect(() => {
+    if (getNotificationPermission() === 'granted') {
+      setNotificationActive(true)
+    }
+  }, [])
 
   useEffect(() => {
     if (propPendingCount !== undefined) {
@@ -30,7 +42,7 @@ export default function AdminSidebar({ pendingCount: propPendingCount }: { pendi
     }
   }, [propPendingCount])
 
-  // Fetch pending count
+  // Fetch pending count and listen for new orders
   useEffect(() => {
     const supabase = createClient()
     const fetchPending = async () => {
@@ -45,10 +57,19 @@ export default function AdminSidebar({ pendingCount: propPendingCount }: { pendi
 
     const channel = supabase
       .channel('admin-sidebar-count')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload: { eventType: string }) => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload: any) => {
         fetchPending()
         if (payload.eventType === 'INSERT') {
-          playNotificationSound()
+          playAdminNewOrderSound()
+          const order = payload.new
+          const orderNum = order?.order_number || ''
+          const amt = order?.final_amount ? ` (${formatPrice(order.final_amount)})` : ''
+          const name = order?.recipient_name ? ` - KH: ${order.recipient_name}` : ''
+          sendDeviceNotification(`🔔 CÓ ĐƠN HÀNG MỚI #${orderNum}!`, {
+            body: `Đơn mới nhận${amt}${name}. Bấm để xem chi tiết!`,
+            tag: `admin-order-${order?.id || Date.now()}`,
+            data: { url: '/admin/orders' },
+          })
         }
       })
       .subscribe()
@@ -63,6 +84,17 @@ export default function AdminSidebar({ pendingCount: propPendingCount }: { pendi
     setMobileOpen(false)
   }, [pathname])
 
+  const handleTestSoundAndNotification = async () => {
+    playAdminNewOrderSound()
+    const granted = await requestNotificationPermission()
+    if (granted) {
+      setNotificationActive(true)
+      sendDeviceNotification('🔔 Chuông & Thông Báo Sẵn Sàng!', {
+        body: 'Âm thanh chuông báo và thông báo hệ thống đã được bật cho tài khoản Admin One Coffee.',
+      })
+    }
+  }
+
   const handleLogout = async () => {
     const supabase = createClient()
     await supabase.auth.signOut()
@@ -71,22 +103,20 @@ export default function AdminSidebar({ pendingCount: propPendingCount }: { pendi
 
   return (
     <>
-      {/* Mobile Topbar */}
-      <header className="admin-mobile-bar">
+      {/* Mobile hamburger header */}
+      <header className="admin-mobile-header">
         <button
           className="admin-hamburger-btn"
           onClick={() => setMobileOpen(!mobileOpen)}
-          aria-label="Toggle navigation menu"
+          aria-label="Toggle menu"
         >
-          {mobileOpen ? '✕' : '☰'}
+          ☰
         </button>
-        <div className="admin-mobile-title">
-          <span>☕</span> ONE COFFEE ADMIN
-        </div>
+        <span className="admin-mobile-title">One Coffee Admin</span>
         {pendingCount > 0 && (
-          <Link href="/admin/orders" className="admin-mobile-badge">
+          <span className="admin-nav-badge" style={{ marginLeft: 'auto' }}>
             {pendingCount} đơn mới
-          </Link>
+          </span>
         )}
       </header>
 
@@ -134,7 +164,39 @@ export default function AdminSidebar({ pendingCount: propPendingCount }: { pendi
           </Link>
         </nav>
 
-        <div style={{ padding: '16px 12px', borderTop: '1px solid rgba(255,255,255,0.1)', marginTop: 'auto' }}>
+        {/* Notification & Sound quick toggle */}
+        <div style={{ padding: '12px 12px 0', borderTop: '1px solid rgba(255,255,255,0.1)', marginTop: 'auto' }}>
+          <button
+            type="button"
+            onClick={handleTestSoundAndNotification}
+            style={{
+              width: '100%',
+              padding: '10px 12px',
+              borderRadius: '8px',
+              background: notificationActive ? 'rgba(34, 197, 94, 0.15)' : 'rgba(255, 255, 255, 0.08)',
+              border: notificationActive ? '1px solid #22c55e' : '1px solid rgba(255, 255, 255, 0.15)',
+              color: notificationActive ? '#4ade80' : '#E2E8F0',
+              fontSize: '12px',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              cursor: 'pointer',
+              textAlign: 'left',
+              transition: 'all 0.2s ease',
+            }}
+          >
+            <span>{notificationActive ? '🔔' : '🔕'}</span>
+            <div style={{ flex: 1 }}>
+              <div>{notificationActive ? 'Chuông & Thông Báo: BẬT' : 'Bật Chuông & Thông Báo'}</div>
+              <div style={{ fontSize: '10px', opacity: 0.75, fontWeight: 400 }}>
+                {notificationActive ? 'Bấm để nghe thử chuông' : 'Bấm để cấp quyền & test'}
+              </div>
+            </div>
+          </button>
+        </div>
+
+        <div style={{ padding: '10px 12px 16px' }}>
           <button className="admin-nav-item" onClick={handleLogout} style={{ width: '100%', color: '#FFA8A8' }}>
             <span className="admin-nav-icon">🚪</span>
             <span>Đăng xuất</span>

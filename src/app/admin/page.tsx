@@ -4,7 +4,8 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { formatPrice, getStatusLabel, playNotificationSound } from '@/lib/utils'
+import { formatPrice, getStatusLabel } from '@/lib/utils'
+import { playAdminNewOrderSound, sendDeviceNotification } from '@/lib/notifications'
 import AdminSidebar from '@/components/AdminSidebar'
 import type { Database } from '@/lib/supabase/database.types'
 
@@ -38,10 +39,16 @@ export default function AdminDashboard() {
       .channel('admin-orders')
       .on('postgres_changes', {
         event: 'INSERT', schema: 'public', table: 'orders',
-      }, () => {
+      }, (payload: any) => {
         loadOrders()
         setNewOrderAlert(true)
-        playNotificationSound()
+        playAdminNewOrderSound()
+        const o = payload.new
+        sendDeviceNotification(`🔔 CÓ ĐƠN HÀNG MỚI #${o?.order_number || ''}!`, {
+          body: `Khách: ${o?.recipient_name || ''} - ${formatPrice(o?.final_amount || 0)}. Bấm xem đơn!`,
+          tag: `admin-new-order-${o?.id || Date.now()}`,
+          data: { url: '/admin/orders' },
+        })
         setTimeout(() => setNewOrderAlert(false), 5000)
       })
       .on('postgres_changes', {
