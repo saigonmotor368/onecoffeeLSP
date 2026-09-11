@@ -246,7 +246,11 @@ export default function AdminOrdersPage() {
               </p>
             </div>
           ) : (
-            <table className="admin-table">
+            
+            <>
+              {/* Desktop Table View (hidden on <768px via CSS) */}
+              <div className="admin-desktop-table">
+                <table className="admin-table">
               <thead>
                 <tr>
                   <th>Mã đơn / Thời gian</th>
@@ -459,6 +463,214 @@ export default function AdminOrdersPage() {
                 })}
               </tbody>
             </table>
+              </div>
+              
+              {/* Mobile Order Cards View (shown on <768px via CSS) */}
+              <div className="admin-mobile-cards">
+                {filtered.map(order => {
+                  const isPending = order.order_status === 'pending'
+                  const isConfirmed = order.order_status === 'confirmed'
+                  const isPreparing = order.order_status === 'preparing'
+                  const isDelivering = order.order_status === 'delivering'
+
+                  return (
+                    <div
+                      key={order.id}
+                      className="admin-order-card"
+                      style={{
+                        background: isPending ? '#FFFBEB' : 'white',
+                        borderColor: isPending ? '#FCD34D' : '#E2E8F0',
+                      }}
+                    >
+                      <div className="admin-order-card-header">
+                        <div>
+                          <Link
+                            href={`/admin/orders/${order.id}`}
+                            style={{
+                              fontWeight: 800,
+                              color: 'var(--color-primary)',
+                              fontSize: '15px',
+                              textDecoration: 'none',
+                            }}
+                          >
+                            #{order.order_number}
+                          </Link>
+                          <div style={{ fontSize: '11px', color: '#64748B', marginTop: 2 }}>
+                            🕒 {new Date(order.created_at).toLocaleString('vi-VN')}
+                          </div>
+                        </div>
+                        <span className={`status-badge status-${order.order_status}`} style={{ fontSize: '12px', padding: '4px 10px' }}>
+                          {STATUS_LABELS[order.order_status] || order.order_status}
+                        </span>
+                      </div>
+
+                      <div className="admin-order-card-body">
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontWeight: 700, color: '#1E293B', fontSize: '14px' }}>
+                            👤 {order.recipient_name}
+                          </span>
+                          <a
+                            href={`tel:${order.recipient_phone}`}
+                            style={{
+                              background: '#EAF2ED',
+                              color: '#1E4D3B',
+                              fontWeight: 700,
+                              fontSize: '12px',
+                              padding: '4px 10px',
+                              borderRadius: '8px',
+                              textDecoration: 'none',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: 4,
+                            }}
+                          >
+                            📞 {order.recipient_phone}
+                          </a>
+                        </div>
+
+                        <div style={{ color: '#475569', fontSize: '13px' }}>
+                          📍 {order.delivery_address}
+                        </div>
+
+                        <div
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            background: isPending ? 'rgba(254, 243, 199, 0.6)' : '#F8FAFC',
+                            padding: '8px 12px',
+                            borderRadius: '10px',
+                          }}
+                        >
+                          <div>
+                            <div style={{ fontWeight: 800, color: 'var(--color-primary)', fontSize: '15px' }}>
+                              {formatPrice(order.final_amount)}
+                            </div>
+                            {order.discount_amount > 0 && (
+                              <div style={{ fontSize: '11px', color: '#16A34A', fontWeight: 600 }}>
+                                Giảm {formatPrice(order.discount_amount)}
+                              </div>
+                            )}
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <span
+                              className={`badge ${order.payment_method === 'cash' ? 'badge-warning' : 'badge-info'}`}
+                              style={{ fontSize: '11px' }}
+                            >
+                              {order.payment_method === 'cash' ? '💵 Tiền mặt' : '📱 CK QR'}
+                            </span>
+                            <div
+                              style={{
+                                fontSize: '11px',
+                                marginTop: 2,
+                                fontWeight: 700,
+                                color: order.payment_status === 'paid' ? '#16A34A' : '#D97706',
+                              }}
+                            >
+                              {order.payment_status === 'paid' ? '✓ Đã TT' : '⏳ Chưa TT'}
+                            </div>
+                          </div>
+                        </div>
+
+                        {order.notes && (
+                          <div style={{ fontSize: '11px', color: '#1E4D3B', background: '#EAF2ED', padding: '6px 10px', borderRadius: '8px' }}>
+                            📝 {order.notes}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Action buttons on card */}
+                      <div className="admin-order-card-footer">
+                        {isPending && (
+                          <button
+                            type="button"
+                            className="btn btn-primary"
+                            onClick={() => updateStatus(order.id, 'confirmed')}
+                            style={{ background: '#1E4D3B', fontSize: 13, flex: 1, padding: '10px 14px', fontWeight: 800 }}
+                          >
+                            ✓ Xác nhận
+                          </button>
+                        )}
+                        {isConfirmed && (
+                          <button
+                            type="button"
+                            className="btn btn-primary"
+                            onClick={() => updateStatus(order.id, 'preparing')}
+                            style={{ background: '#6D28D9', borderColor: '#6D28D9', fontSize: 13, flex: 1, padding: '10px 14px', fontWeight: 800 }}
+                          >
+                            ☕ Pha chế
+                          </button>
+                        )}
+                        {isPreparing && (
+                          <button
+                            type="button"
+                            className="btn btn-primary"
+                            onClick={() => updateStatus(order.id, 'delivering')}
+                            style={{ background: '#D97706', borderColor: '#D97706', fontSize: 13, flex: 1, padding: '10px 14px', fontWeight: 800 }}
+                          >
+                            🛵 Giao hàng
+                          </button>
+                        )}
+                        {isDelivering && (
+                          <button
+                            type="button"
+                            className="btn btn-primary"
+                            onClick={() => updateStatus(order.id, 'delivered')}
+                            style={{ background: '#16A34A', borderColor: '#16A34A', fontSize: 13, flex: 1, padding: '10px 14px', fontWeight: 800 }}
+                          >
+                            🎉 Hoàn tất
+                          </button>
+                        )}
+
+                        <button
+                          type="button"
+                          className="btn btn-outline"
+                          onClick={() => openOrderDetailModal(order)}
+                          style={{ fontSize: 12, padding: '8px 12px' }}
+                        >
+                          🔍 Xem món
+                        </button>
+
+                        <Link
+                          href={`/admin/orders/${order.id}`}
+                          className="btn btn-outline"
+                          style={{ fontSize: 12, padding: '8px 12px', textDecoration: 'none' }}
+                        >
+                          📄 Chi tiết
+                        </Link>
+
+                        {order.order_status !== 'delivered' && order.order_status !== 'cancelled' && (
+                          <button
+                            type="button"
+                            className="btn btn-outline"
+                            onClick={() => {
+                              if (window.confirm(`Hủy đơn hàng #${order.order_number}?`)) {
+                                updateStatus(order.id, 'cancelled')
+                              }
+                            }}
+                            style={{ color: '#EF4444', borderColor: '#FECACA', fontSize: 12, padding: '8px 10px' }}
+                            title="Hủy đơn"
+                          >
+                            ❌
+                          </button>
+                        )}
+
+                        <button
+                          type="button"
+                          className="btn btn-outline"
+                          disabled={deletingId === order.id}
+                          onClick={() => handleDeleteOrder(order)}
+                          style={{ color: '#DC2626', borderColor: '#FECACA', fontSize: 12, padding: '8px 10px' }}
+                          title="Xóa đơn"
+                        >
+                          🗑️
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </>
           )}
         </div>
       </main>

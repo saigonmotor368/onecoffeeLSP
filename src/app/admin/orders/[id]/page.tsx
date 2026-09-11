@@ -13,12 +13,12 @@ type Order = Database['public']['Tables']['orders']['Row']
 type OrderItem = Database['public']['Tables']['order_items']['Row']
 
 const STATUS_OPTIONS = [
-  { value: 'pending',    label: '⏳ Chờ xác nhận',  color: 'var(--status-pending)' },
-  { value: 'confirmed',  label: '✓ Đã xác nhận',    color: 'var(--status-confirmed)' },
-  { value: 'preparing',  label: '🍳 Đang chuẩn bị', color: 'var(--status-preparing)' },
-  { value: 'delivering', label: '🛵 Đang giao',      color: 'var(--status-delivering)' },
-  { value: 'delivered',  label: '✅ Đã giao',         color: 'var(--status-delivered)' },
-  { value: 'cancelled',  label: '❌ Hủy đơn',         color: 'var(--status-cancelled)' },
+  { value: 'pending',    label: '⏳ Chờ xác nhận',  color: '#E8A020', bg: '#FEF3C7' },
+  { value: 'confirmed',  label: '✓ Đã xác nhận',    color: '#3D7BB8', bg: '#DBEAFE' },
+  { value: 'preparing',  label: '☕ Đang pha chế',  color: '#8B5CF6', bg: '#EDE9FE' },
+  { value: 'delivering', label: '🛵 Đang giao',      color: '#F97316', bg: '#FFEDD5' },
+  { value: 'delivered',  label: '✅ Đã giao',         color: '#10B981', bg: '#D1FAE5' },
+  { value: 'cancelled',  label: '❌ Đã hủy',         color: '#EF4444', bg: '#FEE2E2' },
 ]
 
 export default function AdminOrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -37,19 +37,25 @@ export default function AdminOrderDetailPage({ params }: { params: Promise<{ id:
         supabase.from('orders').select('*').eq('id', id).single(),
         supabase.from('order_items').select('*').eq('order_id', id),
       ])
-      setOrder(o); setItems(oi ?? [])
+      setOrder(o)
+      setItems(oi ?? [])
       setLoading(false)
     }
     load()
 
-    // Realtime
+    // Realtime subscription
     const supabase = createClient()
     const sub = supabase
       .channel(`admin-order-${id}`)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders', filter: `id=eq.${id}` },
-        payload => setOrder(payload.new as Order))
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'orders', filter: `id=eq.${id}` },
+        payload => setOrder(payload.new as Order)
+      )
       .subscribe()
-    return () => { sub.unsubscribe() }
+    return () => {
+      sub.unsubscribe()
+    }
   }, [id])
 
   const updateStatus = async (newStatus: string) => {
@@ -60,107 +66,412 @@ export default function AdminOrderDetailPage({ params }: { params: Promise<{ id:
     if (error) {
       showToast('Lỗi cập nhật trạng thái', 'error')
     } else {
-      showToast(`Cập nhật: ${getStatusLabel(newStatus, 'vi')}`, 'success')
+      setOrder(prev => (prev ? { ...prev, order_status: newStatus as Order['order_status'] } : null))
+      showToast(`Đã chuyển: ${getStatusLabel(newStatus, 'vi')}`, 'success')
     }
     setUpdating(false)
   }
 
   const updatePayment = async (paid: boolean) => {
+    if (!order) return
     const supabase = createClient()
-    await supabase.from('orders').update({ payment_status: paid ? 'paid' : 'pending' }).eq('id', id)
-    showToast(paid ? 'Đánh dấu đã thanh toán' : 'Đánh dấu chưa thanh toán', 'success')
+    const { error } = await supabase
+      .from('orders')
+      .update({ payment_status: paid ? 'paid' : 'pending' })
+      .eq('id', id)
+    if (!error) {
+      setOrder(prev => (prev ? { ...prev, payment_status: paid ? 'paid' : 'pending' } : null))
+      showToast(paid ? 'Đã đánh dấu: ĐÃ THANH TOÁN' : 'Đã đánh dấu: CHƯA THANH TOÁN', 'success')
+    }
   }
 
-  if (loading) return <div style={{ padding: 64, display: 'flex', justifyContent: 'center' }}><span className="spinner" /></div>
-  if (!order) return <div>Không tìm thấy đơn hàng</div>
+  const handleDelete = async () => {
+    if (!order) return
+    if (!window.confirm(`⚠️ CẢNH BÁO: Bạn có chắc chắn muốn XÓA VĨNH VIỄN đơn hàng #${order.order_number}?\n\nThao tác này dùng khi phát hiện đơn hàng gian lận/spam. Dữ liệu sẽ không thể khôi phục.`)) {
+      return
+    }
+
+    try {
+      const res = await fetch('/api/admin/orders/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: order.id }),
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        showToast(`Đã xóa vĩnh viễn đơn hàng #${order.order_number}!`, 'success')
+        router.replace('/admin/orders')
+      } else {
+        showToast(data.error || 'Lỗi khi xóa đơn hàng', 'error')
+      }
+    } catch {
+      showToast('Lỗi kết nối khi xóa đơn hàng', 'error')
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="admin-layout">
+        <AdminSidebar />
+        <main className="admin-main" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+          <span className="spinner" />
+        </main>
+      </div>
+    )
+  }
+
+  if (!order) {
+    return (
+      <div className="admin-layout">
+        <AdminSidebar />
+        <main className="admin-main" style={{ textAlign: 'center', padding: 48 }}>
+          <h2>Không tìm thấy đơn hàng</h2>
+          <button onClick={() => router.push('/admin/orders')} className="btn btn-primary" style={{ marginTop: 16 }}>
+            ← Quay lại danh sách
+          </button>
+        </main>
+      </div>
+    )
+  }
+
+  const isPending = order.order_status === 'pending'
+  const isConfirmed = order.order_status === 'confirmed'
+  const isPreparing = order.order_status === 'preparing'
+  const isDelivering = order.order_status === 'delivering'
+  const isDelivered = order.order_status === 'delivered'
+  const isCancelled = order.order_status === 'cancelled'
 
   return (
     <div className="admin-layout">
       <AdminSidebar />
 
       <main className="admin-main">
+        {/* Header with Back Link */}
         <div className="admin-page-header">
           <div>
-            <button onClick={() => router.back()} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-primary)', fontWeight: 600, fontSize: 'var(--text-sm)', marginBottom: 8, display: 'flex', alignItems: 'center', gap: 4 }}>
-              ← Danh sách đơn
+            <button
+              onClick={() => router.push('/admin/orders')}
+              style={{
+                background: 'none',
+                border: 'none',
+                cursor: 'pointer',
+                color: 'var(--color-primary)',
+                fontWeight: 700,
+                fontSize: '14px',
+                marginBottom: 8,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+                padding: 0,
+              }}
+            >
+              ← Danh sách đơn hàng
             </button>
-            <h1 className="admin-page-title">Chi tiết đơn: {order.order_number}</h1>
+            <h1 className="admin-page-title">Chi tiết đơn: #{order.order_number}</h1>
           </div>
-          <span className={`status-badge status-${order.order_status}`} style={{ fontSize: 'var(--text-base)', padding: '8px 16px' }}>
+          <span className={`status-badge status-${order.order_status}`} style={{ fontSize: '15px', padding: '8px 16px', fontWeight: 800 }}>
             {getStatusLabel(order.order_status, 'vi')}
           </span>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 24, alignItems: 'start' }}>
-          {/* Left: order info */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            {/* Delivery info */}
-            <div className="admin-table-wrap" style={{ padding: 20 }}>
-              <h3 style={{ fontWeight: 700, marginBottom: 16, fontSize: 'var(--text-base)' }}>📍 Thông tin giao hàng</h3>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                {[
-                  ['Địa chỉ', order.delivery_address],
-                  ['Người nhận', order.recipient_name],
-                  ['SĐT', order.recipient_phone],
-                  ['Thanh toán', order.payment_method === 'cash' ? '💵 Tiền mặt' : '📱 Chuyển khoản'],
-                  ['Đặt lúc', new Date(order.created_at).toLocaleString('vi-VN')],
-                  ['Mã đơn', order.order_number],
-                ].map(([k, v]) => (
-                  <div key={k}>
-                    <p style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 2 }}>{k}</p>
-                    <p style={{ fontWeight: 600, fontSize: 'var(--text-sm)' }}>{v}</p>
-                  </div>
-                ))}
+        {/* ⚡ PROMINENT QUICK ACTION BANNER (Shown at Top so mobile admins see it immediately) */}
+        <div
+          style={{
+            background: isPending
+              ? '#FFFBEB'
+              : isConfirmed
+              ? '#EFF6FF'
+              : isPreparing
+              ? '#F5F3FF'
+              : isDelivering
+              ? '#FFF7ED'
+              : isDelivered
+              ? '#ECFDF5'
+              : '#FEF2F2',
+            border: `2px solid ${
+              isPending
+                ? '#F59E0B'
+                : isConfirmed
+                ? '#3B82F6'
+                : isPreparing
+                ? '#8B5CF6'
+                : isDelivering
+                ? '#F97316'
+                : isDelivered
+                ? '#10B981'
+                : '#EF4444'
+            }`,
+            borderRadius: '16px',
+            padding: '16px 20px',
+            marginBottom: '20px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <span style={{ fontSize: '22px' }}>
+                {isPending ? '⏳' : isConfirmed ? '✓' : isPreparing ? '☕' : isDelivering ? '🛵' : isDelivered ? '🎉' : '❌'}
+              </span>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: '#1E293B' }}>
+                  {isPending && 'Đơn hàng mới — Cần xác nhận ngay!'}
+                  {isConfirmed && 'Đơn đã xác nhận — Sẵn sàng pha chế'}
+                  {isPreparing && 'Đang pha chế đồ uống'}
+                  {isDelivering && 'Đang giao hàng tới người nhận'}
+                  {isDelivered && 'Đơn hàng đã hoàn tất giao thành công!'}
+                  {isCancelled && 'Đơn hàng này đã bị hủy'}
+                </h3>
+                <p style={{ margin: 0, fontSize: '12px', color: '#64748B' }}>
+                  Mã đơn: #{order.order_number} · Đặt lúc: {new Date(order.created_at).toLocaleString('vi-VN')}
+                </p>
               </div>
             </div>
 
-            {/* Items */}
-            <div className="admin-table-wrap">
-              <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--color-border-light)', fontWeight: 700 }}>
-                ☕ Đồ uống ({items.length} loại)
-              </div>
-              <table className="admin-table">
-                <thead>
-                  <tr>
-                    <th>Tên món</th><th>Size</th><th>SL</th><th>Đơn giá</th><th>Thành tiền</th><th>Ghi chú</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {items.map(item => (
-                    <tr key={item.id}>
-                      <td style={{ fontWeight: 600 }}>{item.product_name_vi}</td>
-                      <td><span className="badge badge-primary">{item.size}</span></td>
-                      <td style={{ fontWeight: 700, color: 'var(--color-primary)' }}>{item.quantity}</td>
-                      <td>{formatPrice(item.unit_price)}</td>
-                      <td style={{ fontWeight: 700 }}>{formatPrice(item.unit_price * item.quantity)}</td>
-                      <td style={{ fontSize: 12, color: 'var(--color-text-muted)', fontStyle: 'italic' }}>{item.notes ?? '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div style={{ padding: '16px 20px', borderTop: '1px solid var(--color-border-light)', display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>
-                  <span>Tạm tính tiền món</span>
-                  <span>{formatPrice(order.total_amount)}</span>
+            {/* Quick Action Button */}
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              {isPending && (
+                <button
+                  type="button"
+                  onClick={() => updateStatus('confirmed')}
+                  disabled={updating}
+                  className="btn"
+                  style={{
+                    background: '#1E4D3B',
+                    color: 'white',
+                    padding: '10px 20px',
+                    fontSize: '14px',
+                    fontWeight: 800,
+                    borderRadius: '12px',
+                    border: 'none',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 12px rgba(30, 77, 59, 0.3)',
+                  }}
+                >
+                  ✓ XÁC NHẬN ĐƠN NGAY
+                </button>
+              )}
+
+              {isConfirmed && (
+                <button
+                  type="button"
+                  onClick={() => updateStatus('preparing')}
+                  disabled={updating}
+                  className="btn"
+                  style={{
+                    background: '#6D28D9',
+                    color: 'white',
+                    padding: '10px 20px',
+                    fontSize: '14px',
+                    fontWeight: 800,
+                    borderRadius: '12px',
+                    border: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  ☕ BẮT ĐẦU PHA CHẾ
+                </button>
+              )}
+
+              {isPreparing && (
+                <button
+                  type="button"
+                  onClick={() => updateStatus('delivering')}
+                  disabled={updating}
+                  className="btn"
+                  style={{
+                    background: '#D97706',
+                    color: 'white',
+                    padding: '10px 20px',
+                    fontSize: '14px',
+                    fontWeight: 800,
+                    borderRadius: '12px',
+                    border: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  🛵 GIAO HÀNG
+                </button>
+              )}
+
+              {isDelivering && (
+                <button
+                  type="button"
+                  onClick={() => updateStatus('delivered')}
+                  disabled={updating}
+                  className="btn"
+                  style={{
+                    background: '#16A34A',
+                    color: 'white',
+                    padding: '10px 20px',
+                    fontSize: '14px',
+                    fontWeight: 800,
+                    borderRadius: '12px',
+                    border: 'none',
+                    cursor: 'pointer',
+                  }}
+                >
+                  🎉 ĐÃ GIAO THÀNH CÔNG
+                </button>
+              )}
+
+              {!isDelivered && !isCancelled && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm(`Bạn có chắc muốn HỦY đơn hàng #${order.order_number}?`)) {
+                      updateStatus('cancelled')
+                    }
+                  }}
+                  disabled={updating}
+                  className="btn"
+                  style={{
+                    background: 'white',
+                    color: '#DC2626',
+                    border: '1px solid #FECACA',
+                    padding: '10px 14px',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    borderRadius: '12px',
+                    cursor: 'pointer',
+                  }}
+                >
+                  ❌ Hủy đơn
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* 2-Column Responsive Layout: Left Info, Right Actions */}
+        <div className="admin-order-detail-grid">
+          {/* Left Column: Order details & items */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+            {/* Delivery Info Box */}
+            <div className="admin-table-wrap" style={{ padding: 20 }}>
+              <h3 style={{ fontWeight: 800, marginBottom: 16, fontSize: '15px', color: '#1E293B', display: 'flex', alignItems: 'center', gap: 6 }}>
+                📍 Thông tin giao hàng & Người nhận
+              </h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 14 }}>
+                <div>
+                  <p style={{ fontSize: 12, color: 'var(--color-text-secondary)', margin: '0 0 4px' }}>Địa chỉ nhận hàng</p>
+                  <p style={{ fontWeight: 800, fontSize: '14px', color: '#1E293B', margin: 0 }}>📍 {order.delivery_address}</p>
                 </div>
-                {order.discount_amount ? (
-                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-sm)', color: '#2F855A', fontWeight: 600 }}>
-                    <span>Giảm giá & Khuyến mãi</span>
+                <div>
+                  <p style={{ fontSize: 12, color: 'var(--color-text-secondary)', margin: '0 0 4px' }}>Người nhận</p>
+                  <p style={{ fontWeight: 700, fontSize: '14px', color: '#1E293B', margin: 0 }}>👤 {order.recipient_name}</p>
+                </div>
+                <div>
+                  <p style={{ fontSize: 12, color: 'var(--color-text-secondary)', margin: '0 0 4px' }}>Số điện thoại</p>
+                  <p style={{ fontWeight: 700, fontSize: '14px', margin: 0 }}>
+                    <a href={`tel:${order.recipient_phone}`} style={{ color: '#1E4D3B', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      📞 {order.recipient_phone}
+                    </a>
+                  </p>
+                </div>
+                <div>
+                  <p style={{ fontSize: 12, color: 'var(--color-text-secondary)', margin: '0 0 4px' }}>Hình thức thanh toán</p>
+                  <p style={{ fontWeight: 700, fontSize: '14px', margin: 0 }}>
+                    {order.payment_method === 'cash' ? '💵 Tiền mặt khi nhận' : '📱 Chuyển khoản QR'}
+                  </p>
+                </div>
+                <div>
+                  <p style={{ fontSize: 12, color: 'var(--color-text-secondary)', margin: '0 0 4px' }}>Thời gian đặt</p>
+                  <p style={{ fontWeight: 600, fontSize: '13px', margin: 0, color: '#475569' }}>
+                    🕒 {new Date(order.created_at).toLocaleString('vi-VN')}
+                  </p>
+                </div>
+                <div>
+                  <p style={{ fontSize: 12, color: 'var(--color-text-secondary)', margin: '0 0 4px' }}>Mã đơn hàng</p>
+                  <p style={{ fontWeight: 800, fontSize: '14px', margin: 0, color: '#1E4D3B' }}>
+                    #{order.order_number}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Items Table Box */}
+            <div className="admin-table-wrap">
+              <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--color-border-light)', fontWeight: 800, fontSize: '15px', color: '#1E293B', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <span>☕ Danh sách đồ uống ({items.length} loại)</span>
+                <span style={{ fontSize: 12, color: '#64748B', fontWeight: 500 }}>
+                  Tổng SL: {items.reduce((sum, i) => sum + i.quantity, 0)} ly
+                </span>
+              </div>
+
+              {items.length === 0 ? (
+                <div style={{ padding: 24, textAlign: 'center', color: '#64748B', fontSize: 13 }}>
+                  Không có chi tiết món hoặc đơn hàng chưa có danh sách món.
+                </div>
+              ) : (
+                <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                  <table className="admin-table" style={{ minWidth: 520, margin: 0 }}>
+                    <thead>
+                      <tr>
+                        <th>Tên món</th>
+                        <th style={{ textAlign: 'center' }}>Size</th>
+                        <th style={{ textAlign: 'center' }}>SL</th>
+                        <th style={{ textAlign: 'right' }}>Đơn giá</th>
+                        <th style={{ textAlign: 'right' }}>Thành tiền</th>
+                        <th>Ghi chú món</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {items.map(item => (
+                        <tr key={item.id}>
+                          <td style={{ fontWeight: 700, color: '#1E293B' }}>{item.product_name_vi}</td>
+                          <td style={{ textAlign: 'center' }}>
+                            <span className="badge badge-primary" style={{ padding: '2px 8px', fontSize: 11 }}>
+                              {item.size}
+                            </span>
+                          </td>
+                          <td style={{ textAlign: 'center', fontWeight: 800, color: 'var(--color-primary)', fontSize: 14 }}>
+                            {item.quantity}
+                          </td>
+                          <td style={{ textAlign: 'right' }}>{formatPrice(item.unit_price)}</td>
+                          <td style={{ textAlign: 'right', fontWeight: 800, color: '#1E293B' }}>
+                            {formatPrice(item.unit_price * item.quantity)}
+                          </td>
+                          <td style={{ fontSize: 12, color: '#64748B', fontStyle: 'italic' }}>
+                            {item.notes ?? '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+
+              {/* Price Breakdown Footer */}
+              <div style={{ padding: '16px 20px', borderTop: '1px solid var(--color-border-light)', display: 'flex', flexDirection: 'column', gap: 8, background: '#FAFAFA' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: 'var(--color-text-secondary)' }}>
+                  <span>Tạm tính tiền món</span>
+                  <span style={{ fontWeight: 600 }}>{formatPrice(order.total_amount)}</span>
+                </div>
+
+                {order.discount_amount > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: '#16A34A', fontWeight: 700 }}>
+                    <span>Giảm giá & Khuyến mãi (LSP 20% / Voucher)</span>
                     <span>-{formatPrice(order.discount_amount)}</span>
                   </div>
-                ) : null}
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--text-sm)', color: 'var(--color-text-secondary)' }}>
+                )}
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: 'var(--color-text-secondary)' }}>
                   <span>Phí giao hàng</span>
                   <span>{(order as { shipping_fee?: number }).shipping_fee ? formatPrice((order as { shipping_fee?: number }).shipping_fee) : 'Miễn phí (0đ)'}</span>
                 </div>
+
                 {order.notes && (
-                  <div style={{ fontSize: 'var(--text-xs)', color: 'var(--color-text-muted)', background: '#F8FAFC', padding: '6px 10px', borderRadius: '6px', marginTop: 4 }}>
+                  <div style={{ fontSize: '12px', color: '#1E4D3B', background: '#EAF2ED', padding: '8px 12px', borderRadius: '8px', marginTop: 4, fontWeight: 600 }}>
                     📝 {order.notes}
                   </div>
                 )}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 8, marginTop: 4, borderTop: '1px dashed var(--color-border)' }}>
-                  <span style={{ fontWeight: 700 }}>Tổng thanh toán</span>
-                  <span style={{ fontSize: 'var(--text-xl)', fontWeight: 800, color: 'var(--color-primary)' }}>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: 10, marginTop: 4, borderTop: '1px dashed #CBD5E1' }}>
+                  <span style={{ fontWeight: 800, fontSize: '15px' }}>Tổng thanh toán thực thu</span>
+                  <span style={{ fontSize: '20px', fontWeight: 900, color: 'var(--color-primary)' }}>
                     {formatPrice(order.final_amount)}
                   </span>
                 </div>
@@ -168,50 +479,107 @@ export default function AdminOrderDetailPage({ params }: { params: Promise<{ id:
             </div>
           </div>
 
-          {/* Right: actions */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            {/* Status update */}
+          {/* Right Column: Status Switcher, Payment Control & Danger Zone */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {/* Status Switcher Box */}
             <div className="admin-table-wrap" style={{ padding: 20 }}>
-              <h3 style={{ fontWeight: 700, marginBottom: 16, fontSize: 'var(--text-base)' }}>🔄 Cập nhật trạng thái</h3>
+              <h3 style={{ fontWeight: 800, marginBottom: 14, fontSize: '15px', color: '#1E293B', display: 'flex', alignItems: 'center', gap: 6 }}>
+                🔄 Chuyển Trạng Thái Đơn Hàng
+              </h3>
+              <p style={{ fontSize: 12, color: '#64748B', margin: '0 0 12px' }}>
+                Bấm vào một trong các trạng thái dưới đây để cập nhật ngay:
+              </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {STATUS_OPTIONS.map(opt => (
-                  <button
-                    key={opt.value}
-                    onClick={() => updateStatus(opt.value)}
-                    disabled={order.order_status === opt.value || updating}
-                    style={{
-                      padding: '10px 16px', borderRadius: 'var(--radius-md)',
-                      border: `2px solid ${order.order_status === opt.value ? opt.color : 'var(--color-border)'}`,
-                      background: order.order_status === opt.value ? opt.color : 'transparent',
-                      color: order.order_status === opt.value ? 'white' : 'var(--color-text)',
-                      fontFamily: 'var(--font-sans)', fontSize: 'var(--text-sm)', fontWeight: 600,
-                      cursor: order.order_status === opt.value ? 'default' : 'pointer',
-                      textAlign: 'left', transition: 'all 150ms ease',
-                    }}
-                  >
-                    {opt.label}
-                    {order.order_status === opt.value && ' ← Hiện tại'}
-                  </button>
-                ))}
+                {STATUS_OPTIONS.map(opt => {
+                  const isCurrent = order.order_status === opt.value
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => updateStatus(opt.value)}
+                      disabled={isCurrent || updating}
+                      style={{
+                        padding: '11px 16px',
+                        borderRadius: '12px',
+                        border: `2px solid ${isCurrent ? opt.color : '#E2E8F0'}`,
+                        background: isCurrent ? opt.bg : 'white',
+                        color: isCurrent ? opt.color : '#334155',
+                        fontFamily: 'inherit',
+                        fontSize: '13px',
+                        fontWeight: 700,
+                        cursor: isCurrent ? 'default' : 'pointer',
+                        textAlign: 'left',
+                        transition: 'all 150ms ease',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                      }}
+                    >
+                      <span>{opt.label}</span>
+                      {isCurrent && (
+                        <span style={{ fontSize: 11, background: opt.color, color: 'white', padding: '2px 8px', borderRadius: 999 }}>
+                          Hiện tại
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
               </div>
             </div>
 
-            {/* Payment status */}
+            {/* Payment Status Box */}
             <div className="admin-table-wrap" style={{ padding: 20 }}>
-              <h3 style={{ fontWeight: 700, marginBottom: 16, fontSize: 'var(--text-base)' }}>💳 Trạng thái thanh toán</h3>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                <span className={`badge ${order.payment_status === 'paid' ? 'badge-success' : 'badge-warning'}`}>
+              <h3 style={{ fontWeight: 800, marginBottom: 12, fontSize: '15px', color: '#1E293B' }}>
+                💳 Trạng Thái Thanh Toán
+              </h3>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                <span
+                  className={`badge ${order.payment_status === 'paid' ? 'badge-success' : 'badge-warning'}`}
+                  style={{ fontSize: '13px', padding: '6px 12px', fontWeight: 800 }}
+                >
                   {order.payment_status === 'paid' ? '✓ Đã thanh toán' : '⏳ Chưa thanh toán'}
                 </span>
-                <span style={{ fontWeight: 700, color: 'var(--color-primary)' }}>{formatPrice(order.final_amount)}</span>
+                <span style={{ fontWeight: 800, color: 'var(--color-primary)', fontSize: '16px' }}>
+                  {formatPrice(order.final_amount)}
+                </span>
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn btn-primary btn-sm" style={{ flex: 1 }} onClick={() => updatePayment(true)}
-                  disabled={order.payment_status === 'paid'}>
-                  Đánh dấu đã TT
+                <button
+                  type="button"
+                  className="btn"
+                  style={{
+                    flex: 1,
+                    padding: '10px 12px',
+                    fontSize: 13,
+                    fontWeight: 700,
+                    borderRadius: 10,
+                    background: order.payment_status === 'paid' ? '#10B981' : '#E2E8F0',
+                    color: order.payment_status === 'paid' ? 'white' : '#475569',
+                    border: 'none',
+                    cursor: order.payment_status === 'paid' ? 'default' : 'pointer',
+                  }}
+                  onClick={() => updatePayment(true)}
+                  disabled={order.payment_status === 'paid'}
+                >
+                  ✓ Đánh dấu đã TT
                 </button>
-                <button className="btn btn-outline btn-sm" style={{ flex: 1 }} onClick={() => updatePayment(false)}
-                  disabled={order.payment_status !== 'paid'}>
+                <button
+                  type="button"
+                  className="btn"
+                  style={{
+                    flex: 1,
+                    padding: '10px 12px',
+                    fontSize: 13,
+                    fontWeight: 700,
+                    borderRadius: 10,
+                    background: order.payment_status !== 'paid' ? '#F59E0B' : '#E2E8F0',
+                    color: order.payment_status !== 'paid' ? 'white' : '#475569',
+                    border: 'none',
+                    cursor: order.payment_status !== 'paid' ? 'default' : 'pointer',
+                  }}
+                  onClick={() => updatePayment(false)}
+                  disabled={order.payment_status !== 'paid'}
+                >
                   Chưa thanh toán
                 </button>
               </div>
@@ -219,33 +587,29 @@ export default function AdminOrderDetailPage({ params }: { params: Promise<{ id:
 
             {/* Danger Zone: Delete Order */}
             <div className="admin-table-wrap" style={{ padding: 20, borderColor: '#FECACA', background: '#FFF5F5' }}>
-              <h3 style={{ fontWeight: 700, marginBottom: 8, fontSize: 'var(--text-base)', color: '#DC2626' }}>
-                ⚠️ Xóa đơn (Gian lận / Spam)
+              <h3 style={{ fontWeight: 800, marginBottom: 6, fontSize: '14px', color: '#DC2626' }}>
+                ⚠️ Xóa Đơn (Gian lận / Spam)
               </h3>
-              <p style={{ fontSize: '12px', color: '#7F1D1D', margin: '0 0 14px', lineHeight: 1.4 }}>
-                Sử dụng khi phát hiện đơn hàng ảo hoặc gian lận. Đơn hàng và toàn bộ dữ liệu liên quan sẽ bị xóa vĩnh viễn.
+              <p style={{ fontSize: '12px', color: '#7F1D1D', margin: '0 0 12px', lineHeight: 1.4 }}>
+                Sử dụng khi phát hiện đơn hàng ảo hoặc gian lận. Đơn hàng và toàn bộ dữ liệu liên quan sẽ bị xóa vĩnh viễn khỏi hệ thống.
               </p>
               <button
                 type="button"
-                className="btn btn-outline btn-sm"
-                onClick={async () => {
-                  if (window.confirm(`Bạn có chắc chắn muốn XÓA VĨNH VIỄN đơn hàng #${order.order_number}?`)) {
-                    const res = await fetch('/api/admin/orders/delete', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ orderId: order.id }),
-                    })
-                    if (res.ok) {
-                      showToast('Đã xóa đơn hàng thành công', 'success')
-                      router.replace('/admin/orders')
-                    } else {
-                      showToast('Lỗi khi xóa đơn hàng', 'error')
-                    }
-                  }
+                className="btn"
+                onClick={handleDelete}
+                style={{
+                  width: '100%',
+                  color: '#DC2626',
+                  borderColor: '#DC2626',
+                  background: '#FFFFFF',
+                  fontWeight: 800,
+                  fontSize: 13,
+                  padding: '10px 14px',
+                  borderRadius: 10,
+                  cursor: 'pointer',
                 }}
-                style={{ width: '100%', color: '#DC2626', borderColor: '#DC2626', background: '#FFFFFF' }}
               >
-                🗑️ Xóa đơn hàng này
+                🗑️ Xóa Vĩnh Viễn Đơn Hàng Này
               </button>
             </div>
           </div>

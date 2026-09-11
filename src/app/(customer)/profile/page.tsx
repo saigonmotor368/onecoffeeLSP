@@ -145,15 +145,15 @@ export default function ProfilePage() {
       {!isLoggedIn && (
         <div style={{ background: '#F4F9F6', border: '1px solid #D1E7DD', borderRadius: '16px', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '20px' }}>✨</span>
-            <div style={{ fontSize: '13px', fontWeight: 800, color: '#1E4D3B' }}>
-              {lang === 'vi' ? 'Đăng nhập hoặc Tạo tài khoản' : 'Login or Create Account'}
+            <span style={{ fontSize: '20px' }}>🔐</span>
+            <div style={{ fontSize: '14px', fontWeight: 800, color: '#1E4D3B' }}>
+              {lang === 'vi' ? 'Đăng nhập bằng SĐT & Mật khẩu' : 'Login with Phone & Password'}
             </div>
           </div>
-          <p style={{ fontSize: '12px', color: '#4A5568', margin: 0, lineHeight: 1.4 }}>
+          <p style={{ fontSize: '12px', color: '#4A5568', margin: 0, lineHeight: 1.5 }}>
             {lang === 'vi'
-              ? 'Tích điểm thành viên, lưu điểm giao hàng yêu thích và theo dõi đơn hàng dễ dàng.'
-              : 'Earn points, save delivery locations, and track your orders.'}
+              ? 'Nhập Số điện thoại và Mật khẩu bạn đã đặt khi mua hàng để xem lại lịch sử đơn, tích điểm và nạp nhanh thông tin nhận hàng.'
+              : 'Enter your phone number & password from checkout to view order history and earn points.'}
           </p>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginTop: '4px' }}>
             <Link

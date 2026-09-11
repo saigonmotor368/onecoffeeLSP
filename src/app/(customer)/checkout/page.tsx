@@ -60,6 +60,7 @@ function CheckoutContent() {
   const [loading, setLoading] = useState(false)
   const [orderNumber, setOrderNumber] = useState('')
   const [copiedField, setCopiedField] = useState<string | null>(null)
+  const [showRegSuccessModal, setShowRegSuccessModal] = useState(false)
 
   useEffect(() => {
     // Generate order number
@@ -180,6 +181,7 @@ function CheckoutContent() {
       localStorage.setItem('oc_customer_phone', cleanPhone)
       localStorage.setItem('oc_delivery_location', trimmedAddress)
       showToast(lang === 'vi' ? 'Đã tạo tài khoản & đăng nhập thành công!' : 'Account created and logged in!', 'success')
+      setShowRegSuccessModal(true)
       return signData.user.id
     } catch {
       showToast(lang === 'vi' ? 'Lỗi kết nối máy chủ tạo tài khoản' : 'Error connecting to server', 'error')
@@ -335,22 +337,39 @@ function CheckoutContent() {
         createdId = orderData?.id ?? null
       }
 
-      // Insert order items if available
+      // Insert order items if available with valid product UUIDs
       if (createdId && items.length > 0) {
         try {
-          await supabase.from('order_items').insert(
-            items.map(item => ({
+          const { data: dbProducts } = await supabase.from('products').select('id, name_vi')
+          const isUuid = (str: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
+          const fallbackUuid = dbProducts?.[0]?.id
+
+          const payloadItems = items.map(item => {
+            let validProductId = isUuid(item.product_id) ? item.product_id : null
+            if (!validProductId && dbProducts && dbProducts.length > 0) {
+              const matched = dbProducts.find(
+                p => p.name_vi.toLowerCase().trim() === (item.name_vi || '').toLowerCase().trim()
+              )
+              validProductId = (matched ? matched.id : fallbackUuid) || null
+            }
+
+            return {
               order_id: createdId,
-              product_id: item.product_id,
+              product_id: validProductId,
               product_name_vi: item.name_vi,
-              product_name_en: item.name_en,
-              size: item.size,
+              product_name_en: item.name_en || item.name_vi,
+              size: (item.size === 'L' ? 'L' : 'M') as 'M' | 'L',
               quantity: item.quantity,
               unit_price: item.unit_price,
               addon_ids: item.addon_ids || [],
               notes: item.notes || null,
-            }))
-          )
+            }
+          })
+
+          const { error: itemsErr } = await supabase.from('order_items').insert(payloadItems as any)
+          if (itemsErr) {
+            console.error('Order items insert error:', itemsErr)
+          }
         } catch (itemErr) {
           console.warn('Order items insert error (non-fatal):', itemErr)
         }
@@ -558,16 +577,21 @@ function CheckoutContent() {
 
             {authTab === 'register' ? (
               <div className={styles.inputGrid}>
-                <div style={{ fontSize: '12px', color: '#4A5568', background: '#F7FAFC', padding: '8px 12px', borderRadius: '8px', border: '1px solid #EDF2F7' }}>
-                  {lang === 'vi'
-                    ? '💡 Tạo tài khoản theo SĐT để lưu đơn hàng, theo dõi giao hàng và tích điểm One Coffee.'
-                    : 'Create account with phone number to track orders and earn points.'}
+                <div style={{ fontSize: '12px', color: '#166534', background: '#F0FDF4', padding: '10px 14px', borderRadius: '12px', border: '1px solid #BBF7D0', lineHeight: 1.5 }}>
+                  <strong>🔐 Hướng dẫn tài khoản:</strong>
+                  <div style={{ marginTop: 4 }}>
+                    • <strong>Tên đăng nhập:</strong> Chính là <strong>Số điện thoại</strong> bạn nhập bên dưới.
+                    <br />
+                    • <strong>Mật khẩu:</strong> Bạn tự đặt (tối thiểu 6 ký tự).
+                    <br />
+                    • <em>Lần sau đặt món trên bất kỳ điện thoại/máy tính nào, bạn chỉ cần chọn tab <strong>"Đã có tài khoản"</strong> và nhập SĐT + Mật khẩu này để tra cứu đơn và lưu điểm giao hàng.</em>
+                  </div>
                 </div>
 
                 <div className={styles.inputRow}>
                   <div className={styles.inputGroup}>
                     <label className={styles.inputLabel}>
-                      {lang === 'vi' ? 'Họ và tên *' : 'Full Name *'}
+                      {lang === 'vi' ? 'Họ và tên người nhận *' : 'Full Name *'}
                     </label>
                     <input
                       type="text"
@@ -581,7 +605,7 @@ function CheckoutContent() {
 
                   <div className={styles.inputGroup}>
                     <label className={styles.inputLabel}>
-                      {lang === 'vi' ? 'Số điện thoại *' : 'Phone *'}
+                      {lang === 'vi' ? 'Số điện thoại nhận hàng (Tên đăng nhập) *' : 'Phone (Username) *'}
                     </label>
                     <input
                       type="tel"
@@ -613,16 +637,19 @@ function CheckoutContent() {
 
                 <div className={styles.inputGroup}>
                   <label className={styles.inputLabel}>
-                    {lang === 'vi' ? 'Đặt mật khẩu tài khoản * (tối thiểu 6 ký tự)' : 'Set Password *'}
+                    {lang === 'vi' ? '🔑 Đặt Mật khẩu cho tài khoản * (tối thiểu 6 ký tự)' : '🔑 Set Password *'}
                   </label>
                   <input
                     type="password"
                     className={styles.inputField}
-                    placeholder={lang === 'vi' ? 'Tạo mật khẩu để tra cứu đơn sau này' : 'Password for future logins'}
+                    placeholder={lang === 'vi' ? 'Tạo mật khẩu để đăng nhập lần sau' : 'Password for future logins'}
                     value={regPassword}
                     onChange={e => setRegPassword(e.target.value)}
                     required
                   />
+                  <span style={{ fontSize: '11px', color: '#64748B', marginTop: '4px' }}>
+                    💡 Hãy ghi nhớ mật khẩu này cùng với SĐT của bạn nhé!
+                  </span>
                 </div>
 
                 <div className={styles.inputGroup}>
@@ -1121,6 +1148,105 @@ function CheckoutContent() {
                 <span>📞</span> Gọi ngay
               </a>
             </div>
+          </div>
+        </div>
+      )}
+      {/* Registration Success Confirmation Modal */}
+      {showRegSuccessModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0, 0, 0, 0.65)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 1000,
+            padding: '20px',
+          }}
+        >
+          <div
+            style={{
+              background: 'white',
+              borderRadius: '24px',
+              padding: '24px 20px',
+              maxWidth: '420px',
+              width: '100%',
+              boxShadow: '0 20px 40px rgba(0,0,0,0.25)',
+              textAlign: 'center',
+            }}
+          >
+            <div style={{ fontSize: '48px', marginBottom: '8px' }}>🎉</div>
+            <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#1E4D3B', margin: '0 0 8px' }}>
+              Tạo Tài Khoản Thành Công!
+            </h3>
+            <p style={{ fontSize: '13px', color: '#475569', margin: '0 0 16px', lineHeight: 1.5 }}>
+              Tài khoản khách hàng của bạn đã được kích hoạt. Hãy ghi nhớ thông tin để đăng nhập lần sau:
+            </p>
+
+            <div
+              style={{
+                background: '#F8FAFC',
+                border: '1px solid #E2E8F0',
+                borderRadius: '14px',
+                padding: '14px 16px',
+                textAlign: 'left',
+                marginBottom: '16px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '10px',
+                fontSize: '13px',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ color: '#64748B' }}>Họ và tên:</span>
+                <strong style={{ color: '#1E293B' }}>{recipientName}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px dashed #E2E8F0', paddingTop: '8px' }}>
+                <span style={{ color: '#64748B' }}>Tên đăng nhập (SĐT):</span>
+                <strong style={{ color: '#1E4D3B', fontSize: '15px' }}>{recipientPhone}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px dashed #E2E8F0', paddingTop: '8px' }}>
+                <span style={{ color: '#64748B' }}>Mật khẩu:</span>
+                <strong style={{ color: '#1E293B' }}>{regPassword ? '••••••••' : 'Đã lưu an toàn'}</strong>
+              </div>
+            </div>
+
+            <div
+              style={{
+                background: '#EFF6FF',
+                border: '1px solid #BFDBFE',
+                borderRadius: '12px',
+                padding: '10px 14px',
+                fontSize: '12px',
+                color: '#1E40AF',
+                lineHeight: 1.45,
+                marginBottom: '20px',
+                textAlign: 'left',
+              }}
+            >
+              💡 <strong>Lần sau đặt món:</strong> Bạn chỉ cần vào mục <em>Tài khoản</em> (hoặc bấm <em>&quot;Đã có tài khoản&quot;</em>) và nhập SĐT <strong>{recipientPhone}</strong> cùng mật khẩu vừa tạo!
+            </div>
+
+            <button
+              type="button"
+              className="btn"
+              onClick={() => setShowRegSuccessModal(false)}
+              style={{
+                width: '100%',
+                background: '#1E4D3B',
+                color: 'white',
+                padding: '12px',
+                borderRadius: '12px',
+                fontWeight: 800,
+                fontSize: '14px',
+                border: 'none',
+                cursor: 'pointer',
+              }}
+            >
+              Tôi Đã Ghi Nhớ, Tiếp Tục Đặt Hàng →
+            </button>
           </div>
         </div>
       )}
