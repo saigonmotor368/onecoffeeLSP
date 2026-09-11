@@ -2,16 +2,16 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import styles from './welcome.module.css'
 import { useLang } from '@/lib/providers'
+import { LANGUAGE_OPTIONS } from '@/lib/i18n'
 
 export default function WelcomePage() {
   const router = useRouter()
   const { lang, setLang, t } = useLang()
 
-  // Auto redirect if already logged in
   useEffect(() => {
-    // Check auth on client - redirect to home if session exists
     const checkSession = async () => {
       const { createClient } = await import('@/lib/supabase/client')
       const supabase = createClient()
@@ -22,73 +22,80 @@ export default function WelcomePage() {
   }, [router])
 
   return (
-    <div className={styles.page}>
-      {/* Background coffee imagery */}
-      <div className={styles.bg} />
-      <div className={styles.overlay} />
+    <div className={styles.pageContainer}>
+      {/* Background Coffee Beans with dark overlay */}
+      <div className={styles.bgImageWrap}>
+        <div
+          className={styles.bgImage}
+          style={{
+            backgroundImage: 'url("https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?w=1000&q=85")',
+          }}
+        />
+        <div className={styles.bgOverlay} />
+      </div>
 
-      <div className={styles.content}>
-        {/* Logo */}
-        <div className={styles.logoWrap}>
-          <div className={styles.logoCircle}>
-            {/* SVG Logo inline from the logo images */}
-            <svg viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg" className={styles.logoSvg}>
-              {/* Cup */}
-              <ellipse cx="100" cy="155" rx="52" ry="12" fill="currentColor" opacity="0.9"/>
-              <path d="M55 120 Q58 155 100 162 Q142 155 145 120Z" fill="currentColor"/>
-              {/* Cup handle */}
-              <path d="M145 125 Q165 125 165 140 Q165 155 145 155" stroke="currentColor" strokeWidth="8" fill="none" strokeLinecap="round"/>
-              {/* Cream swirl */}
-              <path d="M75 120 Q85 95 100 90 Q115 95 125 120" fill="white" opacity="0.9"/>
-              <path d="M80 115 Q88 100 100 95 Q112 100 120 115" fill="white"/>
-              {/* Coffee bean */}
-              <ellipse cx="100" cy="65" rx="28" ry="35" fill="currentColor"/>
-              <path d="M100 32 Q85 65 100 98 Q115 65 100 32Z" fill="white" opacity="0.4"/>
-              {/* Bean line */}
-              <path d="M100 35 C96 50 96 80 100 95" stroke="white" strokeWidth="3" fill="none" strokeLinecap="round" opacity="0.6"/>
-            </svg>
+      {/* Language Switcher at Top */}
+      <header className={styles.topBar}>
+        <div className={styles.langPills}>
+          {LANGUAGE_OPTIONS.map(opt => (
+            <button
+              key={opt.code}
+              onClick={() => setLang(opt.code)}
+              className={`${styles.langPill} ${lang === opt.code ? styles.langPillActive : ''}`}
+            >
+              <span>{opt.flag}</span>
+              <span>{opt.code.toUpperCase()}</span>
+            </button>
+          ))}
+        </div>
+      </header>
+
+      {/* Center Piece: Arched Card matching Screen 1 */}
+      <div className={styles.archedCardContainer}>
+        <div className={styles.archedCard}>
+          {/* Circular Real Brand Logo */}
+          <div className={styles.logoWrapper}>
+            <Image
+              src="/logo-circle.png"
+              alt="One Coffee Logo"
+              width={105}
+              height={105}
+              priority
+              className={styles.logoImg}
+            />
           </div>
-          <h1 className={styles.brandName}>ONE COFFEE</h1>
-          <p className={styles.tagline}>{t('welcome_tagline')}</p>
-        </div>
 
-        {/* Language selector */}
-        <div className={styles.langSelector}>
-          <button
-            className={`${styles.langBtn} ${lang === 'vi' ? styles.langActive : ''}`}
-            onClick={() => setLang('vi')}
-            aria-label="Tiếng Việt"
-          >
-            🇻🇳 Tiếng Việt
-          </button>
-          <button
-            className={`${styles.langBtn} ${lang === 'en' ? styles.langActive : ''}`}
-            onClick={() => setLang('en')}
-            aria-label="English"
-          >
-            🇬🇧 English
-          </button>
-        </div>
+          {/* Brand Heading */}
+          <h1 className={styles.brandTitle}>ONE COFFEE</h1>
 
-        {/* CTA Buttons */}
-        <div className={styles.actions}>
-          <button
-            className={`btn btn-primary btn-full btn-lg ${styles.ctaBtn}`}
-            onClick={() => router.push('/home')}
-          >
-            {t('get_started')}
-          </button>
-          <button
-            className={`btn btn-outline btn-full ${styles.loginBtn}`}
-            onClick={() => router.push('/auth/login')}
-          >
-            {t('login')}
-          </button>
+          {/* Artistic Slogan matching mockup */}
+          <div className={styles.artisticSloganWrap}>
+            <span className={styles.sloganLineLeft} />
+            <p className={styles.artisticSloganText}>Good Coffee</p>
+            <span className={styles.sloganLineRight} />
+          </div>
+          <p className={styles.artisticSloganSub}>Brighter Workdays</p>
         </div>
+      </div>
 
-        {/* Tagline footer */}
-        <p className={styles.footer}>
-          Good Coffee — Brighter Workdays ✦ Since 2026
+      {/* Lower Action Area matching Screen 1 */}
+      <div className={styles.bottomSection}>
+        <button
+          className={styles.btnGetStarted}
+          onClick={() => router.push('/home')}
+        >
+          {lang === 'vi' ? 'Bắt đầu đặt nước' : 'Get Started'}
+        </button>
+
+        <button
+          className={styles.btnLogin}
+          onClick={() => router.push('/auth/login')}
+        >
+          {lang === 'vi' ? 'Đăng nhập' : 'Login'}
+        </button>
+
+        <p className={styles.factoryTagline}>
+          One Coffee @ LSP Petrochemical Complex · Since 2026
         </p>
       </div>
     </div>

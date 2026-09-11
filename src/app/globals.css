@@ -15,21 +15,26 @@
 
 /* ── Design Tokens ─────────────────────────────────────── */
 :root {
-  /* Brand */
-  --color-primary:        #2D5A3D;
-  --color-primary-dark:   #1E3D29;
-  --color-primary-light:  #3D7A52;
-  --color-primary-pale:   #EAF2EC;
-  --color-accent:         #C8A96E;
-  --color-accent-light:   #F5E6C8;
+  /* Brand matching exact mockup */
+  --color-primary:        #1E4D3B;
+  --color-primary-dark:   #123528;
+  --color-primary-light:  #2D6A4F;
+  --color-primary-pale:   #EAF2ED;
+  --color-accent:         #C89B3C;
+  --color-accent-light:   #F9F1DC;
 
   /* Neutrals */
-  --color-cream:          #F5F0E8;
-  --color-cream-dark:     #EDE6D6;
+  --color-cream:          #F8F9FA;
+  --color-cream-dark:     #EDEFEF;
   --color-surface:        #FFFFFF;
-  --color-surface-2:      #F8F7F4;
-  --color-border:         #E5E0D8;
-  --color-border-light:   #F0EDE8;
+  --color-surface-2:      #F4F6F5;
+  --color-border:         #E2E8F0;
+  --color-border-light:   #EDF2F7;
+
+  /* Fonts */
+  --font-sans:            var(--font-sans), 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-artistic:        var(--font-artistic), 'Caveat', cursive;
+  --font-serif:           var(--font-serif), 'Playfair Display', Georgia, serif;
 
   /* Text */
   --color-text:           #1A1A1A;

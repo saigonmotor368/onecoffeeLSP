@@ -2,19 +2,20 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useCart } from '@/lib/providers'
+import { useCart, useLang } from '@/lib/providers'
 import styles from './BottomNav.module.css'
 
 const navItems = [
   { href: '/home',    icon: '🏠', label_vi: 'Trang chủ', label_en: 'Home' },
   { href: '/menu',    icon: '📋', label_vi: 'Menu',       label_en: 'Menu' },
   { href: '/orders',  icon: '📦', label_vi: 'Đơn hàng',   label_en: 'Orders' },
-  { href: '/profile', icon: '👤', label_vi: 'Tài khoản',  label_en: 'Profile' },
+  { href: '/profile', icon: '👤', label_vi: 'Tài khoản',  label_en: 'More' },
 ]
 
 export default function BottomNav() {
   const pathname = usePathname()
   const { totalItems } = useCart()
+  const { lang } = useLang()
 
   return (
     <nav className={styles.nav} role="navigation" aria-label="Bottom navigation">
@@ -34,7 +35,7 @@ export default function BottomNav() {
                 <span className={styles.badge}>{totalItems > 9 ? '9+' : totalItems}</span>
               )}
             </span>
-            <span className={styles.label}>{item.label_vi}</span>
+            <span className={styles.label}>{lang === 'vi' ? item.label_vi : item.label_en}</span>
           </Link>
         )
       })}

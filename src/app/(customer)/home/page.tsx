@@ -2,22 +2,28 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useLang } from '@/lib/providers'
-import { getGreeting, formatPrice } from '@/lib/utils'
-import { menuProducts, categories } from '@/lib/menu-data'
+import { formatPrice } from '@/lib/utils'
+import { LSP_LOCATIONS, DEFAULT_LOCATION } from '@/lib/locations'
+import DeliveryLocationModal from '@/components/DeliveryLocationModal'
 import styles from './home.module.css'
 
 export default function HomePage() {
-  const { t, lang } = useLang()
+  const { lang } = useLang()
   const router = useRouter()
   const [profile, setProfile] = useState<{ full_name: string; default_delivery_address: string | null } | null>(null)
-  const [greeting, setGreeting] = useState('')
+  const [selectedLocation, setSelectedLocation] = useState<string>(DEFAULT_LOCATION.name_en)
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false)
 
   useEffect(() => {
-    setGreeting(getGreeting(lang))
-    const load = async () => {
+    // Load saved location from localStorage or profile
+    const saved = localStorage.getItem('oc_delivery_location')
+    if (saved) setSelectedLocation(saved)
+
+    const loadProfile = async () => {
       const supabase = createClient()
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
@@ -26,166 +32,184 @@ export default function HomePage() {
           .select('full_name, default_delivery_address')
           .eq('id', session.user.id)
           .single()
-        if (data) setProfile(data)
+        if (data) {
+          setProfile(data)
+          if (data.default_delivery_address) {
+            setSelectedLocation(data.default_delivery_address)
+            localStorage.setItem('oc_delivery_location', data.default_delivery_address)
+          }
+        }
       }
     }
-    load()
-  }, [lang])
+    loadProfile()
+  }, [])
 
-  const featured = menuProducts.filter(p => p.is_featured).slice(0, 5)
-  const popular  = menuProducts.filter(p => p.is_recommended).slice(0, 6)
+  const handleLocationSelect = (locName: string) => {
+    setSelectedLocation(locName)
+    localStorage.setItem('oc_delivery_location', locName)
+  }
+
+  // Popular items matching mockup Screen 2 (Drinks & Bakery)
+  const popularDrinks = [
+    {
+      id: 'cafe-muoi-long-son',
+      name_vi: 'Cà Phê Kem Muối Long Sơn',
+      name_en: 'Salted Foam Coffee',
+      price: 48000,
+      image: 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=500&auto=format&fit=crop&q=80',
+    },
+    {
+      id: 'matcha-latte',
+      name_vi: 'Matcha Latte',
+      name_en: 'Matcha Latte',
+      price: 54000,
+      image: 'https://images.unsplash.com/photo-1536256263959-770b48d82b0a?w=500&auto=format&fit=crop&q=80',
+    },
+    {
+      id: 'banh-croissant-bo-phap',
+      name_vi: 'Bánh Croissant Bơ Pháp',
+      name_en: 'French Butter Croissant',
+      price: 35000,
+      image: 'https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=500&auto=format&fit=crop&q=80',
+    },
+    {
+      id: 'tra-sua-thai-do',
+      name_vi: 'Trà Sữa Thái Đỏ',
+      name_en: 'Thai Red Milk Tea',
+      price: 54000,
+      image: 'https://images.unsplash.com/photo-1558857563-b37cf0e23485?w=500&auto=format&fit=crop&q=80',
+    },
+  ]
 
   return (
     <div className={styles.page}>
-      {/* Header */}
+      {/* Top Header matching Screen 2 */}
       <header className={styles.header}>
-        <div className={styles.headerLeft}>
-          <p className={styles.greeting}>{greeting},</p>
-          <h1 className={styles.userName}>
-            {profile?.full_name ?? 'Khách hàng'} 👋
+        <div className={styles.headerGreeting}>
+          <p className={styles.greetingSub}>
+            {lang === 'vi' ? 'Chào buổi sáng,' : 'Good morning,'}
+          </p>
+          <h1 className={styles.greetingTitle}>
+            {lang === 'vi' ? 'Cùng thưởng thức cà phê nhé!' : "Let's get some coffee!"}
           </h1>
         </div>
+
         <button
-          className={styles.profileBtn}
+          className={styles.avatarBtn}
           onClick={() => router.push('/profile')}
           aria-label="Profile"
         >
-          {profile?.full_name?.[0] ?? '?'}
+          <div className={styles.avatarCircle}>
+            {profile?.full_name ? profile.full_name.slice(0, 2).toUpperCase() : 'ND'}
+          </div>
         </button>
       </header>
 
-      {/* Delivery location */}
-      <Link href="/checkout" className={styles.locationBar}>
-        <span className={styles.locationIcon}>📍</span>
-        <span className={styles.locationText}>
-          {profile?.default_delivery_address ?? t('delivery_location')}
-        </span>
-        <span className={styles.locationChevron}>›</span>
-      </Link>
+      {/* Hero Banner with Artistic Typography matching Screen 2 */}
+      <div className={styles.heroBanner} onClick={() => router.push('/menu')}>
+        <div className={styles.bannerContent}>
+          <p className={styles.bannerScriptLine1}>Good Coffee</p>
+          <p className={styles.bannerScriptLine2}>Brighter</p>
+          <p className={styles.bannerScriptLine3}>Workdays</p>
+        </div>
+        <div className={styles.bannerDrinkWrap}>
+          <img
+            src="https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=500&q=80"
+            alt="One Coffee Drink"
+            className={styles.bannerDrinkImg}
+          />
+        </div>
+      </div>
 
-      {/* Hero Banner */}
-      <div className={styles.heroBanner}>
-        <div className={styles.heroContent}>
-          <p className={styles.heroEyebrow}>☕ One Coffee LSP</p>
-          <h2 className={styles.heroTitle}>Good Coffee,<br />Brighter Workdays</h2>
-          <Link href="/menu" className={`btn btn-accent btn-sm ${styles.heroBtn}`}>
-            {t('order_now')} →
+      {/* 3 Quick Action Cards matching Screen 2 */}
+      <div className={styles.quickActionsGrid}>
+        {/* Card 1: Order Now (Active Dark Green) */}
+        <Link href="/menu" className={`${styles.quickCard} ${styles.quickCardActive}`}>
+          <div className={styles.quickCardIcon}>☕</div>
+          <span className={styles.quickCardLabel}>
+            {lang === 'vi' ? 'Đặt ngay' : 'Order Now'}
+          </span>
+        </Link>
+
+        {/* Card 2: Favorites */}
+        <Link href="/profile" className={styles.quickCard}>
+          <div className={styles.quickCardIconAlt}>🤍</div>
+          <span className={styles.quickCardLabelAlt}>
+            {lang === 'vi' ? 'Yêu thích' : 'Favorites'}
+          </span>
+        </Link>
+
+        {/* Card 3: Order History */}
+        <Link href="/orders" className={styles.quickCard}>
+          <div className={styles.quickCardIconAlt}>🕒</div>
+          <span className={styles.quickCardLabelAlt}>
+            {lang === 'vi' ? 'Lịch sử' : 'Order History'}
+          </span>
+        </Link>
+      </div>
+
+      {/* Delivery Location Pill Card matching Screen 2 */}
+      <div
+        className={styles.locationCard}
+        onClick={() => setIsLocationModalOpen(true)}
+      >
+        <div className={styles.locationIconWrap}>
+          <span style={{ fontSize: '18px' }}>📍</span>
+        </div>
+        <div className={styles.locationInfo}>
+          <span className={styles.locationLabel}>
+            {lang === 'vi' ? 'Điểm nhận nước' : 'Delivery Location'}
+          </span>
+          <span className={styles.locationValue}>
+            {selectedLocation}
+          </span>
+        </div>
+        <span className={styles.locationChevron}>›</span>
+      </div>
+
+      {/* Popular Drinks Section matching Screen 2 */}
+      <section className={styles.popularSection}>
+        <div className={styles.sectionHeader}>
+          <h2 className={styles.sectionTitle}>
+            {lang === 'vi' ? 'Món phổ biến' : 'Popular Drinks'}
+          </h2>
+          <Link href="/menu" className={styles.seeAllLink}>
+            {lang === 'vi' ? 'Xem tất cả' : 'See All'}
           </Link>
         </div>
-        <div className={styles.heroDecor}>
-          <div className={styles.coffeeCup}>☕</div>
-        </div>
-      </div>
 
-      {/* Quick Actions */}
-      <div className={styles.quickActions}>
-        <Link href="/menu" className={styles.quickBtn}>
-          <span className={styles.quickIcon}>☕</span>
-          <span>{t('order_now')}</span>
-        </Link>
-        <Link href="/orders" className={styles.quickBtn}>
-          <span className={styles.quickIcon}>📦</span>
-          <span>{t('order_history')}</span>
-        </Link>
-        <Link href="/profile" className={styles.quickBtn}>
-          <span className={styles.quickIcon}>❤️</span>
-          <span>{t('favorites')}</span>
-        </Link>
-      </div>
-
-      {/* Categories */}
-      <section className={styles.section}>
-        <div className={styles.sectionHeader}>
-          <h2 className={styles.sectionTitle}>Danh mục</h2>
-        </div>
-        <div className={styles.categoryScroll}>
-          {categories.map(cat => (
-            <Link
-              key={cat.slug}
-              href={`/menu?cat=${cat.slug}`}
-              className={styles.categoryChip}
+        <div className={styles.drinksGrid}>
+          {popularDrinks.map(drink => (
+            <div
+              key={drink.id}
+              className={styles.drinkCard}
+              onClick={() => router.push(`/menu/${drink.id}`)}
             >
-              <span className={styles.categoryIcon}>{cat.icon}</span>
-              <span>{lang === 'vi' ? cat.name_vi : cat.name_en}</span>
-            </Link>
+              <div className={styles.drinkImageWrap}>
+                <img
+                  src={drink.image}
+                  alt={drink.name_en}
+                  className={styles.drinkImage}
+                />
+              </div>
+              <h3 className={styles.drinkName}>
+                {lang === 'vi' ? drink.name_vi : drink.name_en}
+              </h3>
+              <p className={styles.drinkPrice}>
+                {formatPrice(drink.price)}
+              </p>
+            </div>
           ))}
         </div>
       </section>
 
-      {/* Popular Drinks */}
-      <section className={styles.section}>
-        <div className={styles.sectionHeader}>
-          <h2 className={styles.sectionTitle}>{t('popular_drinks')}</h2>
-          <Link href="/menu" className={styles.seeAll}>{t('see_all')}</Link>
-        </div>
-        <div className={styles.popularScroll}>
-          {popular.map(product => (
-            <ProductCard key={product.id} product={product} lang={lang} />
-          ))}
-        </div>
-      </section>
-
-      {/* New & Featured */}
-      {featured.length > 0 && (
-        <section className={styles.section}>
-          <div className={styles.sectionHeader}>
-            <h2 className={styles.sectionTitle}>✨ Nổi bật & Mới</h2>
-            <Link href="/menu" className={styles.seeAll}>{t('see_all')}</Link>
-          </div>
-          <div className={styles.featuredGrid}>
-            {featured.map(product => (
-              <FeaturedCard key={product.id} product={product} lang={lang} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Promo banner */}
-      <div className={styles.promoBanner}>
-        <div>
-          <p className={styles.promoTitle}>🎫 Mã ưu đãi hôm nay</p>
-          <p className={styles.promoDesc}>Dùng <strong>WELCOME10</strong> giảm 10% đơn đầu tiên</p>
-        </div>
-        <Link href="/cart" className="btn btn-primary btn-sm">Dùng ngay</Link>
-      </div>
-
-      <div style={{ height: 'var(--space-6)' }} />
+      {/* 21 Locations Modal (Screen 6) */}
+      <DeliveryLocationModal
+        isOpen={isLocationModalOpen}
+        onClose={() => setIsLocationModalOpen(false)}
+        selectedLocation={selectedLocation}
+        onSelect={handleLocationSelect}
+      />
     </div>
-  )
-}
-
-function ProductCard({ product, lang }: { product: typeof menuProducts[0]; lang: string }) {
-  const name = lang === 'vi' ? product.name_vi : product.name_en
-  const price = product.price_m ?? product.price_l ?? 0
-  return (
-    <Link href={`/menu/${product.id}`} className={styles.productCard}>
-      <div className={styles.productImgWrap}>
-        <div className={styles.productImgPlaceholder}>☕</div>
-        {product.is_new && <span className={styles.newBadge}>Mới</span>}
-        {product.is_recommended && <span className={styles.recBadge}>★</span>}
-      </div>
-      <div className={styles.productInfo}>
-        <p className={styles.productName}>{name}</p>
-        <p className={styles.productPrice}>
-          M {formatPrice(price * 1000)}
-          {product.price_l && <> · L {formatPrice(product.price_l * 1000)}</>}
-        </p>
-      </div>
-    </Link>
-  )
-}
-
-function FeaturedCard({ product, lang }: { product: typeof menuProducts[0]; lang: string }) {
-  const name = lang === 'vi' ? product.name_vi : product.name_en
-  const price = product.price_m ?? product.price_l ?? 0
-  return (
-    <Link href={`/menu/${product.id}`} className={styles.featuredCard}>
-      <div className={styles.featuredImgPlaceholder}>☕</div>
-      <div className={styles.featuredInfo}>
-        <p className={styles.featuredName}>{name}</p>
-        <p className={styles.featuredPrice}>{formatPrice(price * 1000)}</p>
-      </div>
-      {product.is_new && <span className={styles.featuredBadge}>Mới</span>}
-    </Link>
   )
 }

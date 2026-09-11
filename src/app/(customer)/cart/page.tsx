@@ -1,164 +1,159 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useCart, useLang, useToast } from '@/lib/providers'
 import { formatPrice } from '@/lib/utils'
-import { addons } from '@/lib/menu-data'
+import { DEFAULT_LOCATION } from '@/lib/locations'
+import DeliveryLocationModal from '@/components/DeliveryLocationModal'
 import styles from './cart.module.css'
-
-const VOUCHERS_MOCK: Record<string, { type: 'percent' | 'fixed'; value: number; min: number; max?: number }> = {
-  'WELCOME10': { type: 'percent', value: 10, min: 50, max: 50 },
-  'LSP50K':    { type: 'fixed',   value: 50, min: 150 },
-}
 
 export default function CartPage() {
   const router = useRouter()
   const { lang } = useLang()
-  const { items, removeItem, updateQuantity, clearCart, subtotal } = useCart()
+  const { items, updateQuantity, clearCart, subtotal } = useCart()
   const { showToast } = useToast()
 
-  const [voucherCode, setVoucherCode] = useState('')
-  const [appliedVoucher, setAppliedVoucher] = useState<null | { code: string; discount: number }>(null)
-  const [voucherError, setVoucherError] = useState('')
+  const [selectedLocation, setSelectedLocation] = useState<string>(DEFAULT_LOCATION.name_en)
+  const [isLocationModalOpen, setIsLocationModalOpen] = useState(false)
 
-  const applyVoucher = () => {
-    const v = VOUCHERS_MOCK[voucherCode.toUpperCase()]
-    if (!v) {
-      setVoucherError('Mã voucher không hợp lệ')
-      return
-    }
-    if (subtotal / 1000 < v.min) {
-      setVoucherError(`Đơn tối thiểu ${formatPrice(v.min * 1000)}`)
-      return
-    }
-    let discount = v.type === 'percent'
-      ? (subtotal * v.value) / 100
-      : v.value * 1000
-    if (v.max) discount = Math.min(discount, v.max * 1000)
-    setAppliedVoucher({ code: voucherCode.toUpperCase(), discount })
-    setVoucherError('')
-    showToast(`Áp dụng ${voucherCode.toUpperCase()} thành công!`, 'success')
+  useEffect(() => {
+    const saved = localStorage.getItem('oc_delivery_location')
+    if (saved) setSelectedLocation(saved)
+  }, [])
+
+  const handleLocationSelect = (locName: string) => {
+    setSelectedLocation(locName)
+    localStorage.setItem('oc_delivery_location', locName)
   }
-
-  const discount = appliedVoucher?.discount ?? 0
-  const total = Math.max(0, subtotal - discount)
 
   if (items.length === 0) {
     return (
-      <div className={styles.page}>
+      <div className={styles.emptyPage}>
         <header className={styles.header}>
-          <button className={styles.backBtn} onClick={() => router.back()}>←</button>
-          <h1 className={styles.title}>Giỏ hàng</h1>
-          <div style={{ width: 40 }} />
+          <h1 className={styles.title}>{lang === 'vi' ? 'Giỏ hàng' : 'Your Cart'}</h1>
         </header>
-        <div className="empty-state" style={{ marginTop: 80 }}>
-          <span className="empty-state-icon">🛒</span>
-          <p className="empty-state-title">Giỏ hàng trống</p>
-          <p className="empty-state-desc">Hãy chọn đồ uống yêu thích để thêm vào giỏ!</p>
-          <Link href="/menu" className="btn btn-primary" style={{ marginTop: 8 }}>Xem Menu</Link>
+        <div className={styles.emptyState}>
+          <span style={{ fontSize: '48px', marginBottom: '12px' }}>🛒</span>
+          <h2 style={{ fontSize: '18px', fontWeight: 700, color: '#1A202C', margin: '0 0 6px' }}>
+            {lang === 'vi' ? 'Giỏ hàng trống' : 'Your Cart is empty'}
+          </h2>
+          <p style={{ fontSize: '14px', color: '#718096', margin: '0 0 20px' }}>
+            {lang === 'vi' ? 'Hãy thêm những món đồ uống thơm ngon vào giỏ nhé!' : 'Add your favorite coffee to get started!'}
+          </p>
+          <Link href="/menu" className={styles.btnMenu}>
+            {lang === 'vi' ? 'Xem thực đơn One Coffee' : 'Explore Menu'}
+          </Link>
         </div>
       </div>
     )
   }
 
   return (
-    <div className={styles.page}>
-      {/* Header */}
+    <div className={styles.pageContainer}>
+      {/* Header matching Screen 5 */}
       <header className={styles.header}>
-        <button className={styles.backBtn} onClick={() => router.back()}>←</button>
-        <h1 className={styles.title}>Giỏ hàng ({items.length} món)</h1>
-        <button className={styles.clearBtn} onClick={() => { clearCart(); showToast('Đã xóa giỏ hàng', 'info') }}>
-          Xóa
+        <h1 className={styles.title}>{lang === 'vi' ? 'Giỏ hàng' : 'Your Cart'}</h1>
+        <button
+          className={styles.clearAllBtn}
+          onClick={() => {
+            if (confirm(lang === 'vi' ? 'Bạn có chắc muốn xóa giỏ hàng?' : 'Clear all items in cart?')) {
+              clearCart()
+              showToast(lang === 'vi' ? 'Đã xóa toàn bộ giỏ hàng' : 'Cart cleared', 'info')
+            }
+          }}
+        >
+          <span style={{ fontSize: '13px' }}>🗑️</span>
+          <span>{lang === 'vi' ? 'Xóa tất cả' : 'Clear All'}</span>
         </button>
       </header>
 
-      <div className={styles.content}>
-        {/* Cart items */}
-        <div className={styles.itemsList}>
-          {items.map(item => {
-            const name = lang === 'vi' ? item.name_vi : item.name_en
-            const itemAddons = item.addon_ids
-              .map(id => addons.find(a => a.id === id))
-              .filter(Boolean)
-            return (
-              <div key={item.id} className={styles.cartItem}>
-                <div className={styles.itemImg}>☕</div>
-                <div className={styles.itemInfo}>
-                  <p className={styles.itemName}>{name}</p>
-                  <p className={styles.itemMeta}>
-                    Size {item.size}
-                    {itemAddons.length > 0 && ` · ${itemAddons.map(a => lang === 'vi' ? a!.name_vi : a!.name_en).join(', ')}`}
-                  </p>
-                  {item.notes && <p className={styles.itemNotes}>📝 {item.notes}</p>}
-                  <p className={styles.itemPrice}>{formatPrice(item.unit_price)}</p>
-                </div>
-                <div className={styles.itemRight}>
-                  <div className="qty-control" style={{ '--space-3': '8px' } as React.CSSProperties}>
-                    <button className="qty-btn" onClick={() => updateQuantity(item.id, item.quantity - 1)}>−</button>
-                    <span className="qty-value">{item.quantity}</span>
-                    <button className="qty-btn" onClick={() => updateQuantity(item.id, item.quantity + 1)}>+</button>
-                  </div>
-                  <button className={styles.removeBtn} onClick={() => removeItem(item.id)}>🗑</button>
+      {/* Cart Items List matching Screen 5 */}
+      <div className={styles.itemsList}>
+        {items.map(item => {
+          const name = lang === 'vi' ? item.name_vi : item.name_en
+          const lineTotal = item.unit_price * item.quantity
+          const itemImg = item.image_url || 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=500&q=80'
+
+          return (
+            <div key={item.id} className={styles.itemRow}>
+              {/* Thumbnail */}
+              <div className={styles.thumbnailWrap}>
+                <img src={itemImg} alt={name} className={styles.thumbnail} />
+              </div>
+
+              {/* Center Info */}
+              <div className={styles.itemInfo}>
+                <h3 className={styles.itemName}>{name}</h3>
+                <p className={styles.itemSizePrice}>
+                  Size {item.size} — {formatPrice(item.unit_price)}
+                </p>
+
+                {/* Quantity Stepper matching Screen 5 */}
+                <div className={styles.stepperWrap}>
+                  <button
+                    className={styles.stepperBtn}
+                    onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                  >
+                    −
+                  </button>
+                  <span className={styles.stepperValue}>{item.quantity}</span>
+                  <button
+                    className={styles.stepperBtn}
+                    onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                  >
+                    +
+                  </button>
                 </div>
               </div>
-            )
-          })}
-        </div>
 
-        {/* Voucher */}
-        <div className={styles.voucherSection}>
-          <p className={styles.sectionLabel}>🎫 Mã Voucher</p>
-          <div className={styles.voucherInput}>
-            <input
-              className={`input ${voucherError ? 'input-error' : ''}`}
-              placeholder="Nhập mã giảm giá"
-              value={voucherCode}
-              onChange={e => { setVoucherCode(e.target.value); setVoucherError('') }}
-              style={{ textTransform: 'uppercase' }}
-            />
-            <button className="btn btn-outline btn-sm" onClick={applyVoucher}
-              style={{ flexShrink: 0 }}>
-              Áp dụng
-            </button>
-          </div>
-          {voucherError && <span className="error-text">{voucherError}</span>}
-          {appliedVoucher && (
-            <div className={styles.voucherApplied}>
-              <span>✓ {appliedVoucher.code} — Giảm {formatPrice(appliedVoucher.discount)}</span>
-              <button onClick={() => { setAppliedVoucher(null); setVoucherCode('') }}>✕</button>
+              {/* Right Line Total matching Screen 5 */}
+              <div className={styles.itemTotal}>
+                {formatPrice(lineTotal)}
+              </div>
             </div>
-          )}
+          )
+        })}
+      </div>
+
+      {/* Delivery Location Section matching Screen 5 */}
+      <div
+        className={styles.locationBox}
+        onClick={() => setIsLocationModalOpen(true)}
+      >
+        <span className={styles.locationPin}>📍</span>
+        <div className={styles.locationDetails}>
+          <span className={styles.locationHead}>
+            {lang === 'vi' ? 'Điểm nhận nước' : 'Delivery Location'}
+          </span>
+          <span className={styles.locationName}>{selectedLocation}</span>
+        </div>
+        <span className={styles.locationArrow}>›</span>
+      </div>
+
+      {/* Bottom Summary & Button matching Screen 5 */}
+      <div className={styles.bottomBar}>
+        <div className={styles.totalRow}>
+          <span className={styles.totalLabel}>{lang === 'vi' ? 'Tổng cộng' : 'Total'}</span>
+          <span className={styles.totalAmount}>{formatPrice(subtotal)}</span>
         </div>
 
-        {/* Order summary */}
-        <div className={styles.summary}>
-          <div className={styles.summaryRow}>
-            <span>Tạm tính</span>
-            <span>{formatPrice(subtotal)}</span>
-          </div>
-          {discount > 0 && (
-            <div className={`${styles.summaryRow} ${styles.discountRow}`}>
-              <span>Giảm giá ({appliedVoucher?.code})</span>
-              <span>−{formatPrice(discount)}</span>
-            </div>
-          )}
-          <div className={styles.divider} />
-          <div className={`${styles.summaryRow} ${styles.totalRow}`}>
-            <span>Tổng cộng</span>
-            <span className={styles.totalAmount}>{formatPrice(total)}</span>
-          </div>
-        </div>
-
-        {/* CTA */}
         <button
-          className="btn btn-primary btn-full btn-lg"
-          onClick={() => router.push(`/checkout?total=${total}`)}
+          className={styles.btnProceed}
+          onClick={() => router.push('/checkout')}
         >
-          Tiến hành thanh toán →
+          {lang === 'vi' ? 'Tiến hành đặt hàng' : 'Proceed to Payment'}
         </button>
       </div>
+
+      {/* 21 Locations Modal */}
+      <DeliveryLocationModal
+        isOpen={isLocationModalOpen}
+        onClose={() => setIsLocationModalOpen(false)}
+        selectedLocation={selectedLocation}
+        onSelect={handleLocationSelect}
+      />
     </div>
   )
 }

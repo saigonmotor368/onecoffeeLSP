@@ -2,12 +2,13 @@
 // Prices in 1,000 VND units (e.g. 48 = 48,000đ)
 
 export const categories = [
-  { slug: 'coffee',    name_vi: 'Cà Phê',       name_en: 'Coffee',     icon: '☕', sort_order: 1 },
-  { slug: 'milk-tea',  name_vi: 'Trà Sữa',       name_en: 'Milk Tea',   icon: '🧋', sort_order: 2 },
-  { slug: 'matcha',    name_vi: 'Trà Xanh',      name_en: 'Matcha',     icon: '🍵', sort_order: 3 },
-  { slug: 'hot-drink', name_vi: 'Thức Uống Nóng', name_en: 'Hot Drink',  icon: '🔥', sort_order: 4 },
-  { slug: 'frappe',    name_vi: 'Đá Xay',        name_en: 'Frappe',     icon: '🥤', sort_order: 5 },
-  { slug: 'fruit-tea', name_vi: 'Trà Trái Cây',  name_en: 'Fruit Tea',  icon: '🍑', sort_order: 6 },
+  { slug: 'coffee',    name_vi: 'Cà Phê',        name_en: 'Coffee',        icon: '☕', sort_order: 1 },
+  { slug: 'milk-tea',  name_vi: 'Trà Sữa',        name_en: 'Milk Tea',      icon: '🧋', sort_order: 2 },
+  { slug: 'fruit-tea', name_vi: 'Trà Trái Cây',   name_en: 'Fruit Tea',     icon: '🍑', sort_order: 3 },
+  { slug: 'matcha',    name_vi: 'Trà Xanh',       name_en: 'Matcha',        icon: '🍵', sort_order: 4 },
+  { slug: 'frappe',    name_vi: 'Đá Xay',         name_en: 'Frappe',        icon: '🥤', sort_order: 5 },
+  { slug: 'hot-drink', name_vi: 'Thức Uống Nóng', name_en: 'Hot Drink',     icon: '🔥', sort_order: 6 },
+  { slug: 'food',      name_vi: 'Bánh & Thức Ăn', name_en: 'Bakery & Food', icon: '🥐', sort_order: 7 },
 ]
 
 export interface MenuProduct {
@@ -23,6 +24,76 @@ export interface MenuProduct {
   is_new?: boolean
   is_recommended?: boolean
   tags?: string[]
+  image_url?: string
+}
+
+export function getProductImage(product: MenuProduct): string {
+  if (product.image_url) return product.image_url
+  const id = product.id.toLowerCase()
+  const cat = product.category_slug.toLowerCase()
+
+  // ── Thức ăn & Bánh ngọt (Food & Bakery) ─────────────────
+  if (cat === 'food' || id.includes('croissant') || id.includes('banh-')) {
+    if (id.includes('croissant')) {
+      return 'https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=500&auto=format&fit=crop&q=80'
+    }
+    if (id.includes('sandwich')) {
+      return 'https://images.unsplash.com/photo-1528735602780-2552fd46c7af?w=500&auto=format&fit=crop&q=80'
+    }
+    if (id.includes('que') || id.includes('mi')) {
+      return 'https://images.unsplash.com/photo-1509722747041-616f39b57569?w=500&auto=format&fit=crop&q=80'
+    }
+    if (id.includes('tiramisu')) {
+      return 'https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?w=500&auto=format&fit=crop&q=80'
+    }
+    if (id.includes('muffin') || id.includes('cake')) {
+      return 'https://images.unsplash.com/photo-1586985289688-ca3cf47d3e6e?w=500&auto=format&fit=crop&q=80'
+    }
+    if (id.includes('cookie')) {
+      return 'https://images.unsplash.com/photo-1499636136210-6f4ee915583e?w=500&auto=format&fit=crop&q=80'
+    }
+    if (id.includes('dieu') || id.includes('hat')) {
+      return 'https://images.unsplash.com/photo-1536591375315-1b836820db76?w=500&auto=format&fit=crop&q=80'
+    }
+    return 'https://images.unsplash.com/photo-1509440159596-0249088772ff?w=500&auto=format&fit=crop&q=80'
+  }
+
+  // ── Đồ uống (Drinks) ────────────────────────────────────
+  if (id.includes('muoi') || id.includes('foam')) {
+    return 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=500&auto=format&fit=crop&q=80'
+  }
+  if (id.includes('matcha')) {
+    return 'https://images.unsplash.com/photo-1536256263959-770b48d82b0a?w=500&auto=format&fit=crop&q=80'
+  }
+  if (id.includes('tra-sua') || id.includes('thai')) {
+    return 'https://images.unsplash.com/photo-1558857563-b37cf0e23485?w=500&auto=format&fit=crop&q=80'
+  }
+  if (id.includes('dau') || id.includes('hibiscus')) {
+    return 'https://images.unsplash.com/photo-1595981267035-7b04ca84a82d?w=500&auto=format&fit=crop&q=80'
+  }
+  if (id.includes('tra-') || id.includes('dao') || id.includes('sen') || id.includes('vai')) {
+    return 'https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=500&auto=format&fit=crop&q=80'
+  }
+  if (id.includes('da-xay') || id.includes('frappe') || id.includes('oreo')) {
+    return 'https://images.unsplash.com/photo-1572490122747-3968b75cc699?w=500&auto=format&fit=crop&q=80'
+  }
+  if (id.includes('den') || id.includes('americano')) {
+    return 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?w=500&auto=format&fit=crop&q=80'
+  }
+  if (id.includes('sua') || id.includes('bac-xiu')) {
+    return 'https://images.unsplash.com/photo-1541167760496-1628856ab772?w=500&auto=format&fit=crop&q=80'
+  }
+  if (id.includes('latte') || id.includes('cappuccino') || id.includes('macchiato') || id.includes('mocha')) {
+    return 'https://images.unsplash.com/photo-1534778101976-62847782c213?w=500&auto=format&fit=crop&q=80'
+  }
+  if (id.includes('espresso')) {
+    return 'https://images.unsplash.com/photo-1510591509098-f4fdc6d0ff04?w=500&auto=format&fit=crop&q=80'
+  }
+  if (cat === 'hot-drink') {
+    return 'https://images.unsplash.com/photo-1542990253-0d0f5be5f0ed?w=500&auto=format&fit=crop&q=80'
+  }
+
+  return 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=500&auto=format&fit=crop&q=80'
 }
 
 export const menuProducts: MenuProduct[] = [
@@ -348,6 +419,82 @@ export const menuProducts: MenuProduct[] = [
     price_m: 50, price_l: null,
     is_featured: true,
     is_recommended: true,
+  },
+
+  // ── BÁNH & THỨC ĂN (FOOD & BAKERY) ──────────────────────
+  {
+    id: 'banh-croissant-bo-phap',
+    category_slug: 'food',
+    name_vi: 'Bánh Croissant Bơ Pháp',
+    name_en: 'French Butter Croissant',
+    description_vi: 'Bánh sừng bò nướng nóng giòn tan, thơm ngậy vị bơ Pháp cao cấp',
+    description_en: 'Warm, crispy, flaky butter croissant baked fresh daily',
+    price_m: 35, price_l: null,
+    is_recommended: true,
+    image_url: 'https://images.unsplash.com/photo-1555507036-ab1f4038808a?w=500&auto=format&fit=crop&q=80',
+  },
+  {
+    id: 'sandwich-thit-nguoi-pho-mai',
+    category_slug: 'food',
+    name_vi: 'Sandwich Thịt Nguội & Phô Mai',
+    name_en: 'Ham & Cheese Sandwich',
+    description_vi: 'Bánh sandwich nướng giòn kẹp thịt nguội xông khói và phô mai cheddar béo ngậy',
+    description_en: 'Golden toasted sandwich with premium smoked ham and melted cheddar cheese',
+    price_m: 45, price_l: null,
+    is_featured: true,
+    is_recommended: true,
+    image_url: 'https://images.unsplash.com/photo-1528735602780-2552fd46c7af?w=500&auto=format&fit=crop&q=80',
+  },
+  {
+    id: 'banh-mi-que-pate',
+    category_slug: 'food',
+    name_vi: 'Bánh Mì Que Pate Hải Phòng',
+    name_en: 'Pate Stick Baguette',
+    description_vi: 'Bánh mì que vỏ mỏng giòn rụm kẹp pate Hải Phòng béo bùi, thơm nức mũi',
+    description_en: 'Crispy stick baguette stuffed with rich aromatic pate',
+    price_m: 25, price_l: null,
+    image_url: 'https://images.unsplash.com/photo-1509722747041-616f39b57569?w=500&auto=format&fit=crop&q=80',
+  },
+  {
+    id: 'banh-tiramisu-ca-phe',
+    category_slug: 'food',
+    name_vi: 'Bánh Tiramisu One Coffee',
+    name_en: 'One Coffee Tiramisu Cake',
+    description_vi: 'Bánh mousse phô mai mascarpone mềm mịn hòa quyện cốt bánh thấm đẫm cà phê espresso',
+    description_en: 'Signature Italian tiramisu with silky mascarpone and rich espresso-soaked layers',
+    price_m: 45, price_l: null,
+    is_recommended: true,
+    image_url: 'https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?w=500&auto=format&fit=crop&q=80',
+  },
+  {
+    id: 'banh-muffin-chocolate',
+    category_slug: 'food',
+    name_vi: 'Bánh Muffin Double Chocolate',
+    name_en: 'Double Chocolate Muffin',
+    description_vi: 'Bánh muffin socola đậm đà mềm ẩm với hạt sô-cô-la chip nguyên chất tan chảy',
+    description_en: 'Rich, moist chocolate muffin bursting with decadent dark chocolate chips',
+    price_m: 35, price_l: null,
+    image_url: 'https://images.unsplash.com/photo-1586985289688-ca3cf47d3e6e?w=500&auto=format&fit=crop&q=80',
+  },
+  {
+    id: 'banh-cookies-hanh-nhan',
+    category_slug: 'food',
+    name_vi: 'Cookies Hạnh Nhân Bơ Nướng',
+    name_en: 'Baked Almond Butter Cookies',
+    description_vi: 'Bánh quy bơ giòn xốp rắc lát hạnh nhân thơm bùi, ăn kèm cà phê tuyệt ngon',
+    description_en: 'Crisp, buttery handmade cookies generously topped with toasted sliced almonds',
+    price_m: 28, price_l: null,
+    image_url: 'https://images.unsplash.com/photo-1499636136210-6f4ee915583e?w=500&auto=format&fit=crop&q=80',
+  },
+  {
+    id: 'hat-dieu-rang-muoi',
+    category_slug: 'food',
+    name_vi: 'Hạt Điều Bình Phước Rang Muối',
+    name_en: 'Roasted Salted Cashews',
+    description_vi: 'Hạt điều rang củi loại 1 nguyên hạt giòn béo, món snack năng lượng cho ngày làm việc',
+    description_en: 'Premium wood-roasted salted cashews, delicious energy booster for workdays',
+    price_m: 32, price_l: null,
+    image_url: 'https://images.unsplash.com/photo-1536591375315-1b836820db76?w=500&auto=format&fit=crop&q=80',
   },
 ]
 

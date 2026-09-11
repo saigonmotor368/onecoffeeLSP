@@ -290,6 +290,11 @@ export const translations = {
 export type Language = keyof typeof translations
 export type TranslationKey = keyof typeof translations.vi
 
+export const LANGUAGE_OPTIONS = [
+  { code: 'vi' as const, label: 'Tiếng Việt', flag: '🇻🇳', fullLabel: 'Tiếng Việt 🇻🇳' },
+  { code: 'en' as const, label: 'English', flag: '🇺🇸', fullLabel: 'English 🇺🇸' },
+]
+
 export function t(lang: Language, key: TranslationKey): string {
   return translations[lang][key] as string
 }
