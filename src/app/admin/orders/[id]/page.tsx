@@ -61,27 +61,42 @@ export default function AdminOrderDetailPage({ params }: { params: Promise<{ id:
   const updateStatus = async (newStatus: string) => {
     if (!order) return
     setUpdating(true)
-    const supabase = createClient()
-    const { error } = await supabase.from('orders').update({ order_status: newStatus }).eq('id', id)
-    if (error) {
-      showToast('Lỗi cập nhật trạng thái', 'error')
-    } else {
-      setOrder(prev => (prev ? { ...prev, order_status: newStatus as Order['order_status'] } : null))
-      showToast(`Đã chuyển: ${getStatusLabel(newStatus, 'vi')}`, 'success')
+    try {
+      const res = await fetch('/api/admin/orders/update-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: id, status: newStatus }),
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        setOrder(prev => (prev ? { ...prev, order_status: newStatus as Order['order_status'] } : null))
+        showToast(`Đã chuyển: ${getStatusLabel(newStatus, 'vi')}`, 'success')
+      } else {
+        showToast(data.error || 'Lỗi cập nhật trạng thái', 'error')
+      }
+    } catch {
+      showToast('Lỗi kết nối khi cập nhật trạng thái', 'error')
     }
     setUpdating(false)
   }
 
   const updatePayment = async (paid: boolean) => {
     if (!order) return
-    const supabase = createClient()
-    const { error } = await supabase
-      .from('orders')
-      .update({ payment_status: paid ? 'paid' : 'pending' })
-      .eq('id', id)
-    if (!error) {
-      setOrder(prev => (prev ? { ...prev, payment_status: paid ? 'paid' : 'pending' } : null))
-      showToast(paid ? 'Đã đánh dấu: ĐÃ THANH TOÁN' : 'Đã đánh dấu: CHƯA THANH TOÁN', 'success')
+    try {
+      const res = await fetch('/api/admin/orders/update-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: id, paymentStatus: paid ? 'paid' : 'pending' }),
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        setOrder(prev => (prev ? { ...prev, payment_status: paid ? 'paid' : 'pending' } : null))
+        showToast(paid ? 'Đã đánh dấu: ĐÃ THANH TOÁN' : 'Đã đánh dấu: CHƯA THANH TOÁN', 'success')
+      } else {
+        showToast(data.error || 'Lỗi cập nhật thanh toán', 'error')
+      }
+    } catch {
+      showToast('Lỗi kết nối khi cập nhật thanh toán', 'error')
     }
   }
 

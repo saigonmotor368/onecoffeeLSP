@@ -73,22 +73,26 @@ export default function AdminOrdersPage() {
   }, [loadOrders])
 
   const updateStatus = async (orderId: string, newStatus: string) => {
-    const supabase = createClient()
-    const { error } = await supabase
-      .from('orders')
-      .update({ order_status: newStatus })
-      .eq('id', orderId)
-
-    if (error) {
-      showToast('Lỗi cập nhật trạng thái đơn hàng', 'error')
-    } else {
-      showToast(`Đã chuyển trạng thái: ${STATUS_LABELS[newStatus] || newStatus}`, 'success')
-      setOrders(prev =>
-        prev.map(o => (o.id === orderId ? { ...o, order_status: newStatus as Order['order_status'] } : o))
-      )
-      if (selectedOrder && selectedOrder.id === orderId) {
-        setSelectedOrder(prev => (prev ? { ...prev, order_status: newStatus as Order['order_status'] } : null))
+    try {
+      const res = await fetch('/api/admin/orders/update-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, status: newStatus }),
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        showToast(`Đã chuyển: ${STATUS_LABELS[newStatus] || newStatus}`, 'success')
+        setOrders(prev =>
+          prev.map(o => (o.id === orderId ? { ...o, order_status: newStatus as Order['order_status'] } : o))
+        )
+        if (selectedOrder && selectedOrder.id === orderId) {
+          setSelectedOrder(prev => (prev ? { ...prev, order_status: newStatus as Order['order_status'] } : null))
+        }
+      } else {
+        showToast(data.error || 'Lỗi cập nhật trạng thái đơn hàng', 'error')
       }
+    } catch {
+      showToast('Lỗi kết nối khi cập nhật trạng thái', 'error')
     }
   }
 

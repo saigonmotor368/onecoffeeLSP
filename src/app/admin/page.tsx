@@ -77,13 +77,21 @@ export default function AdminDashboard() {
     .reduce((s, o) => s + (o.final_amount || 0), 0)
 
   const updateStatus = async (orderId: string, newStatus: string) => {
-    const supabase = createClient()
-    const { error } = await supabase.from('orders').update({ order_status: newStatus }).eq('id', orderId)
-    if (!error) {
-      showToast(`Đã chuyển trạng thái sang "${getStatusLabel(newStatus, 'vi')}"`, 'success')
-      setOrders(prev => prev.map(o => (o.id === orderId ? { ...o, order_status: newStatus as Order['order_status'] } : o)))
-    } else {
-      showToast('Lỗi cập nhật trạng thái', 'error')
+    try {
+      const res = await fetch('/api/admin/orders/update-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, status: newStatus }),
+      })
+      const data = await res.json()
+      if (res.ok && data.success) {
+        showToast(`Đã chuyển trạng thái sang ""`, 'success')
+        setOrders(prev => prev.map(o => (o.id === orderId ? { ...o, order_status: newStatus as Order['order_status'] } : o)))
+      } else {
+        showToast('Lỗi cập nhật trạng thái', 'error')
+      }
+    } catch {
+      showToast('Lỗi kết nối khi cập nhật trạng thái', 'error')
     }
   }
 

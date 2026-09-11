@@ -60,7 +60,6 @@ function CheckoutContent() {
   const [loading, setLoading] = useState(false)
   const [orderNumber, setOrderNumber] = useState('')
   const [copiedField, setCopiedField] = useState<string | null>(null)
-  const [showRegSuccessModal, setShowRegSuccessModal] = useState(false)
 
   useEffect(() => {
     // Generate order number
@@ -77,7 +76,7 @@ function CheckoutContent() {
     // Check if user is logged in
     const checkAuth = async () => {
       try {
-        const supabase = createClient()
+        const supabase = createClient('customer')
         const { data: { session } } = await supabase.auth.getSession()
         if (session) {
           setIsLoggedIn(true)
@@ -162,7 +161,7 @@ function CheckoutContent() {
       }
 
       // Login immediately
-      const supabase = createClient()
+      const supabase = createClient('customer')
       const email = `${cleanPhone}@onecoffee.vn`
       const { data: signData, error: signErr } = await supabase.auth.signInWithPassword({
         email,
@@ -180,8 +179,6 @@ function CheckoutContent() {
       localStorage.setItem('oc_customer_name', trimmedName)
       localStorage.setItem('oc_customer_phone', cleanPhone)
       localStorage.setItem('oc_delivery_location', trimmedAddress)
-      showToast(lang === 'vi' ? 'Đã tạo tài khoản & đăng nhập thành công!' : 'Account created and logged in!', 'success')
-      setShowRegSuccessModal(true)
       return signData.user.id
     } catch {
       showToast(lang === 'vi' ? 'Lỗi kết nối máy chủ tạo tài khoản' : 'Error connecting to server', 'error')
@@ -204,7 +201,7 @@ function CheckoutContent() {
 
     setAuthLoading(true)
     try {
-      const supabase = createClient()
+      const supabase = createClient('customer')
       const email = `${cleanPhone}@onecoffee.vn`
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -282,8 +279,6 @@ function CheckoutContent() {
 
     setLoading(true)
     try {
-      const supabase = createClient()
-
       const discountNotes = [
         isLspEmployee && employeeDiscount > 0 ? `Giảm ${employeeDiscountPercent}% NV LSP (-${formatPrice(employeeDiscount)})` : '',
         appliedVoucher ? `Voucher ${appliedVoucher.code} (-${formatPrice(voucherDiscount)})` : '',
@@ -293,8 +288,8 @@ function CheckoutContent() {
 
       const isCash = paymentMethod === 'cash'
 
-      // Order payload
-      const orderPayload: Record<string, unknown> = {
+      // Build order payload - always pass user_id explicitly
+      const orderPayload = {
         order_number: orderNumber,
         user_id: finalUserId,
         delivery_address: trimmedAddress,
@@ -311,70 +306,48 @@ function CheckoutContent() {
         notes: discountNotes,
       }
 
-      let createdId: string | null = null
-
-      const { data: orderData, error: orderErr } = await supabase
-        .from('orders')
-        .insert(orderPayload as any)
-        .select('id')
-        .single()
-
-      if (orderErr) {
-        console.warn('Order insert with optional fields failed, retrying fallback:', orderErr.message)
-        delete orderPayload.shipping_fee
-        delete orderPayload.voucher_id
-        const { data: fallbackOrder, error: fallbackErr } = await supabase
-          .from('orders')
-          .insert(orderPayload as any)
-          .select('id')
-          .single()
-
-        if (fallbackErr) {
-          throw fallbackErr
+      // Build order items payload
+      const isUuid = (str: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
+      let productMap: Record<string, string> = {}
+      try {
+        const supabase = createClient('customer')
+        const { data: dbProducts } = await supabase.from('products').select('id, name_vi')
+        if (dbProducts) {
+          dbProducts.forEach(p => { productMap[p.name_vi.toLowerCase().trim()] = p.id })
         }
-        createdId = fallbackOrder?.id ?? null
-      } else {
-        createdId = orderData?.id ?? null
+      } catch { /* non-fatal */ }
+
+      const fallbackUuid = Object.values(productMap)[0] || null
+
+      const payloadItems = items.map(item => {
+        let validProductId: string | null = isUuid(item.product_id) ? item.product_id : null
+        if (!validProductId) {
+          validProductId = productMap[(item.name_vi || '').toLowerCase().trim()] || fallbackUuid
+        }
+        return {
+          product_id: validProductId,
+          product_name_vi: item.name_vi,
+          product_name_en: item.name_en || item.name_vi,
+          size: (item.size === 'L' ? 'L' : 'M') as 'M' | 'L',
+          quantity: item.quantity,
+          unit_price: item.unit_price,
+          addon_ids: item.addon_ids || [],
+          notes: item.notes || null,
+        }
+      })
+
+      // Use server API to create order (bypasses RLS, correct user_id guaranteed)
+      const res = await fetch('/api/orders/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ order: orderPayload, items: payloadItems }),
+      })
+      const orderResult = await res.json()
+      if (!res.ok) {
+        throw new Error(orderResult.error || 'L" + [char]7895 + "i t" + [char]7841 + "o " + [char]273 + [char]417 + "n h" + [char]224 + "ng')
       }
 
-      // Insert order items if available with valid product UUIDs
-      if (createdId && items.length > 0) {
-        try {
-          const { data: dbProducts } = await supabase.from('products').select('id, name_vi')
-          const isUuid = (str: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
-          const fallbackUuid = dbProducts?.[0]?.id
-
-          const payloadItems = items.map(item => {
-            let validProductId = isUuid(item.product_id) ? item.product_id : null
-            if (!validProductId && dbProducts && dbProducts.length > 0) {
-              const matched = dbProducts.find(
-                p => p.name_vi.toLowerCase().trim() === (item.name_vi || '').toLowerCase().trim()
-              )
-              validProductId = (matched ? matched.id : fallbackUuid) || null
-            }
-
-            return {
-              order_id: createdId,
-              product_id: validProductId,
-              product_name_vi: item.name_vi,
-              product_name_en: item.name_en || item.name_vi,
-              size: (item.size === 'L' ? 'L' : 'M') as 'M' | 'L',
-              quantity: item.quantity,
-              unit_price: item.unit_price,
-              addon_ids: item.addon_ids || [],
-              notes: item.notes || null,
-            }
-          })
-
-          const { error: itemsErr } = await supabase.from('order_items').insert(payloadItems as any)
-          if (itemsErr) {
-            console.error('Order items insert error:', itemsErr)
-          }
-        } catch (itemErr) {
-          console.warn('Order items insert error (non-fatal):', itemErr)
-        }
-      }
-
+      const createdId = orderResult.orderId
       clearCart()
 
       const targetOrderId = createdId || orderNumber
@@ -480,7 +453,7 @@ function CheckoutContent() {
                 type="button"
                 className={styles.switchAccountBtn}
                 onClick={async () => {
-                  const supabase = createClient()
+                  const supabase = createClient('customer')
                   await supabase.auth.signOut()
                   setIsLoggedIn(false)
                   setUserId(null)
@@ -1148,105 +1121,6 @@ function CheckoutContent() {
                 <span>📞</span> Gọi ngay
               </a>
             </div>
-          </div>
-        </div>
-      )}
-      {/* Registration Success Confirmation Modal */}
-      {showRegSuccessModal && (
-        <div
-          style={{
-            position: 'fixed',
-            inset: 0,
-            background: 'rgba(0, 0, 0, 0.65)',
-            backdropFilter: 'blur(4px)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-            padding: '20px',
-          }}
-        >
-          <div
-            style={{
-              background: 'white',
-              borderRadius: '24px',
-              padding: '24px 20px',
-              maxWidth: '420px',
-              width: '100%',
-              boxShadow: '0 20px 40px rgba(0,0,0,0.25)',
-              textAlign: 'center',
-            }}
-          >
-            <div style={{ fontSize: '48px', marginBottom: '8px' }}>🎉</div>
-            <h3 style={{ fontSize: '18px', fontWeight: 800, color: '#1E4D3B', margin: '0 0 8px' }}>
-              Tạo Tài Khoản Thành Công!
-            </h3>
-            <p style={{ fontSize: '13px', color: '#475569', margin: '0 0 16px', lineHeight: 1.5 }}>
-              Tài khoản khách hàng của bạn đã được kích hoạt. Hãy ghi nhớ thông tin để đăng nhập lần sau:
-            </p>
-
-            <div
-              style={{
-                background: '#F8FAFC',
-                border: '1px solid #E2E8F0',
-                borderRadius: '14px',
-                padding: '14px 16px',
-                textAlign: 'left',
-                marginBottom: '16px',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '10px',
-                fontSize: '13px',
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span style={{ color: '#64748B' }}>Họ và tên:</span>
-                <strong style={{ color: '#1E293B' }}>{recipientName}</strong>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px dashed #E2E8F0', paddingTop: '8px' }}>
-                <span style={{ color: '#64748B' }}>Tên đăng nhập (SĐT):</span>
-                <strong style={{ color: '#1E4D3B', fontSize: '15px' }}>{recipientPhone}</strong>
-              </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px dashed #E2E8F0', paddingTop: '8px' }}>
-                <span style={{ color: '#64748B' }}>Mật khẩu:</span>
-                <strong style={{ color: '#1E293B' }}>{regPassword ? '••••••••' : 'Đã lưu an toàn'}</strong>
-              </div>
-            </div>
-
-            <div
-              style={{
-                background: '#EFF6FF',
-                border: '1px solid #BFDBFE',
-                borderRadius: '12px',
-                padding: '10px 14px',
-                fontSize: '12px',
-                color: '#1E40AF',
-                lineHeight: 1.45,
-                marginBottom: '20px',
-                textAlign: 'left',
-              }}
-            >
-              💡 <strong>Lần sau đặt món:</strong> Bạn chỉ cần vào mục <em>Tài khoản</em> (hoặc bấm <em>&quot;Đã có tài khoản&quot;</em>) và nhập SĐT <strong>{recipientPhone}</strong> cùng mật khẩu vừa tạo!
-            </div>
-
-            <button
-              type="button"
-              className="btn"
-              onClick={() => setShowRegSuccessModal(false)}
-              style={{
-                width: '100%',
-                background: '#1E4D3B',
-                color: 'white',
-                padding: '12px',
-                borderRadius: '12px',
-                fontWeight: 800,
-                fontSize: '14px',
-                border: 'none',
-                cursor: 'pointer',
-              }}
-            >
-              Tôi Đã Ghi Nhớ, Tiếp Tục Đặt Hàng →
-            </button>
           </div>
         </div>
       )}

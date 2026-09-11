@@ -51,42 +51,22 @@ export default function AdminCustomersPage() {
 
   const loadCustomers = useCallback(async () => {
     setLoading(true)
-    const supabase = createClient()
-
     try {
-      const [{ data: profiles, error: pError }, { data: orders }] = await Promise.all([
-        supabase.from('profiles').select('*').order('created_at', { ascending: false }),
-        supabase.from('orders').select('user_id, final_amount, created_at, order_status'),
-      ])
-
-      if (pError) {
-        console.error('Error loading profiles:', pError)
+      const res = await fetch('/api/admin/customers')
+      const data = await res.json()
+      if (!res.ok) {
+        console.error('Error loading customers:', data.error)
+        setCustomers([])
+        return
       }
-
-      const list = (profiles || []) as CustomerProfile[]
-
-      // Aggregate order statistics
-      const orderStats = (orders || []).reduce((acc, order) => {
-        if (!order.user_id) return acc
-        if (!acc[order.user_id]) {
-          acc[order.user_id] = { count: 0, total: 0, lastAt: order.created_at }
-        }
-        acc[order.user_id].count += 1
-        if (order.order_status !== 'cancelled') {
-          acc[order.user_id].total += order.final_amount || 0
-        }
-        return acc
-      }, {} as Record<string, { count: number; total: number; lastAt: string }>)
-
+      const list = (data.customers || []) as CustomerProfile[]
       const enhanced = list.map(c => ({
         ...c,
         role: (c.phone === '0977999948' || c.id === '89e22fbf-9655-426c-a123-e7fc7aaa0670' ? 'admin' : 'customer') as 'customer' | 'admin',
-        total_orders: orderStats[c.id]?.count ?? 0,
-        total_spent: orderStats[c.id]?.total ?? 0,
-        last_order_at: orderStats[c.id]?.lastAt,
       }))
-
       setCustomers(enhanced)
+    } catch (err) {
+      console.error('Error loading customers:', err)
     } finally {
       setLoading(false)
     }
