@@ -1,0 +1,26 @@
+{
+  "name": "OneCoffeeLSP_Admin",
+  "short_name": "OneCoffeeLSP_Admin",
+  "description": "Trung tâm điều hành và quản trị One Coffee LSP",
+  "start_url": "/admin",
+  "display": "standalone",
+  "background_color": "#0F172A",
+  "theme_color": "#0F172A",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "/icon-admin-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icon-admin-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "productivity"],
+  "lang": "vi"
+}

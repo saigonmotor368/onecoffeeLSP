@@ -32,15 +32,26 @@ const playfair = Playfair_Display({
 })
 
 export const metadata: Metadata = {
-  title: 'One Coffee LSP — Cà Phê Ngon, Ngày Tươi Sáng',
+  title: 'OneCoffeeLSP_Order — Cà Phê Ngon, Ngày Tươi Sáng',
   description: 'Đặt đồ uống One Coffee trong nhà máy LSP | Order One Coffee at LSP Factory',
   manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    title: 'OneCoffeeLSP_Order',
+    statusBarStyle: 'black-translucent',
+  },
   icons: {
-    icon: '/logo-circle.png',
-    apple: '/logo-circle.png',
+    icon: [
+      { url: '/icon-order-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icon-order-512.png', sizes: '512x512', type: 'image/png' },
+    ],
+    apple: [
+      { url: '/icon-order-192.png', sizes: '192x192', type: 'image/png' },
+      { url: '/icon-order-512.png', sizes: '512x512', type: 'image/png' },
+    ],
   },
   openGraph: {
-    title: 'One Coffee LSP',
+    title: 'OneCoffeeLSP_Order',
     description: 'Good Coffee — Brighter Workdays',
     type: 'website',
   },

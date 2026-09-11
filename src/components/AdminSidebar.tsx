@@ -112,7 +112,9 @@ export default function AdminSidebar({ pendingCount: propPendingCount }: { pendi
         >
           ☰
         </button>
-        <span className="admin-mobile-title">One Coffee Admin</span>
+        <span className="admin-mobile-title">
+          <span style={{ fontSize: 18 }}>☕</span> One Coffee Admin
+        </span>
         {pendingCount > 0 && (
           <span className="admin-nav-badge" style={{ marginLeft: 'auto' }}>
             {pendingCount} đơn mới
@@ -127,12 +129,36 @@ export default function AdminSidebar({ pendingCount: propPendingCount }: { pendi
 
       {/* Sidebar navigation */}
       <aside className={`admin-sidebar ${mobileOpen ? 'open' : ''}`}>
-        <div className="admin-sidebar-logo">
-          <span className="admin-sidebar-logo-icon">☕</span>
-          <div>
-            <div className="admin-sidebar-logo-text">ONE COFFEE</div>
-            <div className="admin-sidebar-logo-sub">LSP Management</div>
+        <div className="admin-sidebar-logo" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <span className="admin-sidebar-logo-icon">☕</span>
+            <div>
+              <div className="admin-sidebar-logo-text">ONE COFFEE</div>
+              <div className="admin-sidebar-logo-sub">LSP Management</div>
+            </div>
           </div>
+          {mobileOpen && (
+            <button
+              type="button"
+              onClick={() => setMobileOpen(false)}
+              style={{
+                background: 'rgba(255,255,255,0.12)',
+                border: 'none',
+                color: '#FFFFFF',
+                borderRadius: '8px',
+                width: 32,
+                height: 32,
+                fontSize: 16,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              aria-label="Close menu"
+            >
+              ✕
+            </button>
+          )}
         </div>
 
         <nav className="admin-nav">
