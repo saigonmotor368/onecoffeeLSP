@@ -17,7 +17,7 @@ export default function WelcomePage() {
       <div className={styles.topBarSpacer} />
 
       {/* Brand & Slogan Content centered in the Cream Arch */}
-      <main className={styles.brandContent}>
+      <div className={styles.brandContent}>
         {/* Original Canva Transparent Logo from Logo on Cup_Rv */}
         <div className={styles.logoWrapper}>
           <img
@@ -42,7 +42,7 @@ export default function WelcomePage() {
             <span className={styles.sloganTextGreen}>Brighter Workdays</span>
           </p>
         </div>
-      </main>
+      </div>
 
       {/* Bottom Actions with 2 Language Buttons sitting right above the CTA */}
       <footer className={styles.bottomSection}>
