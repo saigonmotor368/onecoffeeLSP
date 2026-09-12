@@ -1,16 +1,18 @@
 .pageContainer {
   position: relative;
-  height: 100dvh;
-  max-height: 100dvh;
+  min-height: 100vh;
+  min-height: 100dvh;
   max-width: 480px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  overflow: hidden;
   background-color: #0e3f2a;
   color: #1A202C;
   box-sizing: border-box;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 /* Background image with Green Top, Cream Arch, and Coffee Beans */
@@ -21,6 +23,7 @@
   background-size: cover;
   background-position: center top;
   z-index: 0;
+  pointer-events: none;
 }
 
 /* Top Spacer */
@@ -40,10 +43,9 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  margin-top: clamp(4px, 1vh, 14px);
-  padding: 0 24px;
+  padding: 0 16px;
   animation: floatUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
-  flex: 1;
+  flex-shrink: 0;
 }
 
 @keyframes floatUp {
@@ -52,12 +54,12 @@
 }
 
 .logoWrapper {
-  width: clamp(72px, 13vh, 110px);
-  height: clamp(72px, 13vh, 110px);
+  width: clamp(60px, 9vh, 80px);
+  height: clamp(60px, 9vh, 80px);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: clamp(2px, 0.8vh, 8px);
+  margin-bottom: clamp(2px, 0.5vh, 5px);
   filter: drop-shadow(0 2px 8px rgba(14, 63, 42, 0.12));
   flex-shrink: 0;
 }
@@ -70,10 +72,10 @@
 
 .brandTitle {
   font-family: var(--font-sans), 'Be Vietnam Pro', system-ui, -apple-system, sans-serif;
-  font-size: clamp(22px, 3.8vh, 30px);
+  font-size: clamp(19px, 2.8vh, 24px);
   font-weight: 900;
   letter-spacing: 0.12em;
-  margin: 0 0 clamp(2px, 0.4vh, 6px);
+  margin: 0 0 clamp(2px, 0.3vh, 3px);
   text-align: center;
   text-transform: uppercase;
   background: linear-gradient(135deg, #0e3f2a 0%, #175e3e 50%, #0d3824 100%);
@@ -87,14 +89,14 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-  margin-top: 2px;
+  margin-top: 1px;
 }
 
 .sloganLine1 {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
+  gap: 5px;
   margin: 0 0 1px;
   line-height: 1.15;
 }
@@ -102,7 +104,7 @@
 .sloganTextWarm {
   font-family: var(--font-serif), 'Playfair Display', Georgia, serif;
   font-style: italic;
-  font-size: clamp(20px, 3.2vh, 26px);
+  font-size: clamp(16px, 2.4vh, 21px);
   font-weight: 700;
   color: #C89B3C;
   letter-spacing: 0.02em;
@@ -111,7 +113,7 @@
 
 .sloganDash {
   font-family: var(--font-serif), Georgia, serif;
-  font-size: clamp(16px, 2.5vh, 20px);
+  font-size: clamp(14px, 2vh, 17px);
   font-weight: 400;
   color: #C89B3C;
   opacity: 0.85;
@@ -125,22 +127,23 @@
 .sloganTextGreen {
   font-family: var(--font-serif), 'Playfair Display', Georgia, serif;
   font-style: italic;
-  font-size: clamp(20px, 3.2vh, 26px);
+  font-size: clamp(16px, 2.4vh, 21px);
   font-weight: 700;
   color: #16533A;
   letter-spacing: 0.02em;
   text-shadow: 0 1px 2px rgba(255, 255, 255, 0.6);
 }
 
-/* Bottom Actions */
+/* Bottom Actions placed over the coffee beans */
 .bottomSection {
   position: relative;
-  z-index: 10;
-  padding: 0 20px calc(env(safe-area-inset-bottom, 0px) + clamp(10px, 2vh, 20px));
+  z-index: 30;
+  padding: 0 16px calc(env(safe-area-inset-bottom, 0px) + clamp(10px, 1.8vh, 18px));
   display: flex;
   flex-direction: column;
-  gap: clamp(8px, 1.3vh, 12px);
+  gap: clamp(7px, 1vh, 10px);
   width: 100%;
+  margin-top: auto;
   flex-shrink: 0;
 }
 
@@ -162,23 +165,23 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: clamp(9px, 1.3vh, 12px) 12px;
+  padding: clamp(8px, 1.2vh, 12px) 12px;
   border-radius: 999px;
-  background: rgba(10, 32, 22, 0.72);
+  background: rgba(10, 32, 22, 0.75);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1.5px solid rgba(255, 255, 255, 0.25);
-  color: rgba(255, 255, 255, 0.9);
+  border: 1.5px solid rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.95);
   font-size: clamp(13px, 1.8vh, 14px);
   font-weight: 700;
   cursor: pointer;
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
 }
 
 .langSelectBtn:hover {
-  background: rgba(16, 48, 33, 0.85);
-  border-color: rgba(255, 255, 255, 0.4);
+  background: rgba(16, 48, 33, 0.9);
+  border-color: rgba(255, 255, 255, 0.5);
   transform: translateY(-1px);
 }
 
@@ -186,24 +189,24 @@
   background: #FFFFFF !important;
   color: #0E3F2A !important;
   border-color: #FFFFFF !important;
-  box-shadow: 0 6px 20px rgba(255, 255, 255, 0.3), 0 2px 8px rgba(0, 0, 0, 0.45) !important;
+  box-shadow: 0 6px 20px rgba(255, 255, 255, 0.35), 0 2px 8px rgba(0, 0, 0, 0.5) !important;
   transform: translateY(-2px);
 }
 
 .langFlag {
-  font-size: 20px;
+  font-size: 18px;
   line-height: 1;
 }
 
 .langName {
   font-family: var(--font-sans), 'Be Vietnam Pro', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
-  font-size: 15px;
+  font-size: clamp(13px, 1.8vh, 14.5px);
   font-weight: 700;
   letter-spacing: 0.01em;
 }
 
 .langCheck {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 900;
   color: #0E3F2A;
   margin-left: 2px;
@@ -217,11 +220,11 @@
   border-radius: 999px;
   background: #184F38;
   color: #FFFFFF;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  font-size: clamp(14.5px, 2vh, 16px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  font-size: clamp(14px, 2vh, 15.5px);
   font-weight: 700;
   cursor: pointer;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 6px 22px rgba(0, 0, 0, 0.55);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -232,7 +235,7 @@
 .btnGetStarted:hover {
   background: #1F6347;
   transform: translateY(-1px);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.65);
 }
 
 .btnGetStarted:active {
@@ -240,10 +243,10 @@
 }
 
 .factoryTagline {
-  color: rgba(255, 255, 255, 0.65);
-  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 10.5px;
   text-align: center;
-  margin-top: 2px;
+  margin-top: 1px;
   letter-spacing: 0.03em;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
 }

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { usePathname } from 'next/navigation'
 import styles from './pwa-install.module.css'
+import { useLang } from '@/lib/providers'
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>
@@ -11,6 +12,7 @@ interface BeforeInstallPromptEvent extends Event {
 
 export default function PWAInstallPrompt() {
   const pathname = usePathname()
+  const { lang, setLang } = useLang()
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
   const [showModal, setShowModal] = useState(false)
   const [isIOS, setIsIOS] = useState(false)
@@ -113,6 +115,8 @@ export default function PWAInstallPrompt() {
     return null
   }
 
+  const isVi = lang === 'vi'
+
   return (
     <div className={styles.backdrop} onClick={handleDismiss}>
       <div className={styles.modal} onClick={e => e.stopPropagation()}>
@@ -120,24 +124,49 @@ export default function PWAInstallPrompt() {
           type="button"
           className={styles.closeBtn}
           onClick={handleDismiss}
-          aria-label="Đóng"
+          aria-label={isVi ? 'Đóng' : 'Close'}
         >
           ✕
         </button>
+
+        {/* In-modal Language Switcher */}
+        <div className={styles.langSwitchBar}>
+          <button
+            type="button"
+            className={`${styles.langSwitchBtn} ${isVi ? styles.langSwitchBtnActive : ''}`}
+            onClick={() => setLang('vi')}
+          >
+            🇻🇳 Tiếng Việt
+          </button>
+          <button
+            type="button"
+            className={`${styles.langSwitchBtn} {!isVi ? styles.langSwitchBtnActive : ''}`}
+            onClick={() => setLang('en')}
+          >
+            🇺🇸 English
+          </button>
+        </div>
 
         <div className={styles.iconWrapper}>
           <img src={appIcon} alt={appName} className={styles.appIcon} />
         </div>
 
         <div className={styles.badgeHighlight}>
-          ✨ Ứng dụng chính thức One Coffee
+          {isVi ? '✨ Ứng dụng chính thức One Coffee' : '✨ Official One Coffee App'}
         </div>
 
-        <h3 className={styles.title}>Cài Đặt App {appName}</h3>
+        <h3 className={styles.title}>
+          {isVi ? `Cài Đặt App ${appName}` : `Install ${appName} App`}
+        </h3>
+
         <p className={styles.subtitle}>
           {isAdmin
-            ? 'Thêm Cổng Quản Trị ra màn hình chính để duyệt đơn, nhận chuông báo và quản lý quán tiện lợi nhất!'
-            : 'Thêm vào màn hình chính để đặt đồ uống nhanh 1 chạm, theo dõi shipper giao nước tận xưởng!'}
+            ? isVi
+              ? 'Thêm Cổng Quản Trị ra màn hình chính để duyệt đơn, nhận chuông báo và quản lý quán tiện lợi nhất!'
+              : 'Add Admin Portal to home screen to review orders, receive alert chimes, and manage shop with ease!'
+            : isVi
+              ? 'Thêm vào màn hình chính để đặt đồ uống nhanh 1 chạm, theo dõi shipper giao nước tận xưởng!'
+              : 'Add to home screen for 1-tap ordering and real-time delivery tracking straight to your plant unit!'}
         </p>
 
         {showSteps ? (
@@ -146,27 +175,51 @@ export default function PWAInstallPrompt() {
               <div className={styles.iosStep}>
                 <span className={styles.iosStepNum}>1</span>
                 <div>
-                  Chạm vào biểu tượng <strong>Chia sẻ</strong>{' '}
-                  <span className={styles.iosShareIcon}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle' }}>
-                      <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-                      <polyline points="16 6 12 2 8 6" />
-                      <line x1="12" y1="2" x2="12" y2="15" />
-                    </svg>
-                  </span>{' '}
-                  ở thanh công cụ Safari (dưới cùng màn hình).
+                  {isVi ? (
+                    <>
+                      Chạm vào biểu tượng <strong>Chia sẻ</strong>{' '}
+                      <span className={styles.iosShareIcon}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle' }}>
+                          <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                          <polyline points="16 6 12 2 8 6" />
+                          <line x1="12" y1="2" x2="12" y2="15" />
+                        </svg>
+                      </span>{' '}
+                      ở thanh công cụ Safari (dưới cùng màn hình).
+                    </>
+                  ) : (
+                    <>
+                      Tap the <strong>Share</strong> icon{' '}
+                      <span className={styles.iosShareIcon}>
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle' }}>
+                          <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                          <polyline points="16 6 12 2 8 6" />
+                          <line x1="12" y1="2" x2="12" y2="15" />
+                        </svg>
+                      </span>{' '}
+                      in Safari toolbar at the bottom.
+                    </>
+                  )}
                 </div>
               </div>
               <div className={styles.iosStep}>
                 <span className={styles.iosStepNum}>2</span>
                 <div>
-                  Cuộn xuống chọn dòng <strong>"Thêm vào MH chính" (Add to Home Screen)</strong>.
+                  {isVi ? (
+                    <>Cuộn xuống chọn dòng <strong>"Thêm vào MH chính" (Add to Home Screen)</strong>.</>
+                  ) : (
+                    <>Scroll down and select <strong>"Add to Home Screen"</strong>.</>
+                  )}
                 </div>
               </div>
               <div className={styles.iosStep}>
                 <span className={styles.iosStepNum}>3</span>
                 <div>
-                  Nhấn nút <strong>"Thêm" (Add)</strong> ở góc trên bên phải để hoàn tất.
+                  {isVi ? (
+                    <>Nhấn nút <strong>"Thêm" (Add)</strong> ở góc trên bên phải để hoàn tất.</>
+                  ) : (
+                    <>Tap <strong>"Add"</strong> in the top right corner to complete.</>
+                  )}
                 </div>
               </div>
             </div>
@@ -175,36 +228,60 @@ export default function PWAInstallPrompt() {
               <div className={styles.iosStep}>
                 <span className={styles.iosStepNum}>1</span>
                 <div>
-                  Chạm vào biểu tượng menu <strong>3 chấm (⋮)</strong> ở góc trên bên phải màn hình Chrome.
+                  {isVi ? (
+                    <>Chạm vào biểu tượng menu <strong>3 chấm (⋮)</strong> ở góc trên bên phải màn hình Chrome.</>
+                  ) : (
+                    <>Tap the <strong>3-dot menu (⋮)</strong> in the top right corner of Chrome.</>
+                  )}
                 </div>
               </div>
               <div className={styles.iosStep}>
                 <span className={styles.iosStepNum}>2</span>
                 <div>
-                  Chọn dòng <strong>"Cài đặt ứng dụng"</strong> (hoặc <strong>"Thêm vào Màn hình chính"</strong>).
+                  {isVi ? (
+                    <>Chọn dòng <strong>"Cài đặt ứng dụng"</strong> (hoặc <strong>"Thêm vào Màn hình chính"</strong>).</>
+                  ) : (
+                    <>Select <strong>"Install app"</strong> (or <strong>"Add to Home screen"</strong>).</>
+                  )}
                 </div>
               </div>
               <div className={styles.iosStep}>
                 <span className={styles.iosStepNum}>3</span>
                 <div>
-                  Nhấn <strong>"Cài đặt" (Install)</strong> để biểu tượng {appName} xuất hiện độc lập trên điện thoại!
+                  {isVi ? (
+                    <>Nhấn <strong>"Cài đặt" (Install)</strong> để biểu tượng {appName} xuất hiện độc lập trên điện thoại!</>
+                  ) : (
+                    <>Tap <strong>"Install"</strong> to place the standalone {appName} app icon on your device!</>
+                  )}
                 </div>
               </div>
             </div>
           )
         ) : (
           <div className={styles.perksList}>
-            <div className={perkItemClass}>
+            <div className={styles.perkItem}>
               <span className={styles.perkIcon}>⚡</span>
-              <span>Mở tức thì, biểu tượng riêng biệt trên màn hình chính</span>
+              <span>
+                {isVi
+                  ? 'Mở tức thì, biểu tượng riêng biệt trên màn hình chính'
+                  : 'Instant launch, dedicated icon on your home screen'}
+              </span>
             </div>
-            <div className={perkItemClass}>
+            <div className={styles.perkItem}>
               <span className={styles.perkIcon}>🔔</span>
-              <span>Chuông và thông báo đẩy trực tiếp khi có trạng thái mới</span>
+              <span>
+                {isVi
+                  ? 'Chuông và thông báo đẩy trực tiếp khi có trạng thái mới'
+                  : 'Live push notifications & chime when order status updates'}
+              </span>
             </div>
-            <div className={perkItemClass}>
+            <div className={styles.perkItem}>
               <span className={styles.perkIcon}>🛡️</span>
-              <span>Hoạt động độc lập, không bị lẫn giữa App Order và App Admin</span>
+              <span>
+                {isVi
+                  ? 'Hoạt động độc lập, không bị lẫn giữa App Order và App Admin'
+                  : 'Standalone app, isolated between Order App and Admin App'}
+              </span>
             </div>
           </div>
         )}
@@ -216,7 +293,7 @@ export default function PWAInstallPrompt() {
               className={styles.installBtn}
               onClick={handleInstallClick}
             >
-              <span>📲 Cài Đặt Ngay</span>
+              <span>{isVi ? '📲 Cài Đặt Ngay' : '📲 Install Now'}</span>
             </button>
           )}
 
@@ -225,12 +302,16 @@ export default function PWAInstallPrompt() {
             className={styles.dismissBtn}
             onClick={handleDismiss}
           >
-            {showSteps ? 'Tôi đã hiểu / Đóng' : 'Để sau / Dùng trên web'}
+            {showSteps
+              ? isVi
+                ? 'Tôi đã hiểu / Đóng'
+                : 'Got it / Close'
+              : isVi
+                ? 'Để sau / Dùng trên web'
+                : 'Later / Continue on web'}
           </button>
         </div>
       </div>
     </div>
   )
 }
-
-const perkItemClass = styles.perkItem
