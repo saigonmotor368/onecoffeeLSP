@@ -21,7 +21,7 @@ export default function PWAInstallPrompt() {
 
   const isAdmin = pathname.startsWith('/admin')
   const appName = isAdmin ? 'One Coffee Admin' : 'One Coffee LSP'
-  const appIcon = isAdmin ? '/icon-admin-192.png' : '/icon-order-192.png'
+  const appIcon = isAdmin ? '/icon-admin-512.png?v=2026' : '/icon-order-512.png?v=2026'
 
   useEffect(() => {
     // 1. Check if already running in standalone mode (PWA installed)
@@ -140,7 +140,7 @@ export default function PWAInstallPrompt() {
           </button>
           <button
             type="button"
-            className={`${styles.langSwitchBtn} {!isVi ? styles.langSwitchBtnActive : ''}`}
+            className={`${styles.langSwitchBtn} ${!isVi ? styles.langSwitchBtnActive : ''}`}
             onClick={() => setLang('en')}
           >
             🇺🇸 English
@@ -148,7 +148,21 @@ export default function PWAInstallPrompt() {
         </div>
 
         <div className={styles.iconWrapper}>
-          <img src={appIcon} alt={appName} className={styles.appIcon} />
+          <img
+            src={appIcon}
+            alt={appName}
+            className={styles.appIcon}
+            width={90}
+            height={90}
+            loading="eager"
+            onError={(e) => {
+              // Fallback to logo if icon fails to load
+              const target = e.target as HTMLImageElement
+              target.src = '/logo-original-transparent.png'
+              target.style.background = '#1E4D3B'
+              target.style.padding = '8px'
+            }}
+          />
         </div>
 
         <div className={styles.badgeHighlight}>

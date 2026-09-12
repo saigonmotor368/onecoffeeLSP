@@ -100,16 +100,18 @@
 .iconWrapper {
   display: flex;
   justify-content: center;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 
 .appIcon {
-  width: 80px;
-  height: 80px;
-  border-radius: 20px;
-  box-shadow: 0 8px 24px rgba(24, 79, 56, 0.25);
-  object-fit: cover;
+  width: 90px;
+  height: 90px;
+  border-radius: 22px;
+  box-shadow: 0 8px 24px rgba(24, 79, 56, 0.3);
+  object-fit: contain;
+  background-color: transparent;
   animation: bounce 2s infinite ease-in-out;
+  display: block;
 }
 
 @keyframes bounce {
