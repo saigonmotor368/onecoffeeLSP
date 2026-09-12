@@ -64,7 +64,7 @@ export default function AdminAuthGuard({ children }: { children: React.ReactNode
           minHeight: '100vh',
           background: '#0F172A',
           color: '#E2E8F0',
-          fontFamily: 'system-ui, sans-serif',
+          fontFamily: 'var(--font-sans), system-ui, sans-serif',
           gap: '16px',
         }}
       >

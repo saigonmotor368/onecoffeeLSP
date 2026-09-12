@@ -1,32 +1,26 @@
 import type { Metadata, Viewport } from 'next'
-import { Plus_Jakarta_Sans, Caveat, Playfair_Display, Dancing_Script } from 'next/font/google'
+import { Be_Vietnam_Pro, Playfair_Display, Dancing_Script } from 'next/font/google'
 import './globals.css'
 import { AppProvider } from '@/lib/providers'
 
-const jakarta = Plus_Jakarta_Sans({
+const beVietnam = Be_Vietnam_Pro({
   subsets: ['latin', 'vietnamese'],
-  weight: ['400', '500', '600', '700', '800'],
-  variable: '--font-jakarta',
-  display: 'swap',
-})
-
-const caveat = Caveat({
-  subsets: ['latin'],
-  weight: ['600', '700'],
-  variable: '--font-artistic',
+  weight: ['300', '400', '500', '600', '700', '800'],
+  variable: '--font-sans',
   display: 'swap',
 })
 
 const dancingScript = Dancing_Script({
   subsets: ['latin', 'vietnamese'],
   weight: ['600', '700'],
-  variable: '--font-script',
+  variable: '--font-artistic',
   display: 'swap',
 })
 
 const playfair = Playfair_Display({
   subsets: ['latin', 'vietnamese'],
-  weight: ['700', '800', '900'],
+  weight: ['600', '700', '800'],
+  style: ['normal', 'italic'],
   variable: '--font-serif',
   display: 'swap',
 })
@@ -71,8 +65,8 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="vi" className={`${jakarta.variable} ${caveat.variable} ${dancingScript.variable} ${playfair.variable}`}>
-      <body className={jakarta.className}>
+    <html lang="vi" className={`${beVietnam.variable} ${dancingScript.variable} ${playfair.variable}`}>
+      <body className={beVietnam.className}>
         <AppProvider>
           {children}
         </AppProvider>

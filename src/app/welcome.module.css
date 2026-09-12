@@ -64,7 +64,7 @@
 }
 
 .brandTitle {
-  font-family: var(--font-jakarta), 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  font-family: var(--font-sans), 'Be Vietnam Pro', system-ui, -apple-system, sans-serif;
   font-size: clamp(26px, 7vw, 34px);
   font-weight: 900;
   letter-spacing: 0.14em;
