@@ -5,14 +5,17 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { useLang } from '@/lib/providers'
+import { useLang, useToast } from '@/lib/providers'
 import { formatPrice } from '@/lib/utils'
+import { useFavorites } from '@/lib/favorites'
 import { getBanners, type BannerItem, DEFAULT_BANNERS } from '@/lib/settings'
 import { menuProducts, getProductImage } from '@/lib/menu-data'
 import styles from './home.module.css'
 
 export default function HomePage() {
   const { lang } = useLang()
+  const { showToast } = useToast()
+  const { toggleFavorite, isFavorite, totalFavorites } = useFavorites()
   const router = useRouter()
   const [profile, setProfile] = useState<{ full_name: string; default_delivery_address: string | null } | null>(null)
   const [selectedLocation, setSelectedLocation] = useState<string>('')
@@ -177,10 +180,13 @@ export default function HomePage() {
         </Link>
 
         {/* Card 2: Favorites */}
-        <Link href="/profile" className={styles.quickCard}>
-          <div className={styles.quickCardIconAlt}>🤍</div>
+        <Link href="/menu?cat=favorites" className={styles.quickCard}>
+          <div className={styles.quickCardIconAlt} style={{ color: totalFavorites > 0 ? '#E11D48' : 'inherit' }}>
+            {totalFavorites > 0 ? '❤️' : '🤍'}
+          </div>
           <span className={styles.quickCardLabelAlt}>
             {lang === 'vi' ? 'Yêu thích' : 'Favorites'}
+            {totalFavorites > 0 && ` (${totalFavorites})`}
           </span>
         </Link>
 
@@ -231,30 +237,69 @@ export default function HomePage() {
         </div>
 
         <div className={styles.drinksGrid}>
-          {popularDrinks.map(drink => (
-            <div
-              key={drink.id}
-              className={styles.drinkCard}
-              onClick={() => router.push(`/menu/${drink.id}`)}
-            >
-              <div className={styles.drinkImageWrap}>
-                <img
-                  src={drink.image}
-                  alt={drink.name_en}
-                  className={styles.drinkImage}
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=600&auto=format&fit=crop&q=80'
-                  }}
-                />
+          {popularDrinks.map(drink => {
+            const isFav = isFavorite(drink.id)
+            return (
+              <div
+                key={drink.id}
+                className={styles.drinkCard}
+                onClick={() => router.push(`/menu/${drink.id}`)}
+                style={{ position: 'relative' }}
+              >
+                <div className={styles.drinkImageWrap} style={{ position: 'relative' }}>
+                  <img
+                    src={drink.image}
+                    alt={drink.name_en}
+                    className={styles.drinkImage}
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=600&auto=format&fit=crop&q=80'
+                    }}
+                  />
+                  <button
+                    type="button"
+                    style={{
+                      position: 'absolute',
+                      top: 8,
+                      right: 8,
+                      background: 'rgba(255, 255, 255, 0.92)',
+                      backdropFilter: 'blur(6px)',
+                      border: 'none',
+                      borderRadius: '50%',
+                      width: 30,
+                      height: 30,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 14,
+                      cursor: 'pointer',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.18)',
+                      zIndex: 3,
+                      transition: 'transform 0.15s ease',
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      const added = toggleFavorite(drink.id)
+                      showToast(
+                        added
+                          ? (lang === 'vi' ? 'Đã thêm vào yêu thích ❤️' : 'Added to favorites ❤️')
+                          : (lang === 'vi' ? 'Đã bỏ yêu thích' : 'Removed from favorites'),
+                        'info'
+                      )
+                    }}
+                    aria-label="Yêu thích"
+                  >
+                    {isFav ? '❤️' : '🤍'}
+                  </button>
+                </div>
+                <h3 className={styles.drinkName}>
+                  {lang === 'vi' ? drink.name_vi : drink.name_en}
+                </h3>
+                <p className={styles.drinkPrice}>
+                  {formatPrice(drink.price)}
+                </p>
               </div>
-              <h3 className={styles.drinkName}>
-                {lang === 'vi' ? drink.name_vi : drink.name_en}
-              </h3>
-              <p className={styles.drinkPrice}>
-                {formatPrice(drink.price)}
-              </p>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </section>
     </div>

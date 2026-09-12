@@ -5,12 +5,14 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useLang, useToast } from '@/lib/providers'
+import { useFavorites } from '@/lib/favorites'
 import styles from './profile.module.css'
 
 export default function ProfilePage() {
   const router = useRouter()
   const { lang, setLang } = useLang()
   const { showToast } = useToast()
+  const { totalFavorites } = useFavorites()
   const [profile, setProfile] = useState<{
     full_name: string
     phone: string
@@ -204,7 +206,25 @@ export default function ProfilePage() {
           <span className={styles.chevron}>›</span>
         </div>
 
-        {/* 3. Order History */}
+        {/* 3. Favorite Drinks */}
+        <Link href="/menu?cat=favorites" className={styles.menuItem}>
+          <div className={styles.menuItemLeft}>
+            <span className={styles.menuIcon}>❤️</span>
+            <span className={styles.menuText}>
+              {lang === 'vi' ? 'Danh sách yêu thích' : 'Favorite Drinks'}
+            </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {totalFavorites > 0 && (
+              <span style={{ fontSize: '12px', fontWeight: 700, background: '#FFE4E6', color: '#E11D48', padding: '2px 8px', borderRadius: '12px' }}>
+                {totalFavorites} {lang === 'vi' ? 'món' : 'items'}
+              </span>
+            )}
+            <span className={styles.chevron}>›</span>
+          </div>
+        </Link>
+
+        {/* 4. Order History */}
         <Link href="/orders" className={styles.menuItem}>
           <div className={styles.menuItemLeft}>
             <span className={styles.menuIcon}>🕒</span>
@@ -215,7 +235,7 @@ export default function ProfilePage() {
           <span className={styles.chevron}>›</span>
         </Link>
 
-        {/* 4. Language Switcher */}
+        {/* 5. Language Switcher */}
         <div className={styles.menuItem} onClick={toggleLanguage}>
           <div className={styles.menuItemLeft}>
             <span className={styles.menuIcon}>🌐</span>
@@ -231,7 +251,7 @@ export default function ProfilePage() {
           </div>
         </div>
 
-        {/* 5. Help & Support */}
+        {/* 6. Help & Support */}
         <div className={styles.menuItem} onClick={() => setShowHelpModal(true)}>
           <div className={styles.menuItemLeft}>
             <span className={styles.menuIcon}>❓</span>
@@ -242,7 +262,7 @@ export default function ProfilePage() {
           <span className={styles.chevron}>›</span>
         </div>
 
-        {/* 6. About One Coffee */}
+        {/* 7. About One Coffee */}
         <div className={styles.menuItem} onClick={() => setShowAboutModal(true)}>
           <div className={styles.menuItemLeft}>
             <span className={styles.menuIcon}>ℹ️</span>
@@ -253,7 +273,7 @@ export default function ProfilePage() {
           <span className={styles.chevron}>›</span>
         </div>
 
-        {/* 7. Reset Cache / Test New Customer */}
+        {/* 8. Reset Cache / Test New Customer */}
         <div className={styles.menuItem} onClick={handleResetGuestCache} style={{ borderTop: '1px dashed #E2E8F0', marginTop: '4px' }}>
           <div className={styles.menuItemLeft}>
             <span className={styles.menuIcon}>🗑️</span>
@@ -336,10 +356,12 @@ export default function ProfilePage() {
             <h3 style={{ margin: '0 0 16px', fontSize: '16px', fontWeight: 800, color: '#1E4D3B' }}>
               {lang === 'vi' ? 'Thông tin cá nhân' : 'My Information'}
             </h3>
-            <p><strong>Họ và tên:</strong> {profile?.full_name || 'Khách vãng lai'}</p>
-            <p><strong>Số điện thoại:</strong> {profile?.phone || 'Chưa cập nhật'}</p>
-            <p><strong>Vị trí mặc định:</strong> {selectedLocation}</p>
-            <button className={styles.modalCloseBtn} onClick={() => setShowInfoModal(false)}>Đóng</button>
+            <p><strong>{lang === 'vi' ? 'Họ và tên:' : 'Full Name:'}</strong> {profile?.full_name || (lang === 'vi' ? 'Khách vãng lai' : 'Guest')}</p>
+            <p><strong>{lang === 'vi' ? 'Số điện thoại:' : 'Phone Number:'}</strong> {profile?.phone || (lang === 'vi' ? 'Chưa cập nhật' : 'Not updated')}</p>
+            <p><strong>{lang === 'vi' ? 'Vị trí mặc định:' : 'Default Location:'}</strong> {selectedLocation || (lang === 'vi' ? 'Chưa lưu' : 'Not set')}</p>
+            <button className={styles.modalCloseBtn} onClick={() => setShowInfoModal(false)}>
+              {lang === 'vi' ? 'Đóng' : 'Close'}
+            </button>
           </div>
         </div>
       )}
@@ -349,14 +371,18 @@ export default function ProfilePage() {
         <div className={styles.modalBackdrop} onClick={() => setShowHelpModal(false)}>
           <div className={styles.modalBox} onClick={e => e.stopPropagation()}>
             <h3 style={{ margin: '0 0 12px', fontSize: '16px', fontWeight: 800, color: '#1E4D3B' }}>
-              ☕ One Coffee Hotline
+              ☕ {lang === 'vi' ? 'Hotline & Hỗ Trợ One Coffee' : 'One Coffee Hotline & Support'}
             </h3>
-            <p style={{ fontSize: '14px', color: '#4A5568', lineHeight: '1.6' }}>
-              Quầy One Coffee tại nhà máy Hóa Dầu Long Sơn (LSP).<br />
-              📞 Hotline giao hàng: <strong>0977 999 948</strong><br />
-              ⏰ Giờ phục vụ: <strong>06:30 — 18:00</strong> các ngày trong tuần.
+            <p style={{ fontSize: '14px', color: '#334155', lineHeight: '1.6' }}>
+              {lang === 'vi'
+                ? 'Quầy One Coffee tại nhà máy Hóa Dầu Long Sơn (LSP).'
+                : 'One Coffee Shop at Long Son Petrochemicals (LSP) Complex.'}<br />
+              📞 {lang === 'vi' ? 'Hotline đặt hàng: ' : 'Order Hotline: '}<a href="tel:0828687321" style={{ color: '#1E4D3B', fontWeight: 800, textDecoration: 'none' }}>0828 687 321 (Ngọc)</a><br />
+              ⏰ {lang === 'vi' ? 'Giờ phục vụ: ' : 'Working Hours: '}<strong>06:30 — 18:00</strong> {lang === 'vi' ? 'các ngày trong tuần.' : 'daily.'}
             </p>
-            <button className={styles.modalCloseBtn} onClick={() => setShowHelpModal(false)}>Đóng</button>
+            <button className={styles.modalCloseBtn} onClick={() => setShowHelpModal(false)}>
+              {lang === 'vi' ? 'Đóng' : 'Close'}
+            </button>
           </div>
         </div>
       )}
@@ -365,16 +391,35 @@ export default function ProfilePage() {
       {showAboutModal && (
         <div className={styles.modalBackdrop} onClick={() => setShowAboutModal(false)}>
           <div className={styles.modalBox} onClick={e => e.stopPropagation()}>
-            <h3 style={{ margin: '0 0 8px', fontSize: '16px', fontWeight: 800, color: '#1E4D3B' }}>
-              ONE COFFEE LSP
-            </h3>
-            <p style={{ fontFamily: 'var(--font-artistic), cursive', fontSize: '24px', color: '#1E4D3B', margin: '4px 0 12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+              <img src="/icon-order-192.png" alt="One Coffee Logo" style={{ width: '42px', height: '42px', borderRadius: '10px' }} />
+              <div>
+                <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: '#1E4D3B' }}>
+                  ONE COFFEE LSP
+                </h3>
+                <div style={{ fontSize: '11px', fontWeight: 600, color: '#C89B3C' }}>
+                  LSP PETROCHEMICAL COMPLEX · SINCE 2026
+                </div>
+              </div>
+            </div>
+            <p style={{ fontFamily: 'var(--font-artistic), cursive', fontSize: '22px', color: '#1E4D3B', margin: '6px 0 14px' }}>
               Good Coffee — Brighter Workdays
             </p>
-            <p style={{ fontSize: '13px', color: '#718096', lineHeight: '1.5' }}>
-              Phục vụ đồ uống sạch, chất lượng và giao tận tay đến 21 khu vực/phòng ban trong khuôn viên nhà máy Hóa dầu Long Sơn (LSP).
-            </p>
-            <button className={styles.modalCloseBtn} onClick={() => setShowAboutModal(false)}>Đóng</button>
+            <div style={{ background: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '12px', padding: '14px', marginBottom: '16px' }}>
+              <p style={{ fontSize: '13.5px', color: '#1E293B', lineHeight: '1.6', margin: '0 0 10px', fontWeight: 500 }}>
+                {lang === 'vi'
+                  ? 'Thành lập năm 2026, One Coffee là điểm cà phê tiện ích tại LSP, phục vụ nhu cầu hằng ngày và mang đến trải nghiệm thuận tiện hơn cho mọi thành viên làm việc tại đây.'
+                  : 'Established in 2026, One Coffee is an in-house coffee shop at LSP, dedicated to bringing greater convenience and a better daily experience to everyone working here.'}
+              </p>
+              <p style={{ fontSize: '12.5px', color: '#64748B', lineHeight: '1.5', margin: 0, fontStyle: 'italic', borderTop: '1px dashed #CBD5E1', paddingTop: '8px' }}>
+                {lang === 'vi'
+                  ? 'Established in 2026, One Coffee is an in-house coffee shop at LSP, dedicated to bringing greater convenience and a better daily experience to everyone working here.'
+                  : 'Thành lập năm 2026, One Coffee là điểm cà phê tiện ích tại LSP, phục vụ nhu cầu hằng ngày và mang đến trải nghiệm thuận tiện hơn cho mọi thành viên làm việc tại đây.'}
+              </p>
+            </div>
+            <button className={styles.modalCloseBtn} onClick={() => setShowAboutModal(false)}>
+              {lang === 'vi' ? 'Đóng' : 'Close'}
+            </button>
           </div>
         </div>
       )}

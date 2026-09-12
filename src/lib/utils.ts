@@ -36,9 +36,9 @@ export function getGreeting(lang: 'vi' | 'en'): string {
 export function buildVietQRUrl({
   amount,
   orderNumber,
-  bankId = process.env.NEXT_PUBLIC_BANK_ID ?? 'MB',
-  accountNo = process.env.NEXT_PUBLIC_BANK_ACCOUNT ?? '0977999948',
-  accountName = process.env.NEXT_PUBLIC_ACCOUNT_NAME ?? 'PHAM XUAN DINH',
+  bankId = process.env.NEXT_PUBLIC_BANK_ID ?? 'ICB',
+  accountNo = process.env.NEXT_PUBLIC_BANK_ACCOUNT ?? '101880305162',
+  accountName = process.env.NEXT_PUBLIC_ACCOUNT_NAME ?? 'HUYNH THI BICH NGO',
 }: {
   amount: number
   orderNumber: string

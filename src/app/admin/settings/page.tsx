@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import AdminSidebar from '@/components/AdminSidebar'
 import { createClient } from '@/lib/supabase/client'
-import { useToast } from '@/lib/providers'
+import { useLang, useToast } from '@/lib/providers'
 import {
   getShippingConfig,
   getEmployeeDiscountConfig,
@@ -15,6 +15,7 @@ import {
 import { formatPrice } from '@/lib/utils'
 
 export default function AdminSettingsPage() {
+  const { lang, setLang } = useLang()
   const { showToast } = useToast()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -29,9 +30,10 @@ export default function AdminSettingsPage() {
   const [discountEnabled, setDiscountEnabled] = useState(true)
 
   // Bank Info preview
-  const bankId = process.env.NEXT_PUBLIC_BANK_ID || 'MB'
-  const bankAccount = process.env.NEXT_PUBLIC_BANK_ACCOUNT || '0977999948'
-  const accountName = process.env.NEXT_PUBLIC_ACCOUNT_NAME || 'PHAM XUAN DINH'
+  const bankId = process.env.NEXT_PUBLIC_BANK_ID || 'ICB'
+  const bankAccount = process.env.NEXT_PUBLIC_BANK_ACCOUNT || '101880305162'
+  const accountName = process.env.NEXT_PUBLIC_ACCOUNT_NAME || 'HUYNH THI BICH NGO'
+  const hotline = process.env.NEXT_PUBLIC_HOTLINE || '0828687321'
 
   useEffect(() => {
     async function load() {
@@ -99,14 +101,40 @@ export default function AdminSettingsPage() {
       <AdminSidebar />
 
       <main className="admin-main">
-        {/* Header */}
-        <div className="admin-page-header">
+        {/* Header with Bilingual Language Switcher */}
+        <div className="admin-page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
           <div>
-            <h1 className="admin-page-title">Cài đặt hệ thống</h1>
+            <h1 className="admin-page-title">
+              {lang === 'vi' ? 'Cài đặt hệ thống' : 'System Settings'}
+            </h1>
             <p style={{ color: 'var(--color-text-secondary)', fontSize: 'var(--text-sm)', marginTop: 4 }}>
-              Cấu hình phí giao hàng, ngưỡng miễn phí vận chuyển và chính sách chiết khấu nhân viên nội bộ LSP.
+              {lang === 'vi'
+                ? 'Cấu hình phí giao hàng, ngưỡng miễn phí vận chuyển, chiết khấu nhân viên LSP và thanh toán.'
+                : 'Configure delivery fees, free shipping threshold, internal staff discount and payments.'}
             </p>
           </div>
+
+          <button
+            type="button"
+            onClick={() => setLang(lang === 'vi' ? 'en' : 'vi')}
+            style={{
+              padding: '8px 16px',
+              borderRadius: '999px',
+              border: '1.5px solid #CBD5E1',
+              background: '#FFFFFF',
+              color: '#1E4D3B',
+              fontSize: '13px',
+              fontWeight: 700,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px',
+              boxShadow: '0 2px 6px rgba(0,0,0,0.05)'
+            }}
+          >
+            <span>🌐</span>
+            <span>{lang === 'vi' ? 'Chuyển sang English 🇺🇸' : 'Switch to Tiếng Việt 🇻🇳'}</span>
+          </button>
         </div>
 
         {loading ? (
@@ -119,17 +147,21 @@ export default function AdminSettingsPage() {
                 <span style={{ fontSize: '24px' }}>🚚</span>
                 <div>
                   <h2 style={{ fontSize: '16px', fontWeight: 800, color: '#1A202C', margin: 0 }}>
-                    Phí giao hàng & Ngưỡng Freeship (Giao tận nơi tại LSP)
+                    {lang === 'vi' ? 'Phí giao hàng & Ngưỡng Freeship' : 'Delivery Fee & Free Shipping Threshold'}
                   </h2>
                   <p style={{ fontSize: '13px', color: '#718096', margin: '2px 0 0' }}>
-                    Áp dụng cho 21 điểm giao hàng trong khuôn viên nhà máy
+                    {lang === 'vi'
+                      ? 'Áp dụng cho 21 điểm giao hàng trong khuôn viên nhà máy LSP'
+                      : 'Applicable across 21 delivery zones in LSP Petrochemical Complex'}
                   </p>
                 </div>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
                 <div>
-                  <label className="form-label">Phí ship cơ bản (VNĐ)</label>
+                  <label className="form-label">
+                    {lang === 'vi' ? 'Phí ship cơ bản (VNĐ)' : 'Base Delivery Fee (VND)'}
+                  </label>
                   <input
                     type="number"
                     step="1000"
@@ -140,12 +172,14 @@ export default function AdminSettingsPage() {
                     required
                   />
                   <span style={{ fontSize: '12px', color: '#718096', marginTop: '4px', display: 'block' }}>
-                    Hiện tại: <strong>{formatPrice(shippingFee)}</strong>
+                    {lang === 'vi' ? 'Hiện tại:' : 'Current:'} <strong>{formatPrice(shippingFee)}</strong>
                   </span>
                 </div>
 
                 <div>
-                  <label className="form-label">Ngưỡng đơn tối thiểu Miễn phí ship (VNĐ)</label>
+                  <label className="form-label">
+                    {lang === 'vi' ? 'Ngưỡng đơn tối thiểu Miễn phí ship (VNĐ)' : 'Free Shipping Minimum Order (VND)'}
+                  </label>
                   <input
                     type="number"
                     step="5000"
@@ -156,7 +190,9 @@ export default function AdminSettingsPage() {
                     required
                   />
                   <span style={{ fontSize: '12px', color: '#718096', marginTop: '4px', display: 'block' }}>
-                    Đơn từ <strong>{formatPrice(freeThreshold)}</strong> trở lên sẽ được <strong>Freeship (0đ)</strong>
+                    {lang === 'vi'
+                      ? <>Đơn từ <strong>{formatPrice(freeThreshold)}</strong> trở lên sẽ được <strong>Freeship (0đ)</strong></>
+                      : <>Orders from <strong>{formatPrice(freeThreshold)}</strong> will enjoy <strong>Free Delivery</strong></>}
                   </span>
                 </div>
               </div>
@@ -170,7 +206,7 @@ export default function AdminSettingsPage() {
                   style={{ width: '18px', height: '18px' }}
                 />
                 <label htmlFor="shipEnabled" style={{ fontSize: '14px', fontWeight: 600, color: '#2D3748', cursor: 'pointer' }}>
-                  Kích hoạt tính phí giao hàng trong đơn
+                  {lang === 'vi' ? 'Kích hoạt tính phí giao hàng trong đơn' : 'Enable delivery fee on checkout'}
                 </label>
               </div>
             </div>
@@ -181,16 +217,20 @@ export default function AdminSettingsPage() {
                 <span style={{ fontSize: '24px' }}>⭐</span>
                 <div>
                   <h2 style={{ fontSize: '16px', fontWeight: 800, color: '#1A202C', margin: 0 }}>
-                    Chính sách Giảm giá Nhân viên Nội bộ LSP
+                    {lang === 'vi' ? 'Chính sách Giảm giá Nhân viên Nội bộ LSP' : 'LSP Internal Staff Discount Policy'}
                   </h2>
                   <p style={{ fontSize: '13px', color: '#718096', margin: '2px 0 0' }}>
-                    Hiện đang mặc định giảm 20% cho nhân viên khi đặt đồ uống
+                    {lang === 'vi'
+                      ? 'Giảm giá ưu đãi cho nhân viên LSP khi đặt đồ uống'
+                      : 'Special discount for LSP staff when ordering drinks'}
                   </p>
                 </div>
               </div>
 
               <div style={{ maxWidth: '320px' }}>
-                <label className="form-label">Mức giảm giá tự động (%)</label>
+                <label className="form-label">
+                  {lang === 'vi' ? 'Mức giảm giá tự động (%)' : 'Automatic Discount Rate (%)'}
+                </label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <input
                     type="number"
@@ -204,7 +244,9 @@ export default function AdminSettingsPage() {
                   <span style={{ fontSize: '16px', fontWeight: 700, color: '#1A202C' }}>%</span>
                 </div>
                 <span style={{ fontSize: '12px', color: '#718096', marginTop: '4px', display: 'block' }}>
-                  Hệ thống sẽ tự động trừ <strong>{discountPercent}%</strong> trên tổng tiền món trong giỏ hàng.
+                  {lang === 'vi'
+                    ? <>Hệ thống sẽ tự động trừ <strong>{discountPercent}%</strong> trên tổng tiền món trong giỏ hàng.</>
+                    : <>System will deduct <strong>{discountPercent}%</strong> on cart item subtotal.</>}
                 </span>
               </div>
 
@@ -217,7 +259,7 @@ export default function AdminSettingsPage() {
                   style={{ width: '18px', height: '18px' }}
                 />
                 <label htmlFor="discEnabled" style={{ fontSize: '14px', fontWeight: 600, color: '#2D3748', cursor: 'pointer' }}>
-                  Áp dụng chính sách giảm giá nhân viên nội bộ
+                  {lang === 'vi' ? 'Áp dụng chính sách giảm giá nhân viên nội bộ' : 'Apply internal staff discount policy'}
                 </label>
               </div>
             </div>
@@ -228,26 +270,32 @@ export default function AdminSettingsPage() {
                 <span style={{ fontSize: '24px' }}>🏦</span>
                 <div>
                   <h2 style={{ fontSize: '16px', fontWeight: 800, color: '#1A202C', margin: 0 }}>
-                    Tài khoản nhận thanh toán VietQR
+                    {lang === 'vi' ? 'Tài khoản nhận thanh toán VietQR' : 'VietQR Beneficiary Payment Account'}
                   </h2>
                   <p style={{ fontSize: '13px', color: '#718096', margin: '2px 0 0' }}>
-                    Thông tin hiển thị trên mã QR động của khách hàng
+                    {lang === 'vi'
+                      ? 'Thông tin hiển thị trên mã QR động và hướng dẫn chuyển khoản của khách hàng'
+                      : 'Information displayed on dynamic VietQR code and customer transfer guide'}
                   </p>
                 </div>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', background: '#F8FAFC', padding: '16px', borderRadius: '12px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '16px', background: '#F8FAFC', padding: '16px', borderRadius: '12px', border: '1px solid #EDF2F7' }}>
                 <div>
-                  <div style={{ fontSize: '11px', color: '#718096', fontWeight: 600 }}>NGÂN HÀNG</div>
-                  <div style={{ fontSize: '14px', fontWeight: 800, color: '#1A202C', marginTop: '2px' }}>{bankId} (Quân Đội)</div>
+                  <div style={{ fontSize: '11px', color: '#718096', fontWeight: 700 }}>{lang === 'vi' ? 'NGÂN HÀNG' : 'BANK'}</div>
+                  <div style={{ fontSize: '14px', fontWeight: 800, color: '#1A202C', marginTop: '2px' }}>VietinBank (Công Thương)</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: '11px', color: '#718096', fontWeight: 600 }}>SỐ TÀI KHOẢN</div>
+                  <div style={{ fontSize: '11px', color: '#718096', fontWeight: 700 }}>{lang === 'vi' ? 'SỐ TÀI KHOẢN' : 'ACCOUNT NO.'}</div>
                   <div style={{ fontSize: '15px', fontWeight: 800, color: '#1E4D3B', marginTop: '2px' }}>{bankAccount}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: '11px', color: '#718096', fontWeight: 600 }}>CHỦ TÀI KHOẢN</div>
+                  <div style={{ fontSize: '11px', color: '#718096', fontWeight: 700 }}>{lang === 'vi' ? 'CHỦ TÀI KHOẢN' : 'BENEFICIARY'}</div>
                   <div style={{ fontSize: '14px', fontWeight: 800, color: '#1A202C', marginTop: '2px' }}>{accountName}</div>
+                </div>
+                <div>
+                  <div style={{ fontSize: '11px', color: '#718096', fontWeight: 700 }}>{lang === 'vi' ? 'HOTLINE ĐẶT HÀNG' : 'ORDER HOTLINE'}</div>
+                  <div style={{ fontSize: '14px', fontWeight: 800, color: '#1E4D3B', marginTop: '2px' }}>0828 687 321 (Ngọc)</div>
                 </div>
               </div>
             </div>
@@ -260,7 +308,9 @@ export default function AdminSettingsPage() {
                 style={{ padding: '12px 32px', fontSize: '15px', fontWeight: 700 }}
                 disabled={saving}
               >
-                {saving ? 'Đang lưu cấu hình...' : 'Lưu Thay Đổi Cài Đặt'}
+                {saving
+                  ? (lang === 'vi' ? 'Đang lưu cấu hình...' : 'Saving settings...')
+                  : (lang === 'vi' ? 'Lưu Thay Đổi Cài Đặt' : 'Save Settings Changes')}
               </button>
             </div>
           </form>

@@ -104,9 +104,9 @@ function CheckoutContent() {
   const qrUrl = buildVietQRUrl({
     amount: qrAmount,
     orderNumber: orderNumber || 'OC20260911-001',
-    accountNo: '0977999948',
-    bankId: 'MB',
-    accountName: 'PHAM XUAN DINH',
+    accountNo: '101880305162',
+    bankId: 'ICB',
+    accountName: 'HUYNH THI BICH NGO',
   })
 
   const copyToClipboard = (text: string, field: string) => {
@@ -946,7 +946,7 @@ function CheckoutContent() {
                   />
                   <div className={styles.qrBrandText}>
                     <span className={styles.brandTitle}>ONE COFFEE</span>
-                    <span className={styles.vietqrBadge}>VietQR MB Bank</span>
+                    <span className={styles.vietqrBadge}>VietQR VietinBank</span>
                   </div>
                 </div>
 
@@ -974,16 +974,16 @@ function CheckoutContent() {
               <div className={styles.bankCard}>
                 <div className={styles.bankRow}>
                   <span className={styles.bankLabel}>{lang === 'vi' ? 'Ngân hàng' : 'Bank'}</span>
-                  <span className={styles.bankValue}>MB Bank (Quân Đội)</span>
+                  <span className={styles.bankValue}>VietinBank (Công Thương)</span>
                 </div>
                 <div className={styles.bankRow}>
                   <span className={styles.bankLabel}>{lang === 'vi' ? 'Số tài khoản' : 'Account No.'}</span>
                   <div>
-                    <span className={styles.bankValueHighlight}>0977999948</span>
+                    <span className={styles.bankValueHighlight}>101880305162</span>
                     <button
                       type="button"
                       className={styles.copyBtn}
-                      onClick={() => copyToClipboard('0977999948', 'stk')}
+                      onClick={() => copyToClipboard('101880305162', 'stk')}
                     >
                       {copiedField === 'stk' ? '✓' : (lang === 'vi' ? 'Chép' : 'Copy')}
                     </button>
@@ -991,7 +991,7 @@ function CheckoutContent() {
                 </div>
                 <div className={styles.bankRow}>
                   <span className={styles.bankLabel}>{lang === 'vi' ? 'Chủ tài khoản' : 'Beneficiary'}</span>
-                  <span className={styles.bankValue}>PHAM XUAN DINH</span>
+                  <span className={styles.bankValue}>HUYNH THI BICH NGO</span>
                 </div>
                 <div className={styles.bankRow}>
                   <span className={styles.bankLabel}>{lang === 'vi' ? 'Số tiền' : 'Amount'}</span>
@@ -1122,10 +1122,10 @@ function CheckoutContent() {
             >
               <div style={{ fontSize: '12px', color: '#2F855A', fontWeight: 700 }}>HOTLINE HỖ TRỢ / ZALO</div>
               <a
-                href="tel:0977999948"
+                href="tel:0828687321"
                 style={{ fontSize: '20px', fontWeight: 800, color: '#1E4D3B', textDecoration: 'none', display: 'block', marginTop: '4px' }}
               >
-                0977 999 948
+                0828 687 321 (Ngọc)
               </a>
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
@@ -1146,7 +1146,7 @@ function CheckoutContent() {
                 Đóng
               </button>
               <a
-                href="tel:0977999948"
+                href="tel:0828687321"
                 style={{
                   flex: 1,
                   padding: '10px',

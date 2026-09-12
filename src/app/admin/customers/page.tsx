@@ -543,7 +543,7 @@ export default function AdminCustomersPage() {
                 <input
                   type="tel"
                   className="input"
-                  placeholder="0977999948"
+                  placeholder="0828687321"
                   value={createPhone}
                   onChange={e => setCreatePhone(e.target.value)}
                   required

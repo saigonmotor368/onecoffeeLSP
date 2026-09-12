@@ -4,23 +4,34 @@ import { useState, useMemo, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { menuProducts, categories, getProductImage, type MenuProduct } from '@/lib/menu-data'
-import { useLang } from '@/lib/providers'
+import { useLang, useToast } from '@/lib/providers'
 import { formatPrice } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
+import { useFavorites } from '@/lib/favorites'
 import styles from './menu.module.css'
 
 const allCategories = [
   { slug: 'all', name_vi: 'Tất cả', name_en: 'All Menu', icon: '✨', sort_order: 0 },
+  { slug: 'favorites', name_vi: 'Yêu thích', name_en: 'Favorites', icon: '❤️', sort_order: 1 },
   ...categories,
 ]
 
 function MenuContent() {
   const { t, lang } = useLang()
+  const { showToast } = useToast()
+  const { favorites, toggleFavorite, isFavorite } = useFavorites()
   const router = useRouter()
   const searchParams = useSearchParams()
   const [activeSlug, setActiveSlug] = useState(searchParams.get('cat') ?? 'all')
   const [search, setSearch] = useState('')
   const [productsList, setProductsList] = useState<MenuProduct[]>(menuProducts)
+
+  useEffect(() => {
+    const catParam = searchParams.get('cat')
+    if (catParam) {
+      setActiveSlug(catParam)
+    }
+  }, [searchParams])
 
   useEffect(() => {
     try {
@@ -62,10 +73,21 @@ function MenuContent() {
       )
     }
     if (activeSlug === 'all') return productsList
+    if (activeSlug === 'favorites') return productsList.filter(p => favorites.includes(p.id))
     return productsList.filter(p => p.category_slug === activeSlug)
-  }, [activeSlug, search, productsList])
+  }, [activeSlug, search, productsList, favorites])
 
   const currentCategory = allCategories.find(c => c.slug === activeSlug)
+
+  const handleToggleFav = (productId: string) => {
+    const added = toggleFavorite(productId)
+    showToast(
+      added
+        ? (lang === 'vi' ? 'Đã thêm vào yêu thích ❤️' : 'Added to favorites ❤️')
+        : (lang === 'vi' ? 'Đã bỏ yêu thích' : 'Removed from favorites'),
+      'info'
+    )
+  }
 
   return (
     <div className={styles.page}>
@@ -87,13 +109,16 @@ function MenuContent() {
         </div>
       </header>
 
-      {/* Category Pills with 'Tất cả' */}
+      {/* Category Pills with 'Tất cả' & 'Yêu thích' */}
       {!search && (
         <div className={styles.categoryPillsWrap}>
           <div className={styles.categoryPills}>
             {allCategories.map(cat => {
               const isActive = activeSlug === cat.slug
-              const label = lang === 'vi' ? `${cat.icon} ${cat.name_vi}` : `${cat.icon} ${cat.name_en}`
+              let label = lang === 'vi' ? `${cat.icon} ${cat.name_vi}` : `${cat.icon} ${cat.name_en}`
+              if (cat.slug === 'favorites' && favorites.length > 0) {
+                label += ` (${favorites.length})`
+              }
               return (
                 <button
                   key={cat.slug}
@@ -128,19 +153,56 @@ function MenuContent() {
           )}
 
           {filtered.length === 0 ? (
-            <div className="empty-state">
-              <span className="empty-state-icon">☕</span>
-              <p className="empty-state-title">
-                {lang === 'vi' ? 'Không tìm thấy món' : 'No items found'}
-              </p>
-              <p className="empty-state-desc">
-                {lang === 'vi' ? 'Thử tìm từ khóa khác nhé' : 'Try searching another keyword'}
-              </p>
-            </div>
+            activeSlug === 'favorites' ? (
+              <div className="empty-state" style={{ padding: '48px 16px', textAlign: 'center' }}>
+                <span style={{ fontSize: '48px', display: 'block', marginBottom: '12px' }}>❤️</span>
+                <h3 style={{ fontSize: '17px', fontWeight: 800, color: '#1E4D3B', margin: '0 0 6px' }}>
+                  {lang === 'vi' ? 'Chưa có món yêu thích nào' : 'No favorite items yet'}
+                </h3>
+                <p style={{ fontSize: '13px', color: '#64748B', maxWidth: '320px', margin: '0 auto 18px', lineHeight: 1.5 }}>
+                  {lang === 'vi'
+                    ? 'Bấm vào biểu tượng trái tim ❤️ ở bất kỳ món đồ uống nào để thêm nhanh vào danh mục yêu thích nhé!'
+                    : 'Tap the heart ❤️ icon on any drink to quickly save it to your favorites!'}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setActiveSlug('all')}
+                  style={{
+                    background: '#1E4D3B',
+                    color: '#FFFFFF',
+                    border: 'none',
+                    padding: '12px 24px',
+                    borderRadius: '999px',
+                    fontWeight: 700,
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    boxShadow: '0 4px 14px rgba(30, 77, 59, 0.3)'
+                  }}
+                >
+                  {lang === 'vi' ? '☕ Khám phá Menu ngay' : '☕ Explore Menu Now'}
+                </button>
+              </div>
+            ) : (
+              <div className="empty-state">
+                <span className="empty-state-icon">☕</span>
+                <p className="empty-state-title">
+                  {lang === 'vi' ? 'Không tìm thấy món' : 'No items found'}
+                </p>
+                <p className="empty-state-desc">
+                  {lang === 'vi' ? 'Thử tìm từ khóa khác nhé' : 'Try searching another keyword'}
+                </p>
+              </div>
+            )
           ) : (
             <div className={styles.productList}>
               {filtered.map(product => (
-                <MenuProductItem key={product.id} product={product} lang={lang} />
+                <MenuProductItem
+                  key={product.id}
+                  product={product}
+                  lang={lang}
+                  isFav={isFavorite(product.id)}
+                  onToggleFav={handleToggleFav}
+                />
               ))}
             </div>
           )}
@@ -165,7 +227,13 @@ function MenuContent() {
 
                 <div className={styles.productList}>
                   {catItems.map(product => (
-                    <MenuProductItem key={product.id} product={product} lang={lang} />
+                    <MenuProductItem
+                      key={product.id}
+                      product={product}
+                      lang={lang}
+                      isFav={isFavorite(product.id)}
+                      onToggleFav={handleToggleFav}
+                    />
                   ))}
                 </div>
               </section>
@@ -179,15 +247,25 @@ function MenuContent() {
   )
 }
 
-function MenuProductItem({ product, lang }: { product: MenuProduct; lang: string }) {
+function MenuProductItem({
+  product,
+  lang,
+  isFav,
+  onToggleFav,
+}: {
+  product: MenuProduct
+  lang: string
+  isFav?: boolean
+  onToggleFav?: (id: string) => void
+}) {
   const imageUrl = getProductImage(product)
   const primaryName = lang === 'vi' ? product.name_vi : product.name_en
   const secondaryName = lang === 'vi' ? product.name_en : product.name_vi
 
   return (
     <Link href={`/menu/${product.id}`} className={styles.productRow}>
-      {/* Thumbnail */}
-      <div className={styles.thumbnailWrap}>
+      {/* Thumbnail with heart button */}
+      <div className={styles.thumbnailWrap} style={{ position: 'relative' }}>
         <img
           src={imageUrl}
           alt={primaryName}
@@ -196,6 +274,37 @@ function MenuProductItem({ product, lang }: { product: MenuProduct; lang: string
             (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=600&auto=format&fit=crop&q=80'
           }}
         />
+        {onToggleFav && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.preventDefault()
+              e.stopPropagation()
+              onToggleFav(product.id)
+            }}
+            style={{
+              position: 'absolute',
+              top: 4,
+              left: 4,
+              background: 'rgba(255, 255, 255, 0.92)',
+              backdropFilter: 'blur(4px)',
+              border: 'none',
+              borderRadius: '50%',
+              width: 26,
+              height: 26,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 12,
+              cursor: 'pointer',
+              boxShadow: '0 1px 4px rgba(0,0,0,0.18)',
+              zIndex: 2,
+            }}
+            aria-label="Yêu thích"
+          >
+            {isFav ? '❤️' : '🤍'}
+          </button>
+        )}
       </div>
 
       {/* Info */}

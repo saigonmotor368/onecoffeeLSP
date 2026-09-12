@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     if (existingProfile) {
       return NextResponse.json(
         {
-          error: 'Số điện thoại này đã được đăng ký. Quý khách vui lòng chọn Đăng nhập hoặc liên hệ Hotline 0977 999 948 nếu quên mật khẩu.',
+          error: 'Số điện thoại này đã được đăng ký. Quý khách vui lòng chọn Đăng nhập hoặc liên hệ Hotline 0828 687 321 (Ngọc) nếu quên mật khẩu.',
           alreadyRegistered: true,
         },
         { status: 409 }

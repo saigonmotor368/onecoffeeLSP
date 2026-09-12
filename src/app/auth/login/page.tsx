@@ -168,10 +168,10 @@ function LoginContent() {
             >
               <div style={{ fontSize: '12px', color: '#2F855A', fontWeight: 700 }}>HOTLINE HỖ TRỢ / ZALO</div>
               <a
-                href="tel:0977999948"
+                href="tel:0828687321"
                 style={{ fontSize: '20px', fontWeight: 800, color: '#1E4D3B', textDecoration: 'none', display: 'block', marginTop: '4px' }}
               >
-                0977 999 948
+                0828 687 321 (Ngọc)
               </a>
             </div>
             <div style={{ display: 'flex', gap: '8px' }}>
@@ -192,7 +192,7 @@ function LoginContent() {
                 Đóng
               </button>
               <a
-                href="tel:0977999948"
+                href="tel:0828687321"
                 style={{
                   flex: 1,
                   padding: '10px',

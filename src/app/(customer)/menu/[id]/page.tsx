@@ -7,6 +7,7 @@ import { menuProducts, addons, getProductImage, type MenuProduct } from '@/lib/m
 import { useCart, useLang, useToast } from '@/lib/providers'
 import { formatPrice, toVndPrice } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
+import { useFavorites } from '@/lib/favorites'
 import styles from './product.module.css'
 
 export default function ProductPage({ params }: { params: Promise<{ id: string }> }) {
@@ -15,6 +16,8 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
   const { lang } = useLang()
   const { addItem } = useCart()
   const { showToast } = useToast()
+  const { isFavorite: checkFav, toggleFavorite } = useFavorites()
+  const isFavorite = checkFav(id)
 
   const [product, setProduct] = useState<MenuProduct>(() => {
     return menuProducts.find(p => p.id === id) || menuProducts[0]
@@ -24,7 +27,6 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
   const [qtyM, setQtyM] = useState<number>(() => (product.price_m ? 1 : 0))
   const [qtyL, setQtyL] = useState<number>(() => (!product.price_m && product.price_l ? 1 : 0))
   const [notes, setNotes] = useState('')
-  const [isFavorite, setIsFavorite] = useState(false)
   const [selectedAddons, setSelectedAddons] = useState<string[]>([])
 
   useEffect(() => {
@@ -167,8 +169,13 @@ export default function ProductPage({ params }: { params: Promise<{ id: string }
         <button
           className={styles.iconCircleBtn}
           onClick={() => {
-            setIsFavorite(!isFavorite)
-            showToast(isFavorite ? 'Đã bỏ yêu thích' : 'Đã lưu vào yêu thích ❤️', 'info')
+            const added = toggleFavorite(id)
+            showToast(
+              added
+                ? (lang === 'vi' ? 'Đã lưu vào yêu thích ❤️' : 'Added to favorites ❤️')
+                : (lang === 'vi' ? 'Đã bỏ yêu thích' : 'Removed from favorites'),
+              'info'
+            )
           }}
           aria-label="Favorite"
         >
