@@ -15,7 +15,7 @@ export default function ProfilePage() {
   const { showToast } = useToast()
   const { favorites, toggleFavorite, totalFavorites } = useFavorites()
   const [favoriteProducts, setFavoriteProducts] = useState<MenuProduct[]>([])
-  const [showFavorites, setShowFavorites] = useState(false)
+  const [favLoading, setFavLoading] = useState(false)
   const [profile, setProfile] = useState<{
     full_name: string
     phone: string
@@ -73,7 +73,7 @@ export default function ProfilePage() {
       setFavoriteProducts([])
       return
     }
-    // Try Supabase first, fallback to static data
+    setFavLoading(true)
     const supabase = createClient()
     ;(async () => {
       try {
@@ -94,13 +94,14 @@ export default function ProfilePage() {
           }))
           setFavoriteProducts(mapped)
         } else {
-          // Fallback: match from static menu data (slug-based IDs)
           const staticMatches = menuProducts.filter(p => favorites.includes(p.id))
           setFavoriteProducts(staticMatches)
         }
       } catch {
         const staticMatches = menuProducts.filter(p => favorites.includes(p.id))
         setFavoriteProducts(staticMatches)
+      } finally {
+        setFavLoading(false)
       }
     })()
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -248,101 +249,93 @@ export default function ProfilePage() {
           <span className={styles.chevron}>›</span>
         </div>
 
-        {/* 3. Favorite Drinks — expandable inline list */}
-        <div>
-          <div
-            className={styles.menuItem}
-            onClick={() => setShowFavorites(v => !v)}
-            style={{ cursor: 'pointer' }}
-          >
-            <div className={styles.menuItemLeft}>
-              <span className={styles.menuIcon}>❤️</span>
-              <span className={styles.menuText}>
+        {/* 3. Favorite Drinks — always visible */}
+        <div style={{ background: 'white', borderRadius: '16px', border: '1.5px solid #FFE4E6', overflow: 'hidden' }}>
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '14px 16px', borderBottom: totalFavorites > 0 ? '1px solid #FFF0F1' : 'none' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '20px' }}>❤️</span>
+              <span style={{ fontSize: '15px', fontWeight: 700, color: '#1A202C' }}>
                 {lang === 'vi' ? 'Danh sách yêu thích' : 'Favorite Drinks'}
               </span>
             </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              {totalFavorites > 0 && (
-                <span style={{ fontSize: '12px', fontWeight: 700, background: '#FFE4E6', color: '#E11D48', padding: '2px 8px', borderRadius: '12px' }}>
-                  {totalFavorites} {lang === 'vi' ? 'món' : 'items'}
-                </span>
-              )}
-              <span className={styles.chevron} style={{ transform: showFavorites ? 'rotate(90deg)' : 'none', transition: '0.2s' }}>›</span>
-            </div>
+            {totalFavorites > 0 && (
+              <span style={{ fontSize: '12px', fontWeight: 700, background: '#FFE4E6', color: '#E11D48', padding: '3px 10px', borderRadius: '12px' }}>
+                {totalFavorites} {lang === 'vi' ? 'món' : 'items'}
+              </span>
+            )}
           </div>
 
-          {/* Favorites inline panel */}
-          {showFavorites && (
-            <div style={{ background: '#FFF5F5', borderTop: '1px solid #FFE4E6', borderRadius: '0 0 14px 14px', padding: '12px 16px', marginTop: -1 }}>
+          {/* Content */}
+          {favLoading ? (
+            <div style={{ padding: '20px', textAlign: 'center' }}>
+              <span className="spinner" />
+            </div>
+          ) : totalFavorites === 0 ? (
+            <div style={{ padding: '20px 16px', textAlign: 'center' }}>
+              <p style={{ fontSize: '13px', color: '#94A3B8', margin: '0 0 12px' }}>
+                {lang === 'vi' ? 'Chưa có món yêu thích nào' : 'No favorites yet'}
+              </p>
+              <Link
+                href="/menu"
+                style={{ display: 'inline-block', background: '#1E4D3B', color: '#fff', padding: '8px 20px', borderRadius: '999px', fontSize: '13px', fontWeight: 700, textDecoration: 'none' }}
+              >
+                ☕ {lang === 'vi' ? 'Khám phá Menu' : 'Explore Menu'}
+              </Link>
+            </div>
+          ) : (
+            <div style={{ padding: '8px 12px 12px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {favoriteProducts.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                  <div style={{ fontSize: '32px', marginBottom: '8px' }}>❤️</div>
-                  <p style={{ fontSize: '13px', color: '#64748B', margin: '0 0 12px' }}>
-                    {lang === 'vi'
-                      ? 'Chưa có món yêu thích nào. Bấm ❤️ ở bất kỳ món nào trong menu!'
-                      : 'No favorites yet. Tap ❤️ on any menu item!'}
-                  </p>
-                  <Link
-                    href="/menu"
-                    style={{
-                      display: 'inline-block',
-                      background: '#1E4D3B',
-                      color: '#fff',
-                      padding: '8px 20px',
-                      borderRadius: '999px',
-                      fontSize: '13px',
-                      fontWeight: 700,
-                      textDecoration: 'none',
-                    }}
-                  >
-                    ☕ {lang === 'vi' ? 'Khám phá Menu' : 'Explore Menu'}
-                  </Link>
-                </div>
+                // Still loading from Supabase but favorites IDs exist
+                [0,1,2].slice(0, totalFavorites).map(i => (
+                  <div key={i} style={{ height: 68, borderRadius: 12, background: '#F1F5F9', animation: 'pulse 1.5s infinite' }} />
+                ))
               ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {favoriteProducts.map(product => {
-                    const imgUrl = getProductImage(product)
-                    const name = lang === 'vi' ? product.name_vi : product.name_en
-                    const price = product.price_m ?? product.price_l
-                    return (
-                      <div key={product.id} style={{ display: 'flex', alignItems: 'center', gap: '12px', background: 'white', borderRadius: '12px', padding: '10px', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
-                        <Link href={`/menu/${product.id}`} style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1, textDecoration: 'none', color: 'inherit' }}>
-                          <img
-                            src={imgUrl}
-                            alt={name}
-                            style={{ width: 48, height: 48, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }}
-                            onError={e => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=200&auto=format&fit=crop' }}
-                          />
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: '14px', fontWeight: 700, color: '#1A202C', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</div>
-                            {price && <div style={{ fontSize: '12px', color: '#1E4D3B', fontWeight: 600, marginTop: 2 }}>{new Intl.NumberFormat('vi-VN').format(price * (price < 1000 ? 1000 : 1))}đ</div>}
-                          </div>
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            toggleFavorite(product.id)
-                            showToast(lang === 'vi' ? 'Đã bỏ yêu thích' : 'Removed from favorites', 'info')
-                          }}
-                          style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', padding: '4px', flexShrink: 0 }}
-                          aria-label="Remove favorite"
-                        >
-                          ❤️
-                        </button>
-                      </div>
-                    )
-                  })}
-                  <Link
-                    href="/menu?cat=favorites"
-                    style={{ display: 'block', textAlign: 'center', fontSize: '13px', color: '#1E4D3B', fontWeight: 700, padding: '8px', textDecoration: 'none' }}
-                  >
-                    {lang === 'vi' ? '📋 Xem trong Menu →' : '📋 View in Menu →'}
-                  </Link>
-                </div>
+                favoriteProducts.map(product => {
+                  const imgUrl = getProductImage(product)
+                  const name = lang === 'vi' ? product.name_vi : product.name_en
+                  const rawPrice = product.price_m ?? product.price_l
+                  // price_m/price_l are stored in 1000đ units (e.g. 48 = 48,000đ)
+                  const displayPrice = rawPrice ? rawPrice * 1000 : null
+                  return (
+                    <div key={product.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#FAFAFA', borderRadius: '12px', padding: '8px 10px' }}>
+                      <Link href={`/menu/${product.id}`} style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, textDecoration: 'none', color: 'inherit' }}>
+                        <img
+                          src={imgUrl}
+                          alt={name}
+                          style={{ width: 50, height: 50, borderRadius: 10, objectFit: 'cover', flexShrink: 0 }}
+                          onError={e => { (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1517701550927-30cf4ba1dba5?w=200&auto=format&fit=crop' }}
+                        />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: '14px', fontWeight: 700, color: '#1A202C', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{name}</div>
+                          {displayPrice && <div style={{ fontSize: '13px', color: '#1E4D3B', fontWeight: 700, marginTop: 2 }}>{new Intl.NumberFormat('vi-VN').format(displayPrice)}đ</div>}
+                        </div>
+                      </Link>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          toggleFavorite(product.id)
+                          showToast(lang === 'vi' ? 'Đã bỏ yêu thích' : 'Removed from favorites', 'info')
+                        }}
+                        style={{ background: 'none', border: 'none', fontSize: '20px', cursor: 'pointer', padding: '4px', flexShrink: 0, lineHeight: 1 }}
+                        aria-label="Remove from favorites"
+                      >
+                        ❤️
+                      </button>
+                    </div>
+                  )
+                })
               )}
+              <Link
+                href="/menu?cat=favorites"
+                style={{ display: 'block', textAlign: 'center', fontSize: '13px', color: '#1E4D3B', fontWeight: 600, padding: '6px', textDecoration: 'none', borderTop: '1px solid #FFF0F1', marginTop: 4 }}
+              >
+                {lang === 'vi' ? '📋 Xem tất cả trong Menu →' : '📋 View all in Menu →'}
+              </Link>
             </div>
           )}
         </div>
+
 
         {/* 4. Order History */}
         <Link href="/orders" className={styles.menuItem}>
