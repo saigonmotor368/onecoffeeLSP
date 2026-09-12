@@ -29,6 +29,10 @@ export default function AdminSettingsPage() {
   const [discountPercent, setDiscountPercent] = useState(20)
   const [discountEnabled, setDiscountEnabled] = useState(true)
 
+  // Telegram test state
+  const [telegramTesting, setTelegramTesting] = useState(false)
+  const [telegramResult, setTelegramResult] = useState<{ ok: boolean; msg: string } | null>(null)
+
   // Bank Info preview
   const bankId = process.env.NEXT_PUBLIC_BANK_ID || 'ICB'
   const bankAccount = process.env.NEXT_PUBLIC_BANK_ACCOUNT || '101880305162'
@@ -297,6 +301,102 @@ export default function AdminSettingsPage() {
                   <div style={{ fontSize: '11px', color: '#718096', fontWeight: 700 }}>{lang === 'vi' ? 'HOTLINE ĐẶT HÀNG' : 'ORDER HOTLINE'}</div>
                   <div style={{ fontSize: '14px', fontWeight: 800, color: '#1E4D3B', marginTop: '2px' }}>0828 687 321 (Ngọc)</div>
                 </div>
+              </div>
+            </div>
+
+            {/* Section: Telegram Bot Notification */}
+            <div style={{ background: 'white', borderRadius: '16px', border: '1.5px solid #0088cc33', padding: '24px', boxShadow: '0 2px 10px rgba(0,136,204,0.06)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+                <span style={{ fontSize: '28px' }}>✈️</span>
+                <div>
+                  <h2 style={{ fontSize: '16px', fontWeight: 800, color: '#1A202C', margin: 0 }}>
+                    {lang === 'vi' ? 'Thông báo Telegram Bot' : 'Telegram Bot Notifications'}
+                  </h2>
+                  <p style={{ fontSize: '13px', color: '#718096', margin: '2px 0 0' }}>
+                    {lang === 'vi'
+                      ? 'Mỗi đơn hàng mới sẽ tự động gửi thông báo đầy đủ vào group Telegram của nhân viên'
+                      : 'Every new order will be sent automatically to your staff Telegram group'}
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ background: '#F0F9FF', border: '1px solid #BAE6FD', borderRadius: '12px', padding: '16px', marginBottom: '16px', fontSize: '13px', lineHeight: 1.6 }}>
+                <strong>⚙️ {lang === 'vi' ? 'Cách cấu hình:' : 'How to configure:'}</strong><br />
+                {lang === 'vi' ? (
+                  <>
+                    1. Tạo bot qua <strong>@BotFather</strong> → nhận <code>BOT_TOKEN</code><br />
+                    2. Tạo group Telegram → thêm bot vào group → lấy <code>CHAT_ID</code><br />
+                    3. Vào <strong>Vercel Dashboard → Settings → Environment Variables</strong> → thêm:<br />
+                    <code style={{ background: '#E0F2FE', padding: '2px 6px', borderRadius: 4, display: 'inline-block', marginTop: 4 }}>TELEGRAM_BOT_TOKEN = 123456:ABCxxx...</code><br />
+                    <code style={{ background: '#E0F2FE', padding: '2px 6px', borderRadius: 4, display: 'inline-block', marginTop: 4 }}>TELEGRAM_CHAT_ID = -1001234567890</code><br />
+                    4. Redeploy → bấm <strong>"Test Bot"</strong> bên dưới
+                  </>
+                ) : (
+                  <>
+                    1. Create bot via <strong>@BotFather</strong> → get <code>BOT_TOKEN</code><br />
+                    2. Create Telegram group → add bot → get <code>CHAT_ID</code><br />
+                    3. Go to <strong>Vercel → Settings → Environment Variables</strong> → add:<br />
+                    <code style={{ background: '#E0F2FE', padding: '2px 6px', borderRadius: 4, display: 'inline-block', marginTop: 4 }}>TELEGRAM_BOT_TOKEN = 123456:ABCxxx...</code><br />
+                    <code style={{ background: '#E0F2FE', padding: '2px 6px', borderRadius: 4, display: 'inline-block', marginTop: 4 }}>TELEGRAM_CHAT_ID = -1001234567890</code><br />
+                    4. Redeploy → click <strong>"Test Bot"</strong> below
+                  </>
+                )}
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    setTelegramTesting(true)
+                    setTelegramResult(null)
+                    try {
+                      const supabase = createClient()
+                      const { data: { session } } = await supabase.auth.getSession()
+                      const res = await fetch('/api/admin/test-telegram', {
+                        method: 'POST',
+                        headers: { Authorization: `Bearer ${session?.access_token || ''}` },
+                      })
+                      const data = await res.json()
+                      setTelegramResult({
+                        ok: data.success,
+                        msg: data.message || data.error || 'Unknown',
+                      })
+                    } catch (err) {
+                      setTelegramResult({ ok: false, msg: String(err) })
+                    } finally {
+                      setTelegramTesting(false)
+                    }
+                  }}
+                  disabled={telegramTesting}
+                  style={{
+                    padding: '10px 24px',
+                    borderRadius: '10px',
+                    border: 'none',
+                    background: telegramTesting ? '#94A3B8' : '#0088cc',
+                    color: 'white',
+                    fontWeight: 700,
+                    fontSize: '14px',
+                    cursor: telegramTesting ? 'not-allowed' : 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                  }}
+                >
+                  {telegramTesting ? '⏳ Đang gửi...' : '✈️ Test Bot Telegram'}
+                </button>
+
+                {telegramResult && (
+                  <div style={{
+                    padding: '8px 14px',
+                    borderRadius: '8px',
+                    background: telegramResult.ok ? '#DCFCE7' : '#FEE2E2',
+                    color: telegramResult.ok ? '#166534' : '#991B1B',
+                    fontWeight: 600,
+                    fontSize: '13px',
+                  }}>
+                    {telegramResult.ok ? '✅ ' : '❌ '}{telegramResult.msg}
+                  </div>
+                )}
               </div>
             </div>
 

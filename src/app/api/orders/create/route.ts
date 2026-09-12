@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getAdminClient } from '@/lib/supabase/admin'
+import { notifyNewOrder } from '@/lib/telegram'
 
 function normalizeVoucherMoney(value: number | null | undefined) {
   if (!value) return 0
@@ -152,6 +153,60 @@ export async function POST(request: Request) {
         console.error('Order items insert error (non-fatal):', itemsErr)
       }
     }
+
+    // ── Telegram Notification ────────────────────────────────────────────────
+    // Fire-and-forget: fetch full order + items then notify admin group
+    if (createdId) {
+      const fullOrderResult = await supabase
+        .from('orders')
+        .select('*')
+        .eq('id', createdId)
+        .maybeSingle()
+
+      const itemsResult = await supabase
+        .from('order_items')
+        .select('name, name_en, quantity, unit_price, options')
+        .eq('order_id', createdId)
+
+      const fullOrder = fullOrderResult.data
+      const orderItems = itemsResult.data || []
+
+      if (fullOrder) {
+        // Get voucher code if used
+        let voucherCode: string | null = null
+        if (fullOrder.voucher_id) {
+          const { data: voucherData } = await supabase
+            .from('vouchers')
+            .select('code')
+            .eq('id', fullOrder.voucher_id)
+            .maybeSingle()
+          voucherCode = voucherData?.code || null
+        }
+
+        notifyNewOrder({
+          orderId: createdId,
+          orderNumber: fullOrder.order_number || null,
+          recipientName: fullOrder.recipient_name || null,
+          recipientPhone: fullOrder.recipient_phone || null,
+          deliveryAddress: fullOrder.delivery_address || null,
+          totalAmount: fullOrder.total_amount || null,
+          discountAmount: fullOrder.discount_amount || null,
+          shippingFee: fullOrder.shipping_fee || null,
+          finalAmount: fullOrder.final_amount || null,
+          paymentMethod: fullOrder.payment_method || null,
+          notes: fullOrder.notes || null,
+          voucherCode,
+          items: orderItems.map(i => ({
+            name: i.name || '',
+            name_en: i.name_en || null,
+            quantity: i.quantity || 1,
+            unit_price: i.unit_price || 0,
+            options: i.options || null,
+          })),
+        }).catch(err => console.error('[Telegram] notify error:', err))
+      }
+    }
+    // ────────────────────────────────────────────────────────────────────────
 
     return NextResponse.json({ success: true, orderId: createdId })
   } catch (err) {
