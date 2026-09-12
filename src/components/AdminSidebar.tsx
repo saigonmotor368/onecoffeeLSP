@@ -205,8 +205,9 @@ export default function AdminSidebar({ pendingCount: propPendingCount }: { pendi
         >
           ☰
         </button>
-        <span className="admin-mobile-title">
-          <span style={{ fontSize: 18 }}>☕</span> One Coffee Admin
+        <span className="admin-mobile-title" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <img src="/icon-admin-192.png?v=2026" alt="One Coffee Logo" style={{ width: 26, height: 26, borderRadius: '6px', objectFit: 'cover' }} />
+          One Coffee Admin
         </span>
         {pendingCount > 0 && (
           <span className="admin-nav-badge" style={{ marginLeft: 'auto' }}>
@@ -224,7 +225,7 @@ export default function AdminSidebar({ pendingCount: propPendingCount }: { pendi
       <aside className={`admin-sidebar ${mobileOpen ? 'open' : ''}`}>
         <div className="admin-sidebar-logo" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span className="admin-sidebar-logo-icon">☕</span>
+            <img src="/icon-admin-192.png?v=2026" alt="One Coffee Logo" style={{ width: 36, height: 36, borderRadius: '8px', objectFit: 'cover', flexShrink: 0 }} />
             <div>
               <div className="admin-sidebar-logo-text">ONE COFFEE</div>
               <div className="admin-sidebar-logo-sub">LSP Management</div>

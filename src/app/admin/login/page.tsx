@@ -86,7 +86,11 @@ function AdminLoginContent() {
     <div className={styles.page}>
       <div className={styles.card}>
         <div className={styles.logoArea}>
-          <div className={styles.logoIcon}>☕</div>
+          <img
+            src="/icon-admin-192.png?v=2026"
+            alt="One Coffee Admin Logo"
+            style={{ width: '76px', height: '76px', borderRadius: '18px', marginBottom: '12px', boxShadow: '0 8px 24px rgba(0,0,0,0.25)', objectFit: 'cover' }}
+          />
           <h1 className={styles.title}>ONE COFFEE</h1>
           <p className={styles.subtitle}>Cổng Quản Trị Hệ Thống</p>
         </div>
