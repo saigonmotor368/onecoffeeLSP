@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Be_Vietnam_Pro, Playfair_Display, Dancing_Script } from 'next/font/google'
 import './globals.css'
 import { AppProvider } from '@/lib/providers'
+import PWAInstallPrompt from '@/components/PWAInstallPrompt'
 
 const beVietnam = Be_Vietnam_Pro({
   subsets: ['latin', 'vietnamese'],
@@ -69,6 +70,7 @@ export default function RootLayout({
       <body className={beVietnam.className}>
         <AppProvider>
           {children}
+          <PWAInstallPrompt />
         </AppProvider>
       </body>
     </html>
