@@ -1,7 +1,8 @@
 .pageContainer {
   position: relative;
-  min-height: 100vh;
-  min-height: 100dvh;
+  height: 100vh;
+  height: 100svh;
+  height: 100dvh;
   max-width: 480px;
   margin: 0 auto;
   display: flex;
@@ -10,9 +11,7 @@
   background-color: #0e3f2a;
   color: #1A202C;
   box-sizing: border-box;
-  overflow-x: hidden;
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
+  overflow: hidden;
 }
 
 /* Background image with Green Top, Cream Arch, and Coffee Beans */
@@ -54,12 +53,12 @@
 }
 
 .logoWrapper {
-  width: clamp(60px, 9vh, 80px);
-  height: clamp(60px, 9vh, 80px);
+  width: clamp(55px, 8vh, 75px);
+  height: clamp(55px, 8vh, 75px);
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: clamp(2px, 0.5vh, 5px);
+  margin-bottom: clamp(1px, 0.4vh, 4px);
   filter: drop-shadow(0 2px 8px rgba(14, 63, 42, 0.12));
   flex-shrink: 0;
 }
@@ -72,10 +71,10 @@
 
 .brandTitle {
   font-family: var(--font-sans), 'Be Vietnam Pro', system-ui, -apple-system, sans-serif;
-  font-size: clamp(19px, 2.8vh, 24px);
+  font-size: clamp(18px, 2.6vh, 23px);
   font-weight: 900;
   letter-spacing: 0.12em;
-  margin: 0 0 clamp(2px, 0.3vh, 3px);
+  margin: 0 0 clamp(1px, 0.3vh, 3px);
   text-align: center;
   text-transform: uppercase;
   background: linear-gradient(135deg, #0e3f2a 0%, #175e3e 50%, #0d3824 100%);
@@ -104,7 +103,7 @@
 .sloganTextWarm {
   font-family: var(--font-serif), 'Playfair Display', Georgia, serif;
   font-style: italic;
-  font-size: clamp(16px, 2.4vh, 21px);
+  font-size: clamp(15px, 2.2vh, 19px);
   font-weight: 700;
   color: #C89B3C;
   letter-spacing: 0.02em;
@@ -113,7 +112,7 @@
 
 .sloganDash {
   font-family: var(--font-serif), Georgia, serif;
-  font-size: clamp(14px, 2vh, 17px);
+  font-size: clamp(13px, 1.8vh, 16px);
   font-weight: 400;
   color: #C89B3C;
   opacity: 0.85;
@@ -127,7 +126,7 @@
 .sloganTextGreen {
   font-family: var(--font-serif), 'Playfair Display', Georgia, serif;
   font-style: italic;
-  font-size: clamp(16px, 2.4vh, 21px);
+  font-size: clamp(15px, 2.2vh, 19px);
   font-weight: 700;
   color: #16533A;
   letter-spacing: 0.02em;
@@ -138,10 +137,10 @@
 .bottomSection {
   position: relative;
   z-index: 30;
-  padding: 0 16px calc(env(safe-area-inset-bottom, 0px) + clamp(10px, 1.8vh, 18px));
+  padding: 0 16px calc(env(safe-area-inset-bottom, 0px) + clamp(8px, 1.5vh, 16px));
   display: flex;
   flex-direction: column;
-  gap: clamp(7px, 1vh, 10px);
+  gap: clamp(6px, 1vh, 8px);
   width: 100%;
   margin-top: auto;
   flex-shrink: 0;
