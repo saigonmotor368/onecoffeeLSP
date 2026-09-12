@@ -1,5 +1,5 @@
-// One Coffee LSP Service Worker
-const CACHE_NAME = 'one-coffee-lsp-v2'
+// One Coffee LSP Service Worker v3 — with background order polling
+const CACHE_NAME = 'one-coffee-lsp-v3'
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
@@ -11,6 +11,9 @@ const STATIC_ASSETS = [
   '/logo-circle.png',
 ]
 
+// ─────────────────────────────────────────────────────────────
+// Install & Activate
+// ─────────────────────────────────────────────────────────────
 self.addEventListener('install', event => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
@@ -31,8 +34,10 @@ self.addEventListener('activate', event => {
   self.clients.claim()
 })
 
+// ─────────────────────────────────────────────────────────────
+// Fetch handler
+// ─────────────────────────────────────────────────────────────
 self.addEventListener('fetch', event => {
-  // Network first with cache fallback for HTML navigation
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request).catch(() => {
@@ -45,7 +50,6 @@ self.addEventListener('fetch', event => {
     return
   }
 
-  // Cache first for static images and assets
   if (
     event.request.destination === 'image' ||
     event.request.destination === 'font' ||
@@ -65,21 +69,168 @@ self.addEventListener('fetch', event => {
   }
 })
 
-// Handle Mobile & Desktop Notification Click
+// ─────────────────────────────────────────────────────────────
+// Notification click — open order detail page
+// ─────────────────────────────────────────────────────────────
 self.addEventListener('notificationclick', event => {
   event.notification.close()
-  const targetUrl = event.notification.data?.url || '/'
+  const targetUrl = event.notification.data?.url || '/admin/orders'
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
+      // Try to focus existing admin window
       for (const client of clientList) {
-        if (client.url && 'focus' in client) {
+        if (client.url.includes('/admin') && 'focus' in client) {
+          client.navigate(targetUrl)
           return client.focus()
         }
       }
+      // Open new window if none found
       if (clients.openWindow) {
         return clients.openWindow(targetUrl)
       }
     })
   )
 })
+
+// ─────────────────────────────────────────────────────────────
+// Background Order Polling (runs in SW scope — works when app minimized on Android)
+// State stored in SW memory between poll cycles
+// ─────────────────────────────────────────────────────────────
+let adminPollingActive = false
+let adminPollingTimer = null
+let seenOrderIds = new Set()
+let adminSessionToken = null
+let lastKnownOrderCount = 0
+
+// Receive messages from the admin React app
+self.addEventListener('message', event => {
+  const { type, payload } = event.data || {}
+
+  if (type === 'ADMIN_START_POLLING') {
+    // Admin page sends its session token so SW can call API
+    adminSessionToken = payload?.token || null
+    if (!adminPollingActive) {
+      adminPollingActive = true
+      // Seed seen IDs to avoid firing on existing orders
+      if (payload?.seenIds) {
+        payload.seenIds.forEach(id => seenOrderIds.add(id))
+      }
+      startBackgroundPolling()
+    }
+  }
+
+  if (type === 'ADMIN_STOP_POLLING') {
+    adminPollingActive = false
+    if (adminPollingTimer) {
+      clearInterval(adminPollingTimer)
+      adminPollingTimer = null
+    }
+  }
+
+  if (type === 'ADMIN_UPDATE_TOKEN') {
+    adminSessionToken = payload?.token || null
+  }
+
+  if (type === 'ADMIN_MARK_SEEN') {
+    if (payload?.ids) {
+      payload.ids.forEach(id => seenOrderIds.add(id))
+    }
+  }
+})
+
+function startBackgroundPolling() {
+  if (adminPollingTimer) clearInterval(adminPollingTimer)
+
+  // Poll every 8 seconds from SW background
+  adminPollingTimer = setInterval(async () => {
+    if (!adminPollingActive) {
+      clearInterval(adminPollingTimer)
+      return
+    }
+    await pollForNewOrders()
+  }, 8000)
+}
+
+async function pollForNewOrders() {
+  try {
+    const headers = { 'Content-Type': 'application/json' }
+    if (adminSessionToken) {
+      headers['Authorization'] = `Bearer ${adminSessionToken}`
+    }
+
+    const response = await fetch('/api/admin/orders?status=pending&limit=50', {
+      headers,
+      credentials: 'include',
+    })
+
+    if (!response.ok) return
+
+    const result = await response.json()
+    const orders = result.orders || []
+    const newOrders = orders.filter(o => o.id && !seenOrderIds.has(o.id))
+
+    if (newOrders.length > 0) {
+      // Mark as seen immediately to avoid duplicate notifications
+      newOrders.forEach(o => seenOrderIds.add(o.id))
+
+      // Check if any admin client is active and visible
+      const clientList = await clients.matchAll({ type: 'window', includeUncontrolled: true })
+      const hasVisibleAdminClient = clientList.some(c =>
+        c.url.includes('/admin') && c.visibilityState === 'visible'
+      )
+
+      // Only show system notification if admin tab is NOT visible (background/minimized)
+      // When visible, the React component handles it with in-app toast + sound
+      if (!hasVisibleAdminClient) {
+        for (const order of newOrders) {
+          await showOrderNotification(order)
+        }
+      }
+
+      // Always notify all admin clients to update their UI
+      clientList.forEach(client => {
+        if (client.url.includes('/admin')) {
+          client.postMessage({
+            type: 'NEW_ORDER_FROM_SW',
+            payload: { orders: newOrders }
+          })
+        }
+      })
+    }
+  } catch {
+    // Network error — silently ignore, will retry next interval
+  }
+}
+
+async function showOrderNotification(order) {
+  try {
+    const orderNum = order.order_number || order.id?.slice(0, 8) || '???'
+    const name = order.recipient_name ? ` · KH: ${order.recipient_name}` : ''
+    const location = order.delivery_address ? ` → ${order.delivery_address}` : ''
+    const amount = order.final_amount
+      ? ` · ${new Intl.NumberFormat('vi-VN').format(order.final_amount)}đ`
+      : ''
+
+    // Get items summary if available
+    const items = order.items_summary || ''
+
+    await self.registration.showNotification(`🔔 ĐƠN MỚI #${orderNum}!`, {
+      body: `${name}${amount}${location}${items ? '\n📦 ' + items : ''}\nBấm để xem & soạn hàng →`,
+      icon: '/icon-admin-192.png',
+      badge: '/logo-circle.png',
+      tag: `new-order-${order.id}`,
+      data: { url: `/admin/orders/${order.id}`, orderId: order.id },
+      vibrate: [300, 100, 300, 100, 600],
+      requireInteraction: true,   // Stays on screen until tapped (Android)
+      silent: false,
+      actions: [
+        { action: 'view', title: '👁 Xem đơn' },
+        { action: 'dismiss', title: 'Bỏ qua' },
+      ],
+    })
+  } catch {
+    // Notification API not available in this context
+  }
+}
+

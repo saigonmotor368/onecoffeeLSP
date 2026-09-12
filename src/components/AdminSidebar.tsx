@@ -45,11 +45,39 @@ export default function AdminSidebar({ pendingCount: propPendingCount }: { pendi
   const noticeTimerRef = useRef<number | null>(null)
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      setNotificationActive(getNotificationPermission() === 'granted')
+    const timer = window.setTimeout(async () => {
+      const isGranted = getNotificationPermission() === 'granted'
+      setNotificationActive(isGranted)
+      // Auto-start SW background polling if already granted
+      if (isGranted) {
+        startSWPollingOnMount()
+      }
     }, 0)
     return () => window.clearTimeout(timer)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  const startSWPollingOnMount = async () => {
+    if (!('serviceWorker' in navigator)) return
+    try {
+      const reg = await navigator.serviceWorker.getRegistration()
+      if (!reg?.active) return
+      const supabase = createClient()
+      const [{ data: sessionData }, { data: ordersData }] = await Promise.all([
+        supabase.auth.getSession(),
+        supabase.from('orders').select('id').filter('status', 'eq', 'pending').limit(100)
+      ])
+      reg.active.postMessage({
+        type: 'ADMIN_START_POLLING',
+        payload: {
+          token: sessionData?.session?.access_token || null,
+          seenIds: (ordersData || []).map((o: { id: string }) => o.id),
+        }
+      })
+    } catch {
+      // SW not available
+    }
+  }
 
   // Fetch pending count and listen for new orders
   useEffect(() => {
@@ -137,14 +165,43 @@ export default function AdminSidebar({ pendingCount: propPendingCount }: { pendi
     }
   }, [])
 
+  // Register SW background polling when notification is granted
+  const startSWPolling = async (seenIds: string[]) => {
+    if (!('serviceWorker' in navigator)) return
+    try {
+      const reg = await navigator.serviceWorker.getRegistration()
+      if (!reg?.active) return
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      reg.active.postMessage({
+        type: 'ADMIN_START_POLLING',
+        payload: {
+          token: session?.access_token || null,
+          seenIds,
+        }
+      })
+    } catch {
+      // SW not available
+    }
+  }
+
   const handleTestSoundAndNotification = async () => {
     playAdminNewOrderSound()
     const granted = await requestNotificationPermission()
     if (granted) {
       setNotificationActive(true)
       sendDeviceNotification('🔔 Chuông & Thông Báo Sẵn Sàng!', {
-        body: 'Âm thanh chuông báo và thông báo hệ thống đã được bật cho tài khoản Admin One Coffee.',
+        body: 'Thông báo đơn mới sẽ hiện ngay cả khi app chạy ngầm!',
       })
+      // Start SW background polling with current seen IDs
+      const supabase = createClient()
+      const { data } = await supabase
+        .from('orders')
+        .select('id')
+        .filter('status', 'eq', 'pending')
+        .limit(100)
+      const existingIds = (data || []).map((o: { id: string }) => o.id)
+      await startSWPolling(existingIds)
     }
   }
 
