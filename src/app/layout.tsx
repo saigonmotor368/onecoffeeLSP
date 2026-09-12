@@ -46,9 +46,26 @@ export const metadata: Metadata = {
     ],
   },
   openGraph: {
-    title: 'OneCoffeeLSP_Order',
-    description: 'Good Coffee — Brighter Workdays',
+    title: 'One Coffee LSP — Cà Phê Ngon, Ngày Tươi Sáng',
+    description: 'Đặt đồ uống One Coffee tại LSP · Good Coffee — Brighter Workdays',
     type: 'website',
+    url: 'https://onecafe.lspvn.com',
+    siteName: 'One Coffee LSP',
+    images: [
+      {
+        url: 'https://onecafe.lspvn.com/og-banner.jpg',
+        width: 1200,
+        height: 630,
+        alt: 'One Coffee LSP — Good Coffee, Brighter Workdays',
+      },
+    ],
+    locale: 'vi_VN',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'One Coffee LSP — Cà Phê Ngon, Ngày Tươi Sáng',
+    description: 'Đặt đồ uống One Coffee tại LSP · Good Coffee — Brighter Workdays',
+    images: ['https://onecafe.lspvn.com/og-banner.jpg'],
   },
 }
 
