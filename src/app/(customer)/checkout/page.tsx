@@ -106,7 +106,7 @@ function CheckoutContent() {
     orderNumber: orderNumber || 'OC20260911-001',
     accountNo: '101880305162',
     bankId: 'ICB',
-    accountName: 'HUYNH THI BICH NGO',
+    accountName: 'HUYNH THI BICH NGOC',
   })
 
   const copyToClipboard = (text: string, field: string) => {
@@ -991,7 +991,7 @@ function CheckoutContent() {
                 </div>
                 <div className={styles.bankRow}>
                   <span className={styles.bankLabel}>{lang === 'vi' ? 'Chủ tài khoản' : 'Beneficiary'}</span>
-                  <span className={styles.bankValue}>HUYNH THI BICH NGO</span>
+                  <span className={styles.bankValue}>HUYNH THI BICH NGOC</span>
                 </div>
                 <div className={styles.bankRow}>
                   <span className={styles.bankLabel}>{lang === 'vi' ? 'Số tiền' : 'Amount'}</span>

@@ -38,7 +38,7 @@ export function buildVietQRUrl({
   orderNumber,
   bankId = process.env.NEXT_PUBLIC_BANK_ID ?? 'ICB',
   accountNo = process.env.NEXT_PUBLIC_BANK_ACCOUNT ?? '101880305162',
-  accountName = process.env.NEXT_PUBLIC_ACCOUNT_NAME ?? 'HUYNH THI BICH NGO',
+  accountName = process.env.NEXT_PUBLIC_ACCOUNT_NAME ?? 'HUYNH THI BICH NGOC',
 }: {
   amount: number
   orderNumber: string

@@ -36,7 +36,7 @@ export default function AdminSettingsPage() {
   // Bank Info preview
   const bankId = process.env.NEXT_PUBLIC_BANK_ID || 'ICB'
   const bankAccount = process.env.NEXT_PUBLIC_BANK_ACCOUNT || '101880305162'
-  const accountName = process.env.NEXT_PUBLIC_ACCOUNT_NAME || 'HUYNH THI BICH NGO'
+  const accountName = process.env.NEXT_PUBLIC_ACCOUNT_NAME || 'HUYNH THI BICH NGOC'
   const hotline = process.env.NEXT_PUBLIC_HOTLINE || '0828687321'
 
   useEffect(() => {
