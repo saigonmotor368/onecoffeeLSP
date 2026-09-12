@@ -1,8 +1,10 @@
 {
+  "id": "/admin",
   "name": "OneCoffeeLSP_Admin",
   "short_name": "OneCoffeeLSP_Admin",
   "description": "Trung tâm điều hành và quản trị One Coffee LSP",
   "start_url": "/admin",
+  "scope": "/admin",
   "display": "standalone",
   "background_color": "#0F172A",
   "theme_color": "#0F172A",

@@ -15,7 +15,7 @@ export default function PWAInstallPrompt() {
   const [showModal, setShowModal] = useState(false)
   const [isIOS, setIsIOS] = useState(false)
   const [isInstalled, setIsInstalled] = useState(false)
-  const [showIOSSteps, setShowIOSSteps] = useState(false)
+  const [showSteps, setShowSteps] = useState(false)
 
   const isAdmin = pathname.startsWith('/admin')
   const appName = isAdmin ? 'One Coffee Admin' : 'One Coffee LSP'
@@ -30,7 +30,6 @@ export default function PWAInstallPrompt() {
 
     if (isStandalone) {
       setIsInstalled(true)
-      return
     }
 
     // 2. Check if iOS device
@@ -48,35 +47,49 @@ export default function PWAInstallPrompt() {
       setDeferredPrompt(e as BeforeInstallPromptEvent)
 
       if (forceInstall) {
+        setIsInstalled(false)
         setShowModal(true)
       }
     }
 
-    window.addEventListener('beforeinstallprompt', handleBeforeInstall)
+    // 5. Allow any button (like Admin Sidebar or manual prompt) to trigger installation modal
+    const handleCustomTrigger = () => {
+      setIsInstalled(false)
+      setShowModal(true)
+    }
 
-    // If on iOS or forced via QR code, trigger modal
+    window.addEventListener('beforeinstallprompt', handleBeforeInstall)
+    window.addEventListener('open-pwa-install', handleCustomTrigger)
+
+    // If forced via QR code, trigger modal
     if (forceInstall) {
       const timer = setTimeout(() => {
+        setIsInstalled(false)
         setShowModal(true)
-        if (isAppleDevice) setShowIOSSteps(true)
+        if (isAppleDevice) setShowSteps(true)
       }, 300)
-      return () => clearTimeout(timer)
+      return () => {
+        clearTimeout(timer)
+        window.removeEventListener('beforeinstallprompt', handleBeforeInstall)
+        window.removeEventListener('open-pwa-install', handleCustomTrigger)
+      }
     }
 
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstall)
+      window.removeEventListener('open-pwa-install', handleCustomTrigger)
     }
   }, [pathname])
 
   const handleInstallClick = async () => {
     if (isIOS) {
-      setShowIOSSteps(true)
+      setShowSteps(true)
       return
     }
 
     if (!deferredPrompt) {
-      // Fallback for browsers that don't support beforeinstallprompt
-      setShowIOSSteps(true)
+      // Fallback: show platform-specific steps
+      setShowSteps(true)
       return
     }
 
@@ -88,7 +101,7 @@ export default function PWAInstallPrompt() {
       }
       setDeferredPrompt(null)
     } catch {
-      setShowIOSSteps(true)
+      setShowSteps(true)
     }
   }
 
@@ -127,54 +140,77 @@ export default function PWAInstallPrompt() {
             : 'Thêm vào màn hình chính để đặt đồ uống nhanh 1 chạm, theo dõi shipper giao nước tận xưởng!'}
         </p>
 
-        {showIOSSteps ? (
-          <div className={styles.iosGuideBox}>
-            <div className={styles.iosStep}>
-              <span className={styles.iosStepNum}>1</span>
-              <div>
-                Chạm vào biểu tượng <strong>Chia sẻ</strong>{' '}
-                <span className={styles.iosShareIcon}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle' }}>
-                    <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
-                    <polyline points="16 6 12 2 8 6" />
-                    <line x1="12" y1="2" x2="12" y2="15" />
-                  </svg>
-                </span>{' '}
-                ở thanh công cụ Safari (dưới cùng màn hình).
+        {showSteps ? (
+          isIOS ? (
+            <div className={styles.iosGuideBox}>
+              <div className={styles.iosStep}>
+                <span className={styles.iosStepNum}>1</span>
+                <div>
+                  Chạm vào biểu tượng <strong>Chia sẻ</strong>{' '}
+                  <span className={styles.iosShareIcon}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle' }}>
+                      <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" />
+                      <polyline points="16 6 12 2 8 6" />
+                      <line x1="12" y1="2" x2="12" y2="15" />
+                    </svg>
+                  </span>{' '}
+                  ở thanh công cụ Safari (dưới cùng màn hình).
+                </div>
+              </div>
+              <div className={styles.iosStep}>
+                <span className={styles.iosStepNum}>2</span>
+                <div>
+                  Cuộn xuống chọn dòng <strong>"Thêm vào MH chính" (Add to Home Screen)</strong>.
+                </div>
+              </div>
+              <div className={styles.iosStep}>
+                <span className={styles.iosStepNum}>3</span>
+                <div>
+                  Nhấn nút <strong>"Thêm" (Add)</strong> ở góc trên bên phải để hoàn tất.
+                </div>
               </div>
             </div>
-            <div className={styles.iosStep}>
-              <span className={styles.iosStepNum}>2</span>
-              <div>
-                Cuộn xuống chọn dòng <strong>"Thêm vào MH chính" (Add to Home Screen)</strong>.
+          ) : (
+            <div className={styles.iosGuideBox}>
+              <div className={styles.iosStep}>
+                <span className={styles.iosStepNum}>1</span>
+                <div>
+                  Chạm vào biểu tượng menu <strong>3 chấm (⋮)</strong> ở góc trên bên phải màn hình Chrome.
+                </div>
+              </div>
+              <div className={styles.iosStep}>
+                <span className={styles.iosStepNum}>2</span>
+                <div>
+                  Chọn dòng <strong>"Cài đặt ứng dụng"</strong> (hoặc <strong>"Thêm vào Màn hình chính"</strong>).
+                </div>
+              </div>
+              <div className={styles.iosStep}>
+                <span className={styles.iosStepNum}>3</span>
+                <div>
+                  Nhấn <strong>"Cài đặt" (Install)</strong> để biểu tượng {appName} xuất hiện độc lập trên điện thoại!
+                </div>
               </div>
             </div>
-            <div className={styles.iosStep}>
-              <span className={styles.iosStepNum}>3</span>
-              <div>
-                Nhấn nút <strong>"Thêm" (Add)</strong> ở góc trên bên phải để hoàn tất.
-              </div>
-            </div>
-          </div>
+          )
         ) : (
           <div className={styles.perksList}>
             <div className={perkItemClass}>
               <span className={styles.perkIcon}>⚡</span>
-              <span>Mở tức thì, không cần tải từ App Store / CH Play</span>
+              <span>Mở tức thì, biểu tượng riêng biệt trên màn hình chính</span>
             </div>
             <div className={perkItemClass}>
               <span className={styles.perkIcon}>🔔</span>
               <span>Chuông và thông báo đẩy trực tiếp khi có trạng thái mới</span>
             </div>
             <div className={perkItemClass}>
-              <span className={styles.perkIcon}>🛵</span>
-              <span>Tự động lưu phòng ban, đặt lại món cũ chỉ 1 chạm</span>
+              <span className={styles.perkIcon}>🛡️</span>
+              <span>Hoạt động độc lập, không bị lẫn giữa App Order và App Admin</span>
             </div>
           </div>
         )}
 
         <div className={styles.btnGroup}>
-          {!showIOSSteps && (
+          {!showSteps && (
             <button
               type="button"
               className={styles.installBtn}
@@ -189,7 +225,7 @@ export default function PWAInstallPrompt() {
             className={styles.dismissBtn}
             onClick={handleDismiss}
           >
-            {showIOSSteps ? 'Tôi đã hiểu / Đóng' : 'Để sau / Dùng trên web'}
+            {showSteps ? 'Tôi đã hiểu / Đóng' : 'Để sau / Dùng trên web'}
           </button>
         </div>
       </div>

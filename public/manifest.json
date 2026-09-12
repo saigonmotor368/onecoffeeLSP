@@ -1,8 +1,10 @@
 {
+  "id": "/home",
   "name": "OneCoffeeLSP_Order",
   "short_name": "OneCoffeeLSP_Order",
   "description": "Đặt đồ uống One Coffee tại nhà máy LSP & khu vực lân cận",
   "start_url": "/home",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#1E4D3B",
   "theme_color": "#1E4D3B",

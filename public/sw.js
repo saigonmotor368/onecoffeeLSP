@@ -1,11 +1,14 @@
 // One Coffee LSP Service Worker
-const CACHE_NAME = 'one-coffee-lsp-v1'
+const CACHE_NAME = 'one-coffee-lsp-v2'
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
+  '/manifest-admin.json',
+  '/icon-order-192.png',
+  '/icon-order-512.png',
+  '/icon-admin-192.png',
+  '/icon-admin-512.png',
   '/logo-circle.png',
-  '/logo-192.png',
-  '/logo-512.png',
 ]
 
 self.addEventListener('install', event => {
@@ -33,6 +36,9 @@ self.addEventListener('fetch', event => {
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request).catch(() => {
+        if (event.request.url.includes('/admin')) {
+          return caches.match('/admin')
+        }
         return caches.match('/')
       })
     )

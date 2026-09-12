@@ -332,6 +332,41 @@ export default function AdminSidebar({ pendingCount: propPendingCount }: { pendi
           </div>
         </div>
 
+        {/* Quick PWA Install button for Admin */}
+        <div style={{ padding: '8px 12px 0' }}>
+          <button
+            type="button"
+            onClick={() => {
+              setMobileOpen(false)
+              window.dispatchEvent(new CustomEvent('open-pwa-install'))
+            }}
+            style={{
+              width: '100%',
+              padding: '9px 12px',
+              borderRadius: '8px',
+              background: 'rgba(56, 189, 248, 0.12)',
+              border: '1px solid rgba(56, 189, 248, 0.3)',
+              color: '#38BDF8',
+              fontSize: '12px',
+              fontWeight: 700,
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              cursor: 'pointer',
+              textAlign: 'left',
+              transition: 'all 0.2s ease',
+            }}
+          >
+            <span style={{ fontSize: '14px' }}>📲</span>
+            <div style={{ flex: 1 }}>
+              <div>Cài App Admin Ra Màn Hình</div>
+              <div style={{ fontSize: '10px', opacity: 0.8, fontWeight: 400 }}>
+                Cài riêng biệt, độc lập với App Khách
+              </div>
+            </div>
+          </button>
+        </div>
+
         <div style={{ padding: '10px 12px 16px' }}>
           <button className="admin-nav-item" onClick={handleLogout} style={{ width: '100%', color: '#FFA8A8' }}>
             <span className="admin-nav-icon">🚪</span>
