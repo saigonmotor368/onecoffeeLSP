@@ -13,6 +13,10 @@
   padding: 0;
 }
 
+button, input, select, textarea, optgroup {
+  font-family: inherit;
+}
+
 /* ── Design Tokens ─────────────────────────────────────── */
 :root {
   /* Brand matching exact mockup */

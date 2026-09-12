@@ -5,7 +5,7 @@ import { AppProvider } from '@/lib/providers'
 
 const beVietnam = Be_Vietnam_Pro({
   subsets: ['latin', 'vietnamese'],
-  weight: ['300', '400', '500', '600', '700', '800'],
+  weight: ['300', '400', '500', '600', '700', '800', '900'],
   variable: '--font-sans',
   display: 'swap',
 })
