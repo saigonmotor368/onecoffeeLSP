@@ -127,7 +127,26 @@ export default function ProfilePage() {
     router.replace('/home')
   }
 
-  const handleResetGuestCache = () => {
+  const clearSWCaches = async () => {
+    if ('caches' in window) {
+      const cacheNames = await caches.keys()
+      await Promise.all(cacheNames.map(name => caches.delete(name)))
+    }
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations()
+      await Promise.all(regs.map(r => r.unregister()))
+    }
+  }
+
+  const handleUpdateApp = async () => {
+    showToast(lang === 'vi' ? 'Đang cập nhật app...' : 'Updating app...', 'info')
+    await clearSWCaches()
+    // Small delay then reload to get fresh SW
+    setTimeout(() => window.location.reload(), 500)
+  }
+
+  const handleResetGuestCache = async () => {
+    await clearSWCaches()
     localStorage.clear()
     sessionStorage.clear()
     setProfile(null)
@@ -137,7 +156,7 @@ export default function ProfilePage() {
       lang === 'vi' ? 'Đã xóa toàn bộ bộ nhớ đệm! Bạn có thể test như khách mới.' : 'Cache cleared! Ready to test as new customer.',
       'success'
     )
-    router.replace('/home')
+    setTimeout(() => router.replace('/home'), 300)
   }
 
   const toggleLanguage = () => {
@@ -386,8 +405,23 @@ export default function ProfilePage() {
           <span className={styles.chevron}>›</span>
         </div>
 
-        {/* 8. Reset Cache / Test New Customer */}
-        <div className={styles.menuItem} onClick={handleResetGuestCache} style={{ borderTop: '1px dashed #E2E8F0', marginTop: '4px' }}>
+        {/* 8. Update App (clear SW cache + reload) */}
+        <div
+          className={styles.menuItem}
+          onClick={handleUpdateApp}
+          style={{ borderTop: '1px solid #E2E8F0', marginTop: '4px' }}
+        >
+          <div className={styles.menuItemLeft}>
+            <span className={styles.menuIcon}>🔄</span>
+            <span className={styles.menuText} style={{ color: '#1E4D3B' }}>
+              {lang === 'vi' ? 'Cập nhật App (Xóa Cache)' : 'Update App (Clear Cache)'}
+            </span>
+          </div>
+          <span className={styles.chevron}>›</span>
+        </div>
+
+        {/* 9. Reset Cache / Test New Customer */}
+        <div className={styles.menuItem} onClick={handleResetGuestCache} style={{ borderTop: '1px dashed #E2E8F0' }}>
           <div className={styles.menuItemLeft}>
             <span className={styles.menuIcon}>🗑️</span>
             <span className={styles.menuText} style={{ color: '#C53030' }}>
