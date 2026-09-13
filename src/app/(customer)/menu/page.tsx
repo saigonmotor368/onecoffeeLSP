@@ -61,26 +61,24 @@ function MenuContent() {
             }))
             setProductsList(mapped)
 
-            // Migrate slug-based favorites → UUID
-            // If any stored favorite ID doesn't look like a UUID, try to match by name slug
-            const stored = favorites
-            const hasSlugIds = stored.some(id => !id.match(/^[0-9a-f-]{36}$/i))
-            if (hasSlugIds) {
-              const migrated = stored.map(storedId => {
-                if (storedId.match(/^[0-9a-f-]{36}$/i)) return storedId // already UUID
-                // Try match by static slug from menu-data
-                const match = mapped.find(p =>
-                  p.name_vi.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') === storedId ||
-                  p.name_en.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') === storedId ||
-                  storedId.includes(p.name_vi.toLowerCase().split(' ')[0])
-                )
-                return match ? match.id : storedId
-              })
-              if (JSON.stringify(migrated) !== JSON.stringify(stored)) {
-                localStorage.setItem('oc_favorite_ids', JSON.stringify(migrated))
-                window.dispatchEvent(new CustomEvent('oc_favorites_changed', { detail: { favorites: migrated } }))
+            // AUTO-FIX: Remove any stored favorites that are NOT valid UUIDs
+            // (old slug-based IDs from before the Supabase migration)
+            // AND not present in the current product list
+            const stored = (() => {
+              try { return JSON.parse(localStorage.getItem('oc_favorite_ids') || '[]') } catch { return [] }
+            })() as string[]
+
+            if (stored.length > 0) {
+              const productUUIDs = new Set(mapped.map(p => p.id))
+              const validFavs = stored.filter(id => productUUIDs.has(id))
+              
+              if (validFavs.length !== stored.length) {
+                // Some IDs were invalid — purge them
+                localStorage.setItem('oc_favorite_ids', JSON.stringify(validFavs))
+                window.dispatchEvent(new CustomEvent('oc_favorites_changed', { detail: { favorites: validFavs } }))
               }
             }
+
           }
         })
     } catch {
