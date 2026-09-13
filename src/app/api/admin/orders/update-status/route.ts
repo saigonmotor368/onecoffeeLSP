@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/supabase/admin-auth'
+import { notifyCustomerOrderStatus } from '@/lib/push'
 
 export async function POST(req: Request) {
   try {
@@ -43,6 +44,31 @@ export async function POST(req: Request) {
     if (error) {
       console.error('Update order error:', error)
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    // Send Web Push notification to customer if order_status changed
+    if (status !== undefined) {
+      try {
+        const { data: order } = await auth.supabase
+          .from('orders')
+          .select('order_number, user_id, recipient_name, final_amount')
+          .eq('id', orderId)
+          .single()
+
+        if (order) {
+          // Fire and forget — don't block the response
+          notifyCustomerOrderStatus(
+            orderId,
+            order.order_number,
+            status,
+            order.recipient_name,
+            order.final_amount,
+            order.user_id
+          ).catch(err => console.error('Push notify error:', err))
+        }
+      } catch {
+        // Non-fatal — log and continue
+      }
     }
 
     return NextResponse.json({ success: true })

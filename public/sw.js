@@ -1,5 +1,5 @@
-// One Coffee LSP Service Worker v3 — with background order polling
-const CACHE_NAME = 'one-coffee-lsp-v3'
+// One Coffee LSP Service Worker v4 — with Web Push support
+const CACHE_NAME = 'one-coffee-lsp-v4'
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
@@ -67,6 +67,38 @@ self.addEventListener('fetch', event => {
       })
     )
   }
+})
+
+// ─────────────────────────────────────────────────────────────
+// WEB PUSH — Receive server-sent push notifications
+// This fires even when the app is COMPLETELY CLOSED (like banking apps)
+// ─────────────────────────────────────────────────────────────
+self.addEventListener('push', event => {
+  if (!event.data) return
+
+  let payload
+  try {
+    payload = event.data.json()
+  } catch {
+    payload = { title: 'One Coffee', body: event.data.text() }
+  }
+
+  const title = payload.title || 'One Coffee'
+  const options = {
+    body: payload.body || '',
+    icon: payload.icon || '/logo-192.png',
+    badge: payload.badge || '/logo-circle.png',
+    tag: payload.tag || 'one-coffee-push',
+    data: { url: payload.url || '/', ...(payload.data || {}) },
+    vibrate: payload.vibrate || [200, 100, 200],
+    requireInteraction: payload.requireInteraction || false,
+    silent: false,
+    actions: payload.actions || [],
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(title, options)
+  )
 })
 
 // ─────────────────────────────────────────────────────────────
