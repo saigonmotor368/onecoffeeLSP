@@ -70,28 +70,46 @@ self.addEventListener('fetch', event => {
 })
 
 // ─────────────────────────────────────────────────────────────
-// Notification click — open order detail page
+// Notification click — handle action buttons
 // ─────────────────────────────────────────────────────────────
 self.addEventListener('notificationclick', event => {
   event.notification.close()
-  const targetUrl = event.notification.data?.url || '/admin/orders'
+
+  const data = event.notification.data || {}
+  const action = event.action  // 'view', 'dismiss', 'review', 'contact', ''
+
+  // Dismiss — close and do nothing
+  if (action === 'dismiss') return
+
+  // Contact — open phone dial
+  if (action === 'contact') {
+    event.waitUntil(clients.openWindow('tel:0828687321'))
+    return
+  }
+
+  // Review — go to order page (review section)
+  // View or default tap — open the order URL
+  const targetUrl = action === 'review'
+    ? (data.url ? data.url + '#review' : '/orders')
+    : (data.url || '/orders')
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then(clientList => {
-      // Try to focus existing admin window
+      // Try to focus & navigate an existing window
       for (const client of clientList) {
-        if (client.url.includes('/admin') && 'focus' in client) {
+        if ('navigate' in client && 'focus' in client) {
           client.navigate(targetUrl)
           return client.focus()
         }
       }
-      // Open new window if none found
+      // No existing window — open new
       if (clients.openWindow) {
         return clients.openWindow(targetUrl)
       }
     })
   )
 })
+
 
 // ─────────────────────────────────────────────────────────────
 // Background Order Polling (runs in SW scope — works when app minimized on Android)

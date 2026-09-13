@@ -156,14 +156,20 @@ export async function requestNotificationPermission(): Promise<boolean> {
 export interface DeviceNotificationOptions {
   body?: string
   icon?: string
-  tag?: string
   badge?: string
+  tag?: string
   data?: Record<string, unknown>
   vibrate?: number[]
+  requireInteraction?: boolean
+  silent?: boolean
+  actions?: Array<{ action: string; title: string }>
+  image?: string
 }
 
 /**
- * Sends a native system notification to mobile phone or desktop
+ * Sends a rich native system notification with app icon, actions, and vibration.
+ * Uses ServiceWorker.showNotification() when available (most reliable on mobile & PWA).
+ * Falls back to window.Notification() API.
  */
 export async function sendDeviceNotification(
   title: string,
@@ -175,39 +181,45 @@ export async function sendDeviceNotification(
     return
   }
 
-  const defaultIcon = '/logo-192.png'
-  const defaultBadge = '/logo-circle.png'
-  const vibratePattern = options?.vibrate || [200, 100, 200]
+  const icon = options?.icon || '/logo-192.png'
+  const badge = options?.badge || '/logo-circle.png'
+  const vibrate = options?.vibrate || [200, 100, 200, 100, 400]
 
-  // Try using ServiceWorkerRegistration first (most reliable on mobile & PWA)
+  const notifOptions: NotificationOptions = {
+    icon,
+    badge,
+    body: options?.body || '',
+    tag: options?.tag,
+    data: options?.data,
+    vibrate,
+    requireInteraction: options?.requireInteraction ?? false,
+    silent: options?.silent ?? false,
+    ...(options?.image ? { image: options.image } : {}),
+  } as NotificationOptions
+
+  // Try using ServiceWorkerRegistration.showNotification (best on Android PWA)
   if ('serviceWorker' in navigator) {
     try {
       const reg = await navigator.serviceWorker.getRegistration()
       if (reg && 'showNotification' in reg) {
-        await (reg as any).showNotification(title, {
-          icon: options?.icon || defaultIcon,
-          badge: options?.badge || defaultBadge,
-          body: options?.body || '',
-          tag: options?.tag,
-          data: options?.data,
-          vibrate: vibratePattern,
-        })
+        // Add action buttons if supported
+        const swOptions: Record<string, unknown> = {
+          ...notifOptions,
+        }
+        if (options?.actions && options.actions.length > 0) {
+          swOptions['actions'] = options.actions
+        }
+        await (reg as ServiceWorkerRegistration).showNotification(title, swOptions as NotificationOptions)
         return
       }
     } catch {
-      // fallback to new Notification
+      // fall through to window.Notification
     }
   }
 
-  // Fallback to standard Window Notification
+  // Fallback: standard Notification API
   try {
-    new Notification(title, {
-      icon: options?.icon || defaultIcon,
-      badge: options?.badge || defaultBadge,
-      body: options?.body || '',
-      tag: options?.tag,
-      data: options?.data,
-    })
+    new Notification(title, notifOptions)
   } catch {
     // ignore
   }
