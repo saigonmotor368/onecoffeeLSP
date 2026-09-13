@@ -6,7 +6,11 @@ import { createClient } from '@/lib/supabase/client'
 type PushRole = 'customer' | 'admin'
 export type PushState = 'loading' | 'prompt' | 'enabled' | 'denied' | 'unsupported' | 'install_required' | 'login_required' | 'error'
 
-const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || ''
+// VAPID public key — hardcoded fallback because NEXT_PUBLIC_* env vars are NOT
+// available at client-side runtime on statically-rendered pages (Turbopack/Next.js).
+// This is a PUBLIC key (not a secret) so hardcoding is safe.
+const VAPID_PUBLIC_KEY_FALLBACK = 'BObXO53RMrfO2ToJU6fBFYF-NaumNBR1t9GQ_xmlOPlyvloXJ1AKACneclp2joUV2YxaC2YMcu1Terbh5mbnJvk'
+const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || VAPID_PUBLIC_KEY_FALLBACK
 
 function supportState(): PushState | null {
   if (typeof window === 'undefined') return 'loading'

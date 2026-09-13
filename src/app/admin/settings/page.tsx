@@ -433,12 +433,10 @@ export default function AdminSettingsPage() {
                       showToast(lang === 'vi' ? 'Chưa cấp quyền thông báo' : 'Notification permission not granted', 'error')
                       return
                     }
-                    // Import and subscribe
-                    const { usePushSubscription } = await import('@/lib/use-push-subscription')
                     // Direct subscribe flow
                     const reg = await navigator.serviceWorker.register('/sw.js')
                     await navigator.serviceWorker.ready
-                    const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || ''
+                    const publicKey = 'BObXO53RMrfO2ToJU6fBFYF-NaumNBR1t9GQ_xmlOPlyvloXJ1AKACneclp2joUV2YxaC2YMcu1Terbh5mbnJvk'
                     const padded = publicKey + '='.repeat((4 - (publicKey.length % 4)) % 4)
                     const raw = window.atob(padded.replace(/-/g, '+').replace(/_/g, '/'))
                     const bytes = new Uint8Array(new ArrayBuffer(raw.length))
