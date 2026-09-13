@@ -34,6 +34,7 @@ export default function AdminMenuPage() {
   const [showModal, setShowModal] = useState(false)
   const [editingProduct, setEditingProduct] = useState<ProductItem | null>(null)
   const [saving, setSaving] = useState(false)
+  const [dbCategories, setDbCategories] = useState<{id: string, slug: string}[]>([])
 
   // Form state
   const [form, setForm] = useState({
@@ -53,9 +54,14 @@ export default function AdminMenuPage() {
   const loadMenu = useCallback(async () => {
     setLoading(true)
     const supabase = createClient()
+
+    // Fetch categories to map slug <-> id for inserts/updates
+    const { data: catData } = await supabase.from('categories').select('id, slug')
+    if (catData) setDbCategories(catData)
+
     const { data, error } = await supabase
       .from('products')
-      .select('*')
+      .select('*, categories(slug)')
       .order('sort_order', { ascending: true })
 
     if (error || !data || data.length === 0) {
@@ -66,7 +72,11 @@ export default function AdminMenuPage() {
       }))
       setProducts(fallbackList)
     } else {
-      setProducts(data as ProductItem[])
+      const mapped = data.map((item: any) => ({
+        ...item,
+        category_slug: item.categories?.slug || item.category_slug
+      }))
+      setProducts(mapped as ProductItem[])
     }
     setLoading(false)
   }, [])
@@ -141,11 +151,16 @@ export default function AdminMenuPage() {
     const priceMVal = form.price_m ? parseFloat(form.price_m) : null
     const priceLVal = form.price_l ? parseFloat(form.price_l) : null
 
+    // Find category ID from the selected slug
+    const selectedCat = dbCategories.find(c => c.slug === form.category_slug)
+    const category_id = selectedCat ? selectedCat.id : dbCategories[0]?.id
+
     if (editingProduct) {
       // Update
       const { error } = await supabase
         .from('products')
         .update({
+          category_id,
           name_vi: form.name_vi,
           name_en: form.name_en,
           price_m: priceMVal,
@@ -195,8 +210,7 @@ export default function AdminMenuPage() {
       }
 
       await supabase.from('products').insert({
-        id: newId,
-        category_id: 'cat-1', // Default category uuid or reference
+        category_id: category_id,
         name_vi: form.name_vi,
         name_en: form.name_en,
         price_m: priceMVal,
