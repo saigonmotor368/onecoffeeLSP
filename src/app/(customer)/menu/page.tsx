@@ -56,14 +56,43 @@ function MenuContent() {
               is_featured: d.is_featured,
               is_new: d.is_new,
               is_recommended: d.is_recommended,
+              // Also keep the slug so we can match favorites
+              slug: (d.name_vi || '').toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''),
             }))
             setProductsList(mapped)
+
+            // Migrate slug-based favorites → UUID
+            // If any stored favorite ID doesn't look like a UUID, try to match by name slug
+            const stored = favorites
+            const hasSlugIds = stored.some(id => !id.match(/^[0-9a-f-]{36}$/i))
+            if (hasSlugIds) {
+              const migrated = stored.map(storedId => {
+                if (storedId.match(/^[0-9a-f-]{36}$/i)) return storedId // already UUID
+                // Try match by static slug from menu-data
+                const match = mapped.find(p =>
+                  p.name_vi.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') === storedId ||
+                  p.name_en.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '') === storedId ||
+                  storedId.includes(p.name_vi.toLowerCase().split(' ')[0])
+                )
+                return match ? match.id : storedId
+              })
+              if (JSON.stringify(migrated) !== JSON.stringify(stored)) {
+                localStorage.setItem('oc_favorite_ids', JSON.stringify(migrated))
+                window.dispatchEvent(new CustomEvent('oc_favorites_changed', { detail: { favorites: migrated } }))
+              }
+            }
           }
         })
     } catch {
       // fallback to static menuProducts
     }
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Count of favorites that actually match current product list
+  const favoritesInList = useMemo(
+    () => productsList.filter(p => favorites.includes(p.id)),
+    [productsList, favorites]
+  )
 
   const filtered = useMemo(() => {
     if (search.trim()) {
@@ -73,9 +102,10 @@ function MenuContent() {
       )
     }
     if (activeSlug === 'all') return productsList
-    if (activeSlug === 'favorites') return productsList.filter(p => favorites.includes(p.id))
+    if (activeSlug === 'favorites') return favoritesInList
     return productsList.filter(p => p.category_slug === activeSlug)
-  }, [activeSlug, search, productsList, favorites])
+  }, [activeSlug, search, productsList, favorites, favoritesInList])
+
 
   const currentCategory = allCategories.find(c => c.slug === activeSlug)
 
@@ -116,8 +146,8 @@ function MenuContent() {
             {allCategories.map(cat => {
               const isActive = activeSlug === cat.slug
               let label = lang === 'vi' ? `${cat.icon} ${cat.name_vi}` : `${cat.icon} ${cat.name_en}`
-              if (cat.slug === 'favorites' && favorites.length > 0) {
-                label += ` (${favorites.length})`
+              if (cat.slug === 'favorites' && favoritesInList.length > 0) {
+                label += ` (${favoritesInList.length})`
               }
               return (
                 <button
@@ -156,31 +186,49 @@ function MenuContent() {
             activeSlug === 'favorites' ? (
               <div className="empty-state" style={{ padding: '48px 16px', textAlign: 'center' }}>
                 <span style={{ fontSize: '48px', display: 'block', marginBottom: '12px' }}>❤️</span>
-                <h3 style={{ fontSize: '17px', fontWeight: 800, color: '#1E4D3B', margin: '0 0 6px' }}>
-                  {lang === 'vi' ? 'Chưa có món yêu thích nào' : 'No favorite items yet'}
-                </h3>
-                <p style={{ fontSize: '13px', color: '#64748B', maxWidth: '320px', margin: '0 auto 18px', lineHeight: 1.5 }}>
-                  {lang === 'vi'
-                    ? 'Bấm vào biểu tượng trái tim ❤️ ở bất kỳ món đồ uống nào để thêm nhanh vào danh mục yêu thích nhé!'
-                    : 'Tap the heart ❤️ icon on any drink to quickly save it to your favorites!'}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setActiveSlug('all')}
-                  style={{
-                    background: '#1E4D3B',
-                    color: '#FFFFFF',
-                    border: 'none',
-                    padding: '12px 24px',
-                    borderRadius: '999px',
-                    fontWeight: 700,
-                    fontSize: '14px',
-                    cursor: 'pointer',
-                    boxShadow: '0 4px 14px rgba(30, 77, 59, 0.3)'
-                  }}
-                >
-                  {lang === 'vi' ? '☕ Khám phá Menu ngay' : '☕ Explore Menu Now'}
-                </button>
+                {favorites.length > 0 ? (
+                  // Has stored IDs but none match current products (stale data)
+                  <>
+                    <h3 style={{ fontSize: '17px', fontWeight: 800, color: '#1E4D3B', margin: '0 0 6px' }}>
+                      {lang === 'vi' ? 'Dữ liệu yêu thích bị lỗi' : 'Favorites data mismatch'}
+                    </h3>
+                    <p style={{ fontSize: '13px', color: '#64748B', maxWidth: '300px', margin: '0 auto 18px', lineHeight: 1.5 }}>
+                      {lang === 'vi'
+                        ? 'Danh sách yêu thích cũ không khớp với menu hiện tại. Xóa và chọn lại nhé!'
+                        : 'Old favorites do not match current menu. Please clear and re-select!'}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        localStorage.removeItem('oc_favorite_ids')
+                        window.dispatchEvent(new CustomEvent('oc_favorites_changed', { detail: { favorites: [] } }))
+                        setActiveSlug('all')
+                      }}
+                      style={{ background: '#E11D48', color: '#FFFFFF', border: 'none', padding: '11px 24px', borderRadius: '999px', fontWeight: 700, fontSize: '14px', cursor: 'pointer', marginRight: '8px' }}
+                    >
+                      🗑 {lang === 'vi' ? 'Xóa & chọn lại' : 'Clear & Re-pick'}
+                    </button>
+                  </>
+                ) : (
+                  // Truly empty
+                  <>
+                    <h3 style={{ fontSize: '17px', fontWeight: 800, color: '#1E4D3B', margin: '0 0 6px' }}>
+                      {lang === 'vi' ? 'Chưa có món yêu thích nào' : 'No favorite items yet'}
+                    </h3>
+                    <p style={{ fontSize: '13px', color: '#64748B', maxWidth: '320px', margin: '0 auto 18px', lineHeight: 1.5 }}>
+                      {lang === 'vi'
+                        ? 'Bấm vào biểu tượng trái tim ❤️ ở bất kỳ món đồ uống nào để thêm vào yêu thích!'
+                        : 'Tap the heart ❤️ on any drink to save it to favorites!'}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setActiveSlug('all')}
+                      style={{ background: '#1E4D3B', color: '#FFFFFF', border: 'none', padding: '12px 24px', borderRadius: '999px', fontWeight: 700, fontSize: '14px', cursor: 'pointer', boxShadow: '0 4px 14px rgba(30, 77, 59, 0.3)' }}
+                    >
+                      {lang === 'vi' ? '☕ Khám phá Menu ngay' : '☕ Explore Menu Now'}
+                    </button>
+                  </>
+                )}
               </div>
             ) : (
               <div className="empty-state">
