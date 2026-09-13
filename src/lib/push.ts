@@ -1,10 +1,21 @@
 import webpush from 'web-push'
+import { getAdminClient } from '@/lib/supabase/admin'
 
-const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!
-const VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY!
-const VAPID_EMAIL = process.env.VAPID_EMAIL || 'mailto:admin@onecoffee.lspvn.com'
+let vapidConfigured = false
 
-webpush.setVapidDetails(VAPID_EMAIL, VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY)
+function configureVapid(): boolean {
+  if (vapidConfigured) return true
+  const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+  const privateKey = process.env.VAPID_PRIVATE_KEY
+  const email = process.env.VAPID_EMAIL || 'mailto:admin@onecoffee.lspvn.com'
+  if (!publicKey || !privateKey) {
+    console.error('Web Push VAPID keys are not configured')
+    return false
+  }
+  webpush.setVapidDetails(email, publicKey, privateKey)
+  vapidConfigured = true
+  return true
+}
 
 export interface PushPayload {
   title: string
@@ -20,6 +31,27 @@ export interface PushPayload {
 }
 
 type SubRow = { id: string; endpoint: string; p256dh: string; auth_key: string }
+
+async function sendToSubscriptions(subs: SubRow[], payload: PushPayload): Promise<{ sent: number; failed: number }> {
+  if (subs.length === 0) return { sent: 0, failed: 0 }
+  if (!configureVapid()) return { sent: 0, failed: subs.length }
+
+  let sent = 0
+  let failed = 0
+  await Promise.all(subs.map(async sub => {
+    const result = await sendPushToSubscription(sub, payload)
+    if (result.success) {
+      sent++
+    } else {
+      failed++
+      if (result.expired) {
+        const { error } = await getAdminClient().from('push_subscriptions').delete().eq('id', sub.id)
+        if (error) console.error('Could not remove expired push subscription:', error)
+      }
+    }
+  }))
+  return { sent, failed }
+}
 
 /**
  * Send push notification to a single subscription
@@ -48,7 +80,8 @@ async function sendPushToSubscription(
         requireInteraction: payload.requireInteraction ?? false,
         actions: payload.actions || [],
         vibrate: payload.vibrate || [200, 100, 200],
-      })
+      }),
+      { TTL: 24 * 60 * 60, urgency: 'high' }
     )
     return { success: true }
   } catch (err: unknown) {
@@ -56,6 +89,7 @@ async function sendPushToSubscription(
     if (statusCode === 410 || statusCode === 404) {
       return { success: false, expired: true }
     }
+    console.error('Web Push delivery failed:', statusCode || err)
     return { success: false }
   }
 }
@@ -67,81 +101,29 @@ export async function sendPushToCustomer(
   userId: string,
   payload: PushPayload
 ): Promise<{ sent: number; failed: number }> {
-  // Use inline fetch to avoid async createClient import issues
-  const SUPABASE_URL = 'https://hidebmafolacwfzgrrqn.supabase.co'
-  const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY!
-
-  const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/push_subscriptions?user_id=eq.${userId}&role=eq.customer&select=id,endpoint,p256dh,auth_key`,
-    {
-      headers: {
-        'apikey': SERVICE_KEY,
-        'Authorization': `Bearer ${SERVICE_KEY}`,
-      }
-    }
-  )
-
-  if (!res.ok) return { sent: 0, failed: 0 }
-  const subs: SubRow[] = await res.json()
-  if (!subs || subs.length === 0) return { sent: 0, failed: 0 }
-
-  const expiredEndpoints: string[] = []
-  let sent = 0, failed = 0
-
-  await Promise.allSettled(
-    subs.map(async (sub) => {
-      const result = await sendPushToSubscription(sub, payload)
-      if (result.success) sent++
-      else if (result.expired) expiredEndpoints.push(sub.endpoint)
-      else failed++
-    })
-  )
-
-  // Clean up expired subs
-  if (expiredEndpoints.length > 0) {
-    await fetch(`${SUPABASE_URL}/rest/v1/push_subscriptions?endpoint=in.(${expiredEndpoints.map(e => `"${e}"`).join(',')})`, {
-      method: 'DELETE',
-      headers: {
-        'apikey': SERVICE_KEY,
-        'Authorization': `Bearer ${SERVICE_KEY}`,
-      }
-    })
+  const { data, error } = await getAdminClient().from('push_subscriptions')
+    .select('id, endpoint, p256dh, auth_key')
+    .eq('user_id', userId)
+    .eq('role', 'customer')
+  if (error) {
+    console.error('Could not load customer push subscriptions:', error)
+    throw error
   }
-
-  return { sent, failed }
+  return sendToSubscriptions((data || []) as SubRow[], payload)
 }
 
 /**
  * Send push to all admin subscriptions
  */
 export async function sendPushToAdmins(payload: PushPayload): Promise<{ sent: number; failed: number }> {
-  const SUPABASE_URL = 'https://hidebmafolacwfzgrrqn.supabase.co'
-  const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY!
-
-  const res = await fetch(
-    `${SUPABASE_URL}/rest/v1/push_subscriptions?role=eq.admin&select=id,endpoint,p256dh,auth_key`,
-    {
-      headers: {
-        'apikey': SERVICE_KEY,
-        'Authorization': `Bearer ${SERVICE_KEY}`,
-      }
-    }
-  )
-
-  if (!res.ok) return { sent: 0, failed: 0 }
-  const subs: SubRow[] = await res.json()
-  if (!subs || subs.length === 0) return { sent: 0, failed: 0 }
-
-  let sent = 0, failed = 0
-  await Promise.allSettled(
-    subs.map(async (sub) => {
-      const result = await sendPushToSubscription(sub, payload)
-      if (result.success) sent++
-      else failed++
-    })
-  )
-
-  return { sent, failed }
+  const { data, error } = await getAdminClient().from('push_subscriptions')
+    .select('id, endpoint, p256dh, auth_key')
+    .eq('role', 'admin')
+  if (error) {
+    console.error('Could not load admin push subscriptions:', error)
+    throw error
+  }
+  return sendToSubscriptions((data || []) as SubRow[], payload)
 }
 
 /**
@@ -154,8 +136,8 @@ export async function notifyCustomerOrderStatus(
   recipientName: string | null,
   finalAmount: number | null,
   userId: string | null
-): Promise<void> {
-  if (!userId) return
+): Promise<{ sent: number; failed: number }> {
+  if (!userId) return { sent: 0, failed: 0 }
 
   const num = orderNumber || orderId.slice(0, 8)
   const amount = finalAmount
@@ -217,9 +199,9 @@ export async function notifyCustomerOrderStatus(
   }
 
   const config = configs[status]
-  if (!config) return
+  if (!config) return { sent: 0, failed: 0 }
 
-  await sendPushToCustomer(userId, {
+  return sendPushToCustomer(userId, {
     ...config,
     icon: '/logo-192.png',
     badge: '/logo-circle.png',

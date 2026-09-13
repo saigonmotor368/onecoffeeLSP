@@ -165,17 +165,25 @@ export default function CustomerOrderNotifier() {
     if (newStatus === 'delivering') playDeliveringSound()
     if (newStatus === 'delivered') playCompletedSound()
 
-    // Rich system notification
-    sendDeviceNotification(config.title, {
-      body: config.body,
-      icon: '/logo-192.png',
-      badge: '/logo-circle.png',
-      tag: `order-${newStatus}-${order.id}`,
-      data: { url: `/orders/${order.id}`, orderId: order.id, orderNumber: order.order_number },
-      vibrate: config.vibrate,
-      requireInteraction: config.requireInteraction,
-      actions: config.actions,
-    })
+    // Server Web Push already shows a system notification. Polling is only a
+    // fallback for browsers without a registered push subscription.
+    void (async () => {
+      const registration = 'serviceWorker' in navigator
+        ? await navigator.serviceWorker.getRegistration('/sw.js').catch(() => undefined)
+        : undefined
+      const subscription = await registration?.pushManager.getSubscription().catch(() => null)
+      if (subscription) return
+      sendDeviceNotification(config.title, {
+        body: config.body,
+        icon: '/logo-192.png',
+        badge: '/logo-circle.png',
+        tag: `order-${newStatus}-${order.id}`,
+        data: { url: `/orders/${order.id}`, orderId: order.id, orderNumber: order.order_number },
+        vibrate: config.vibrate,
+        requireInteraction: config.requireInteraction,
+        actions: config.actions,
+      })
+    })()
   }, [])
 
   const pollOrderStatuses = useCallback(async () => {

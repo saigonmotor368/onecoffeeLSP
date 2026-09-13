@@ -1,105 +1,152 @@
 'use client'
 
-import { useEffect, useRef, useCallback } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
 
-const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || ''
+type PushRole = 'customer' | 'admin'
+export type PushState = 'loading' | 'prompt' | 'enabled' | 'denied' | 'unsupported' | 'install_required' | 'login_required' | 'error'
 
-function urlBase64ToUint8Array(base64String: string): Uint8Array {
-  const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
-  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
-  const rawData = window.atob(base64)
-  const outputArray = new Uint8Array(rawData.length)
-  for (let i = 0; i < rawData.length; ++i) {
-    outputArray[i] = rawData.charCodeAt(i)
-  }
-  return outputArray
+const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || ''
+
+function supportState(): PushState | null {
+  if (typeof window === 'undefined') return 'loading'
+  const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent)
+  const installed = window.matchMedia('(display-mode: standalone)').matches ||
+    Boolean((navigator as Navigator & { standalone?: boolean }).standalone)
+  if (isIos && !installed) return 'install_required'
+  if (!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)) return 'unsupported'
+  if (!publicKey || publicKey.startsWith('your_')) return 'unsupported'
+  if (Notification.permission === 'denied') return 'denied'
+  return null
 }
 
-async function subscribeToPush(role: 'customer' | 'admin'): Promise<boolean> {
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-    console.warn('Push not supported in this browser')
-    return false
+function publicKeyBytes(base64String: string): Uint8Array<ArrayBuffer> {
+  const padded = base64String + '='.repeat((4 - (base64String.length % 4)) % 4)
+  const raw = window.atob(padded.replace(/-/g, '+').replace(/_/g, '/'))
+  const bytes = new Uint8Array(new ArrayBuffer(raw.length))
+  for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i)
+  return bytes
+}
+
+async function currentToken(role: PushRole): Promise<string | null> {
+  const { data: { session } } = await createClient(role).auth.getSession()
+  return session?.access_token || null
+}
+
+async function saveSubscription(role: PushRole): Promise<PushState> {
+  const token = await currentToken(role)
+  if (!token) return 'login_required'
+
+  const registration = await navigator.serviceWorker.register('/sw.js')
+  let subscription = await registration.pushManager.getSubscription()
+  if (!subscription) {
+    subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: publicKeyBytes(publicKey),
+    })
   }
 
-  if (!VAPID_PUBLIC_KEY || VAPID_PUBLIC_KEY.startsWith('your_')) {
-    console.warn('VAPID public key not configured')
-    return false
+  const response = await fetch('/api/push/subscribe', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({
+      subscription: subscription.toJSON(),
+      role,
+      deviceInfo: navigator.userAgent.slice(0, 200),
+    }),
+  })
+  if (response.status === 401 || response.status === 403) return 'login_required'
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}))
+    throw new Error(body.error || 'Không lưu được thiết bị nhận thông báo')
   }
+  return 'enabled'
+}
+
+/** Remove this device before signing out so another account cannot receive its order updates. */
+export async function unsubscribeFromPush(role: PushRole = 'customer'): Promise<void> {
+  if (supportState() === 'unsupported' || !('serviceWorker' in navigator)) return
+  const token = await currentToken(role)
+  const registration = await navigator.serviceWorker.getRegistration('/sw.js')
+  const subscription = await registration?.pushManager.getSubscription()
+  if (!subscription) return
 
   try {
-    const reg = await navigator.serviceWorker.ready
-    
-    // Check if already subscribed
-    let sub = await reg.pushManager.getSubscription()
-    
-    if (!sub) {
-      // Subscribe with VAPID key
-      sub = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC_KEY).buffer as ArrayBuffer,
+    if (token) {
+      const response = await fetch('/api/push/subscribe', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ endpoint: subscription.endpoint, role }),
       })
+      if (!response.ok) throw new Error('Không xóa được thiết bị nhận thông báo')
     }
-
-    // Register with our server
-    await fetch('/api/push/subscribe', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        subscription: sub.toJSON(),
-        role,
-        deviceInfo: navigator.userAgent.slice(0, 200),
-      }),
-    })
-
-    return true
-  } catch (err) {
-    console.error('Push subscription error:', err)
-    return false
+  } finally {
+    // Invalidating the browser endpoint also prevents a stale server row from
+    // notifying someone who has signed out on a shared device.
+    await subscription.unsubscribe()
   }
 }
 
-/**
- * Hook to request notification permission and subscribe to Web Push.
- * Should be called early in the app lifecycle (e.g., after user interaction or login).
- * 
- * @param role - 'customer' or 'admin'
- * @param enabled - whether to attempt subscription (e.g., only when logged in for admin)
- */
-export function usePushSubscription(role: 'customer' | 'admin', enabled = true) {
-  const subscribedRef = useRef(false)
+/** Permission prompt is only called from a button click; iOS requires that user gesture. */
+export function usePushSubscription(role: PushRole, enabled = true) {
+  const [state, setState] = useState<PushState>('loading')
+  const [error, setError] = useState('')
 
-  const requestPermissionAndSubscribe = useCallback(async () => {
-    if (subscribedRef.current) return
-    if (typeof window === 'undefined') return
-    if (!('Notification' in window)) return
-
-    // Already granted — subscribe immediately
-    if (Notification.permission === 'granted') {
-      subscribedRef.current = true
-      await subscribeToPush(role)
-      return
+  const refresh = useCallback(async (): Promise<boolean> => {
+    const support = supportState()
+    if (support) {
+      setState(support)
+      return false
     }
-
-    // Not yet asked — request permission
-    if (Notification.permission === 'default') {
-      const permission = await Notification.requestPermission()
-      if (permission === 'granted') {
-        subscribedRef.current = true
-        await subscribeToPush(role)
-      }
+    if (Notification.permission !== 'granted') {
+      setState('prompt')
+      return false
+    }
+    try {
+      setState('loading')
+      setError('')
+      const result = await saveSubscription(role)
+      setState(result)
+      return result === 'enabled'
+    } catch (cause) {
+      console.error('Push registration failed:', cause)
+      setError(cause instanceof Error ? cause.message : 'Không đăng ký được thông báo')
+      setState('error')
+      return false
     }
   }, [role])
 
+  const requestPermissionAndSubscribe = useCallback(async (): Promise<boolean> => {
+    const support = supportState()
+    if (support) {
+      setState(support)
+      return false
+    }
+
+    // Keep this request before the first await; mobile Safari requires a user gesture.
+    if (Notification.permission === 'default') {
+      const permission = await Notification.requestPermission()
+      if (permission !== 'granted') {
+        setState(permission === 'denied' ? 'denied' : 'prompt')
+        return false
+      }
+    }
+    return refresh()
+  }, [refresh])
+
   useEffect(() => {
     if (!enabled) return
-    
-    // Small delay to not block first render
-    const timer = setTimeout(() => {
-      requestPermissionAndSubscribe()
-    }, 2000)
+    const initialTimer = setTimeout(() => { void refresh() }, 0)
+    const client = createClient(role)
+    const { data: listener } = client.auth.onAuthStateChange(() => {
+      // Supabase auth callbacks must not synchronously call getSession().
+      setTimeout(() => { void refresh() }, 0)
+    })
+    return () => {
+      clearTimeout(initialTimer)
+      listener.subscription.unsubscribe()
+    }
+  }, [enabled, role, refresh])
 
-    return () => clearTimeout(timer)
-  }, [enabled, requestPermissionAndSubscribe])
-
-  return { requestPermissionAndSubscribe }
+  return { state, error, refresh, requestPermissionAndSubscribe }
 }

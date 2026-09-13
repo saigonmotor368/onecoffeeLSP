@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { formatPrice } from '@/lib/utils'
+import PushNotificationCard from '@/components/PushNotificationCard'
 import styles from './success.module.css'
 
 interface OrderDetails {
@@ -109,6 +110,8 @@ function SuccessContent({ orderId }: { orderId: string }) {
             </p>
           </div>
         )}
+
+        <PushNotificationCard />
 
         {/* Notice instruction box */}
         <div className={`${styles.noticeBox} ${isCash ? styles.noticeBoxCash : styles.noticeBoxTransfer}`}>

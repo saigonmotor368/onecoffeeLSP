@@ -1,68 +1,97 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { getAdminClient } from '@/lib/supabase/admin'
+import { requireAdmin } from '@/lib/supabase/admin-auth'
 
-const SUPABASE_URL = 'https://hidebmafolacwfzgrrqn.supabase.co'
-const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_ROLE_KEY!
+type SubscriptionInput = {
+  endpoint?: unknown
+  keys?: { p256dh?: unknown; auth?: unknown }
+}
+
+async function authenticatedUser(req: Request, role: 'customer' | 'admin') {
+  if (role === 'admin') {
+    const auth = await requireAdmin(req)
+    return auth.authorized
+      ? { userId: auth.user.id, response: null }
+      : { userId: null, response: auth.response }
+  }
+
+  const header = req.headers.get('authorization')
+  const token = header?.startsWith('Bearer ') ? header.slice(7).trim() : ''
+  if (!token) {
+    return { userId: null, response: NextResponse.json({ error: 'Vui lòng đăng nhập để bật thông báo' }, { status: 401 }) }
+  }
+
+  const { data, error } = await getAdminClient().auth.getUser(token)
+  if (error || !data.user) {
+    return { userId: null, response: NextResponse.json({ error: 'Phiên đăng nhập đã hết hạn' }, { status: 401 }) }
+  }
+  return { userId: data.user.id, response: null }
+}
 
 export async function POST(req: Request) {
   try {
-    const { subscription, role = 'customer', deviceInfo } = await req.json()
+    const body = await req.json()
+    const role = body.role === 'admin' ? 'admin' : 'customer'
+    const auth = await authenticatedUser(req, role)
+    if (auth.response) return auth.response
 
-    if (!subscription?.endpoint || !subscription?.keys?.p256dh || !subscription?.keys?.auth) {
-      return NextResponse.json({ error: 'Invalid subscription object' }, { status: 400 })
+    const subscription = body.subscription as SubscriptionInput | undefined
+    const endpoint = subscription?.endpoint
+    const p256dh = subscription?.keys?.p256dh
+    const authKey = subscription?.keys?.auth
+    if (
+      typeof endpoint !== 'string' || !endpoint.startsWith('https://') || endpoint.length > 2048 ||
+      typeof p256dh !== 'string' || !p256dh ||
+      typeof authKey !== 'string' || !authKey
+    ) {
+      return NextResponse.json({ error: 'Thông tin đăng ký thông báo không hợp lệ' }, { status: 400 })
     }
 
-    const supabase = await createClient()
-    const { data: { session } } = await supabase.auth.getSession()
+    const { error } = await getAdminClient().from('push_subscriptions').upsert({
+      user_id: auth.userId,
+      endpoint,
+      p256dh,
+      auth_key: authKey,
+      role,
+      device_info: typeof body.deviceInfo === 'string' ? body.deviceInfo.slice(0, 200) : null,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'endpoint' })
 
-    // Upsert via REST with service role (bypasses TypeScript schema limitation)
-    const res = await fetch(`${SUPABASE_URL}/rest/v1/push_subscriptions`, {
-      method: 'POST',
-      headers: {
-        'apikey': SERVICE_KEY,
-        'Authorization': `Bearer ${SERVICE_KEY}`,
-        'Content-Type': 'application/json',
-        'Prefer': 'resolution=merge-duplicates',
-      },
-      body: JSON.stringify({
-        user_id: session?.user?.id || null,
-        endpoint: subscription.endpoint,
-        p256dh: subscription.keys.p256dh,
-        auth_key: subscription.keys.auth,
-        role,
-        device_info: deviceInfo || null,
-        updated_at: new Date().toISOString(),
-      }),
-    })
-
-    if (!res.ok) {
-      const errText = await res.text()
-      console.error('Push subscribe error:', errText)
-      return NextResponse.json({ error: errText }, { status: 500 })
+    if (error) {
+      console.error('Push subscription save failed:', error)
+      return NextResponse.json({ error: 'Không lưu được thiết bị nhận thông báo' }, { status: 500 })
     }
 
     return NextResponse.json({ success: true })
-  } catch (err) {
-    console.error('Push subscribe exception:', err)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  } catch (error) {
+    console.error('Push subscription failed:', error)
+    return NextResponse.json({ error: 'Không đăng ký được thông báo' }, { status: 500 })
   }
 }
 
 export async function DELETE(req: Request) {
   try {
-    const { endpoint } = await req.json()
-    if (!endpoint) return NextResponse.json({ error: 'endpoint required' }, { status: 400 })
+    const body = await req.json()
+    const role = body.role === 'admin' ? 'admin' : 'customer'
+    const auth = await authenticatedUser(req, role)
+    if (auth.response) return auth.response
+    if (typeof body.endpoint !== 'string' || !body.endpoint) {
+      return NextResponse.json({ error: 'Thiếu thiết bị nhận thông báo' }, { status: 400 })
+    }
 
-    await fetch(`${SUPABASE_URL}/rest/v1/push_subscriptions?endpoint=eq.${encodeURIComponent(endpoint)}`, {
-      method: 'DELETE',
-      headers: {
-        'apikey': SERVICE_KEY,
-        'Authorization': `Bearer ${SERVICE_KEY}`,
-      },
-    })
+    const { error } = await getAdminClient().from('push_subscriptions')
+      .delete()
+      .eq('endpoint', body.endpoint)
+      .eq('user_id', auth.userId!)
+      .eq('role', role)
+    if (error) {
+      console.error('Push subscription delete failed:', error)
+      return NextResponse.json({ error: 'Không tắt được thông báo' }, { status: 500 })
+    }
 
     return NextResponse.json({ success: true })
-  } catch {
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  } catch (error) {
+    console.error('Push unsubscribe failed:', error)
+    return NextResponse.json({ error: 'Không tắt được thông báo' }, { status: 500 })
   }
 }

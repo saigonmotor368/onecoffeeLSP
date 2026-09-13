@@ -36,38 +36,42 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
     }
 
-    const { error } = await auth.supabase
+    const { data: previousOrder, error: readError } = await auth.supabase
+      .from('orders')
+      .select('order_status')
+      .eq('id', orderId)
+      .single()
+    if (readError || !previousOrder) {
+      return NextResponse.json({ error: 'Không tìm thấy đơn hàng' }, { status: 404 })
+    }
+
+    const { data: order, error } = await auth.supabase
       .from('orders')
       .update(updatePayload)
       .eq('id', orderId)
+      .select('order_number, user_id, recipient_name, final_amount, order_status')
+      .single()
 
     if (error) {
       console.error('Update order error:', error)
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Send Web Push notification to customer if order_status changed
-    if (status !== undefined) {
+    // Await delivery: an unawaited promise can be frozen after a serverless response.
+    if (status !== undefined && status !== previousOrder.order_status && order) {
       try {
-        const { data: order } = await auth.supabase
-          .from('orders')
-          .select('order_number, user_id, recipient_name, final_amount')
-          .eq('id', orderId)
-          .single()
-
-        if (order) {
-          // Fire and forget — don't block the response
-          notifyCustomerOrderStatus(
-            orderId,
-            order.order_number,
-            status,
-            order.recipient_name,
-            order.final_amount,
-            order.user_id
-          ).catch(err => console.error('Push notify error:', err))
-        }
-      } catch {
-        // Non-fatal — log and continue
+        const result = await notifyCustomerOrderStatus(
+          orderId,
+          order.order_number,
+          status,
+          order.recipient_name,
+          order.final_amount,
+          order.user_id
+        )
+        console.info('Customer order push result:', { orderId, status, ...result })
+      } catch (pushError) {
+        // The order is already saved; push failure must not roll it back.
+        console.error('Customer order push failed:', { orderId, status, pushError })
       }
     }
 

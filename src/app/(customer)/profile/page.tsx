@@ -7,6 +7,8 @@ import { createClient } from '@/lib/supabase/client'
 import { useLang, useToast } from '@/lib/providers'
 import { useFavorites } from '@/lib/favorites'
 import { menuProducts, getProductImage, type MenuProduct } from '@/lib/menu-data'
+import PushNotificationCard from '@/components/PushNotificationCard'
+import { unsubscribeFromPush } from '@/lib/use-push-subscription'
 import styles from './profile.module.css'
 
 export default function ProfilePage() {
@@ -109,8 +111,12 @@ export default function ProfilePage() {
 
   const handleLogout = async () => {
     try {
-      const supabase = createClient()
-      await supabase.auth.signOut()
+      await unsubscribeFromPush('customer')
+    } catch {
+      // Continue sign-out even if this device could not be deregistered.
+    }
+    try {
+      await createClient().auth.signOut()
     } catch {
       // ignore
     }
@@ -235,6 +241,8 @@ export default function ProfilePage() {
           </div>
         </div>
       )}
+
+      {isLoggedIn && <PushNotificationCard />}
 
       {/* Menu Options */}
       <div className={styles.menuContainer}>
