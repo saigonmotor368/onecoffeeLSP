@@ -243,7 +243,7 @@ export async function POST(request: Request) {
           ],
           // 3-burst vibration pattern (~8s total)
           vibrate: [500, 200, 500, 200, 1000, 500, 400, 500, 200, 500, 200, 1000, 500, 400, 500, 200, 500, 200, 1000],
-        } as Parameters<typeof sendPushToAdmins>[0]).catch(err =>
+        }).catch(err =>
           console.error('[Push] admin notify error:', err)
         )
         // ──────────────────────────────────────────────────────────────────

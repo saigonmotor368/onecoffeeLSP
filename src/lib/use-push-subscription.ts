@@ -35,17 +35,29 @@ async function currentToken(role: PushRole): Promise<string | null> {
 
 async function saveSubscription(role: PushRole): Promise<PushState> {
   const token = await currentToken(role)
-  if (!token) return 'login_required'
+  if (!token) {
+    console.warn(`[Push] No auth token for role=${role}`)
+    return 'login_required'
+  }
 
+  console.log(`[Push] Registering SW for role=${role}...`)
   const registration = await navigator.serviceWorker.register('/sw.js')
+  await navigator.serviceWorker.ready // wait until SW is active
+  console.log(`[Push] SW registered, scope: ${registration.scope}`)
+
   let subscription = await registration.pushManager.getSubscription()
   if (!subscription) {
+    console.log('[Push] No existing subscription, creating new...')
     subscription = await registration.pushManager.subscribe({
       userVisibleOnly: true,
       applicationServerKey: publicKeyBytes(publicKey),
     })
+    console.log(`[Push] PushManager.subscribe OK, endpoint: ${subscription.endpoint.slice(0, 60)}...`)
+  } else {
+    console.log(`[Push] Using existing subscription: ${subscription.endpoint.slice(0, 60)}...`)
   }
 
+  console.log(`[Push] Posting to /api/push/subscribe with role=${role}...`)
   const response = await fetch('/api/push/subscribe', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
@@ -55,11 +67,16 @@ async function saveSubscription(role: PushRole): Promise<PushState> {
       deviceInfo: navigator.userAgent.slice(0, 200),
     }),
   })
-  if (response.status === 401 || response.status === 403) return 'login_required'
+  if (response.status === 401 || response.status === 403) {
+    console.warn(`[Push] Auth failed: HTTP ${response.status}`)
+    return 'login_required'
+  }
   if (!response.ok) {
     const body = await response.json().catch(() => ({}))
+    console.error(`[Push] Subscribe failed: HTTP ${response.status}`, body)
     throw new Error(body.error || 'Không lưu được thiết bị nhận thông báo')
   }
+  console.log(`[Push] ✅ Subscribed successfully as role=${role}`)
   return 'enabled'
 }
 

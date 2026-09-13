@@ -24,6 +24,7 @@ export interface PushPayload {
   badge?: string
   tag?: string
   url?: string
+  role?: 'admin' | 'customer'
   data?: Record<string, unknown>
   requireInteraction?: boolean
   actions?: Array<{ action: string; title: string }>
@@ -76,6 +77,7 @@ async function sendPushToSubscription(
         badge: payload.badge || '/logo-circle.png',
         tag: payload.tag,
         url: payload.url || '/',
+        role: payload.role || 'customer',
         data: payload.data || {},
         requireInteraction: payload.requireInteraction ?? false,
         actions: payload.actions || [],
@@ -116,6 +118,8 @@ export async function sendPushToCustomer(
  * Send push to all admin subscriptions
  */
 export async function sendPushToAdmins(payload: PushPayload): Promise<{ sent: number; failed: number }> {
+  // Always force role='admin' so SW uses aggressive notification style
+  const adminPayload: PushPayload = { ...payload, role: 'admin' }
   const { data, error } = await getAdminClient().from('push_subscriptions')
     .select('id, endpoint, p256dh, auth_key')
     .eq('role', 'admin')
@@ -123,7 +127,8 @@ export async function sendPushToAdmins(payload: PushPayload): Promise<{ sent: nu
     console.error('Could not load admin push subscriptions:', error)
     throw error
   }
-  return sendToSubscriptions((data || []) as SubRow[], payload)
+  console.log(`[Push] Found ${(data || []).length} admin subscriptions`)
+  return sendToSubscriptions((data || []) as SubRow[], adminPayload)
 }
 
 /**
