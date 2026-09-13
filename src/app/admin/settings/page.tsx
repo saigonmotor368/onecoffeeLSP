@@ -400,6 +400,180 @@ export default function AdminSettingsPage() {
               </div>
             </div>
 
+            {/* Section: Push Notifications */}
+            <div style={{ background: 'white', borderRadius: '16px', border: '1.5px solid #dc262633', padding: '24px', boxShadow: '0 2px 10px rgba(220,38,38,0.06)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+                <span style={{ fontSize: '28px' }}>🔔</span>
+                <div>
+                  <h2 style={{ fontSize: '16px', fontWeight: 800, color: '#1A202C', margin: 0 }}>
+                    {lang === 'vi' ? 'Thông báo đơn hàng (Web Push)' : 'Order Notifications (Web Push)'}
+                  </h2>
+                  <p style={{ fontSize: '13px', color: '#718096', margin: '2px 0 0' }}>
+                    {lang === 'vi'
+                      ? 'Nhận thông báo đẩy khi có đơn mới — kể cả khi đóng app'
+                      : 'Receive push alerts for new orders — even when app is closed'}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!('Notification' in window) || !('serviceWorker' in navigator)) {
+                    showToast(lang === 'vi' ? 'Trình duyệt không hỗ trợ thông báo đẩy' : 'Browser does not support push notifications', 'error')
+                    return
+                  }
+                  if (Notification.permission === 'denied') {
+                    showToast(lang === 'vi' ? 'Quyền thông báo đã bị chặn. Vào cài đặt trình duyệt để bật lại.' : 'Notification permission blocked. Enable in browser settings.', 'error')
+                    return
+                  }
+                  try {
+                    const permission = await Notification.requestPermission()
+                    if (permission !== 'granted') {
+                      showToast(lang === 'vi' ? 'Chưa cấp quyền thông báo' : 'Notification permission not granted', 'error')
+                      return
+                    }
+                    // Import and subscribe
+                    const { usePushSubscription } = await import('@/lib/use-push-subscription')
+                    // Direct subscribe flow
+                    const reg = await navigator.serviceWorker.register('/sw.js')
+                    await navigator.serviceWorker.ready
+                    const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || ''
+                    const padded = publicKey + '='.repeat((4 - (publicKey.length % 4)) % 4)
+                    const raw = window.atob(padded.replace(/-/g, '+').replace(/_/g, '/'))
+                    const bytes = new Uint8Array(new ArrayBuffer(raw.length))
+                    for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i)
+
+                    let sub = await reg.pushManager.getSubscription()
+                    if (!sub) {
+                      sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: bytes })
+                    }
+
+                    const supabase = createClient('admin')
+                    const { data: { session } } = await supabase.auth.getSession()
+                    const token = session?.access_token
+                    if (!token) { showToast(lang === 'vi' ? 'Chưa đăng nhập' : 'Not logged in', 'error'); return }
+
+                    const res = await fetch('/api/push/subscribe', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                      body: JSON.stringify({ subscription: sub.toJSON(), role: 'admin', deviceInfo: navigator.userAgent.slice(0, 200) }),
+                    })
+                    if (res.ok) {
+                      showToast(lang === 'vi' ? '✅ Đã bật thông báo đơn hàng!' : '✅ Order notifications enabled!', 'success')
+                      sessionStorage.setItem('admin_push_dismissed', 'true')
+                    } else {
+                      const body = await res.json().catch(() => ({}))
+                      showToast(body.error || 'Failed', 'error')
+                    }
+                  } catch (err) {
+                    console.error('Push subscribe error:', err)
+                    showToast(lang === 'vi' ? 'Lỗi khi bật thông báo' : 'Error enabling notifications', 'error')
+                  }
+                }}
+                style={{
+                  padding: '12px 24px',
+                  borderRadius: '12px',
+                  border: 'none',
+                  background: 'linear-gradient(135deg, #dc2626 0%, #991b1b 100%)',
+                  color: 'white',
+                  fontWeight: 800,
+                  fontSize: '15px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  boxShadow: '0 4px 14px rgba(220,38,38,0.3)',
+                }}
+              >
+                🔔 {lang === 'vi' ? 'Bật thông báo đơn hàng mới' : 'Enable New Order Notifications'}
+              </button>
+            </div>
+
+            {/* Section: App Cache / Update */}
+            <div style={{ background: 'white', borderRadius: '16px', border: '1px solid #E2E8F0', padding: '24px', boxShadow: '0 2px 10px rgba(0,0,0,0.02)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+                <span style={{ fontSize: '24px' }}>🔄</span>
+                <div>
+                  <h2 style={{ fontSize: '16px', fontWeight: 800, color: '#1A202C', margin: 0 }}>
+                    {lang === 'vi' ? 'Cập nhật App & Xóa Cache' : 'Update App & Clear Cache'}
+                  </h2>
+                  <p style={{ fontSize: '13px', color: '#718096', margin: '2px 0 0' }}>
+                    {lang === 'vi'
+                      ? 'Xóa bộ nhớ đệm và tải lại phiên bản mới nhất'
+                      : 'Clear cached data and reload latest version'}
+                  </p>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    showToast(lang === 'vi' ? 'Đang cập nhật...' : 'Updating...', 'info')
+                    if ('caches' in window) {
+                      const cacheNames = await caches.keys()
+                      await Promise.all(cacheNames.map(name => caches.delete(name)))
+                    }
+                    if ('serviceWorker' in navigator) {
+                      const regs = await navigator.serviceWorker.getRegistrations()
+                      await Promise.all(regs.map(r => r.unregister()))
+                    }
+                    setTimeout(() => window.location.reload(), 500)
+                  }}
+                  style={{
+                    padding: '10px 20px',
+                    borderRadius: '10px',
+                    border: '1.5px solid #1E4D3B',
+                    background: '#ECFDF5',
+                    color: '#1E4D3B',
+                    fontWeight: 700,
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                  }}
+                >
+                  🔄 {lang === 'vi' ? 'Cập nhật App (Xóa Cache)' : 'Update App (Clear Cache)'}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (!confirm(lang === 'vi' ? 'Xóa toàn bộ dữ liệu local? Bạn sẽ phải đăng nhập lại.' : 'Clear all local data? You will need to log in again.')) return
+                    if ('caches' in window) {
+                      const cacheNames = await caches.keys()
+                      await Promise.all(cacheNames.map(name => caches.delete(name)))
+                    }
+                    if ('serviceWorker' in navigator) {
+                      const regs = await navigator.serviceWorker.getRegistrations()
+                      await Promise.all(regs.map(r => r.unregister()))
+                    }
+                    localStorage.clear()
+                    sessionStorage.clear()
+                    showToast(lang === 'vi' ? 'Đã xóa toàn bộ!' : 'All data cleared!', 'success')
+                    setTimeout(() => window.location.href = '/admin/login', 500)
+                  }}
+                  style={{
+                    padding: '10px 20px',
+                    borderRadius: '10px',
+                    border: '1.5px solid #C53030',
+                    background: '#FFF5F5',
+                    color: '#C53030',
+                    fontWeight: 700,
+                    fontSize: '14px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                  }}
+                >
+                  🗑️ {lang === 'vi' ? 'Xóa toàn bộ & Đăng nhập lại' : 'Clear All & Re-login'}
+                </button>
+              </div>
+            </div>
+
             {/* Submit button */}
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
               <button
