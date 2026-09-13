@@ -1,5 +1,5 @@
-// One Coffee LSP Service Worker v4 — with Web Push support
-const CACHE_NAME = 'one-coffee-lsp-v4'
+// One Coffee LSP Service Worker v5 — Admin Push + Aggressive Alerts
+const CACHE_NAME = 'one-coffee-lsp-v5'
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
@@ -83,22 +83,75 @@ self.addEventListener('push', event => {
     payload = { title: 'One Coffee', body: event.data.text() }
   }
 
-  const title = payload.title || 'One Coffee'
-  const options = {
-    body: payload.body || '',
-    icon: payload.icon || '/logo-192.png',
-    badge: payload.badge || '/logo-circle.png',
-    tag: payload.tag || 'one-coffee-push',
-    data: { url: payload.url || '/', ...(payload.data || {}) },
-    vibrate: payload.vibrate || [200, 100, 200],
-    requireInteraction: payload.requireInteraction || false,
-    silent: false,
-    actions: payload.actions || [],
-  }
+  const isAdminOrder = payload.role === 'admin' || (payload.tag || '').startsWith('admin-new-order')
 
-  event.waitUntil(
-    self.registration.showNotification(title, options)
-  )
+  const title = payload.title || 'One Coffee'
+
+  let options
+
+  if (isAdminOrder) {
+    // ── ADMIN: ĐƠN MỚI → cực kỳ dữ dội ────────────────────────────────────
+    // Rung pattern: 3 đợt × [500ms ON, 200ms OFF, 500ms ON, 300ms OFF, 1000ms ON]
+    // Tổng: ~8 giây rung
+    const VIBRATE_BURST = [500, 200, 500, 200, 1000, 500]
+    const VIBRATE_ADMIN = [
+      ...VIBRATE_BURST, 400,
+      ...VIBRATE_BURST, 400,
+      ...VIBRATE_BURST,
+    ]
+
+    options = {
+      body: payload.body || '',
+      icon: payload.icon || '/icon-admin-192.png',
+      badge: payload.badge || '/icon-admin-192.png',
+      tag: payload.tag || 'admin-new-order',
+      renotify: true,          // Re-alert even if same tag still showing
+      data: { url: payload.url || '/admin/orders', ...(payload.data || {}) },
+      vibrate: payload.vibrate || VIBRATE_ADMIN,
+      requireInteraction: true, // STAYS on screen until admin taps
+      silent: false,
+      actions: payload.actions || [
+        { action: 'view', title: '📋 Xem đơn ngay' },
+        { action: 'dismiss', title: 'Sau' },
+      ],
+    }
+
+    // Show first notification immediately
+    event.waitUntil(
+      self.registration.showNotification(title, options).then(() => {
+        // Show a SECOND notification 4 seconds later to really grab attention
+        return new Promise(resolve => {
+          setTimeout(async () => {
+            try {
+              await self.registration.showNotification(
+                title.replace('🔔', '‼️').replace('ĐƠN MỚI', '‼️ ĐƠN MỚI ‼️'),
+                { ...options, tag: (payload.tag || 'admin-new-order') + '-repeat', vibrate: VIBRATE_ADMIN }
+              )
+            } catch {}
+            resolve()
+          }, 4000)
+        })
+      })
+    )
+  } else {
+    // ── CUSTOMER: trạng thái đơn hàng → bình thường ────────────────────────
+    options = {
+      body: payload.body || '',
+      icon: payload.icon || '/logo-192.png',
+      badge: payload.badge || '/logo-circle.png',
+      tag: payload.tag || 'one-coffee-push',
+      renotify: false,
+      data: { url: payload.url || '/', ...(payload.data || {}) },
+      vibrate: payload.vibrate || [200, 100, 200],
+      requireInteraction: payload.requireInteraction || false,
+      silent: false,
+      actions: payload.actions || [],
+    }
+
+    event.waitUntil(
+      self.registration.showNotification(title, options)
+    )
+  }
 })
 
 // ─────────────────────────────────────────────────────────────
@@ -256,29 +309,63 @@ async function pollForNewOrders() {
 async function showOrderNotification(order) {
   try {
     const orderNum = order.order_number || order.id?.slice(0, 8) || '???'
-    const name = order.recipient_name ? ` · KH: ${order.recipient_name}` : ''
-    const location = order.delivery_address ? ` → ${order.delivery_address}` : ''
+    const name = order.recipient_name ? `KH: ${order.recipient_name}` : ''
+    const location = order.delivery_address ? `📍 ${order.delivery_address}` : ''
     const amount = order.final_amount
-      ? ` · ${new Intl.NumberFormat('vi-VN').format(order.final_amount)}đ`
+      ? `💰 ${new Intl.NumberFormat('vi-VN').format(order.final_amount)}đ`
       : ''
-
-    // Get items summary if available
     const items = order.items_summary || ''
 
-    await self.registration.showNotification(`🔔 ĐƠN MỚI #${orderNum}!`, {
-      body: `${name}${amount}${location}${items ? '\n📦 ' + items : ''}\nBấm để xem & soạn hàng →`,
+    // Aggressive vibrate: 3 bursts
+    const VIBRATE_BURST = [500, 200, 500, 200, 1000, 500]
+    const VIBRATE_ADMIN = [...VIBRATE_BURST, 400, ...VIBRATE_BURST, 400, ...VIBRATE_BURST]
+
+    const body = [
+      name,
+      amount,
+      location,
+      items ? `📦 ${items}` : '',
+      '👆 Bấm để xem & soạn hàng ngay!',
+    ].filter(Boolean).join('\n')
+
+    await self.registration.showNotification(`‼️ ĐƠN MỚI #${orderNum} ‼️`, {
+      body,
       icon: '/icon-admin-192.png',
-      badge: '/logo-circle.png',
+      badge: '/icon-admin-192.png',
       tag: `new-order-${order.id}`,
+      renotify: true,
       data: { url: `/admin/orders/${order.id}`, orderId: order.id },
-      vibrate: [300, 100, 300, 100, 600],
-      requireInteraction: true,   // Stays on screen until tapped (Android)
+      vibrate: VIBRATE_ADMIN,
+      requireInteraction: true,
       silent: false,
       actions: [
-        { action: 'view', title: '👁 Xem đơn' },
-        { action: 'dismiss', title: 'Bỏ qua' },
+        { action: 'view', title: '📋 Xem đơn ngay' },
+        { action: 'dismiss', title: 'Sau' },
       ],
     })
+
+    // Repeat notification after 5s if admin hasn't responded
+    setTimeout(async () => {
+      const notiList = await self.registration.getNotifications({ tag: `new-order-${order.id}` })
+      if (notiList.length > 0) {
+        // Notification still showing = admin hasn't tapped → re-alert
+        await self.registration.showNotification(`🚨 NHẮC LẠI: ĐƠN #${orderNum} chưa xử lý!`, {
+          body: `${body}\n⏰ Đơn đang chờ ${Math.floor(Date.now() / 1000 % 3600)}s`,
+          icon: '/icon-admin-192.png',
+          badge: '/icon-admin-192.png',
+          tag: `new-order-${order.id}-remind`,
+          renotify: true,
+          data: { url: `/admin/orders/${order.id}`, orderId: order.id },
+          vibrate: VIBRATE_ADMIN,
+          requireInteraction: true,
+          silent: false,
+          actions: [
+            { action: 'view', title: '📋 Xem đơn ngay' },
+            { action: 'dismiss', title: 'Bỏ qua' },
+          ],
+        })
+      }
+    }, 5000)
   } catch {
     // Notification API not available in this context
   }

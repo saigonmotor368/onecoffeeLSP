@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import AdminPushInitializer from '@/components/AdminPushInitializer'
 
 export default function AdminAuthGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -76,5 +77,11 @@ export default function AdminAuthGuard({ children }: { children: React.ReactNode
     )
   }
 
-  return <>{children}</>
+  return (
+    <>
+      {/* Auto-subscribe admin to Web Push for new order notifications */}
+      <AdminPushInitializer />
+      {children}
+    </>
+  )
 }

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getAdminClient } from '@/lib/supabase/admin'
 import { notifyNewOrder } from '@/lib/telegram'
+import { sendPushToAdmins } from '@/lib/push'
 
 function normalizeVoucherMoney(value: number | null | undefined) {
   if (!value) return 0
@@ -204,6 +205,49 @@ export async function POST(request: Request) {
             options: i.options || null,
           })),
         }).catch(err => console.error('[Telegram] notify error:', err))
+
+        // ── Web Push to all admin devices ─────────────────────────────────
+        const orderNum = fullOrder.order_number || createdId.slice(0, 8)
+        const recipientName = fullOrder.recipient_name || 'Khách'
+        const finalAmt = fullOrder.final_amount
+          ? new Intl.NumberFormat('vi-VN').format(fullOrder.final_amount) + 'đ'
+          : null
+        const location = fullOrder.delivery_address || ''
+        const itemsSummary = orderItems
+          .slice(0, 3)
+          .map(i => `${i.quantity}× ${i.name}`)
+          .join(', ')
+          + (orderItems.length > 3 ? ` +${orderItems.length - 3} món` : '')
+
+        const bodyLines = [
+          `👤 KH: ${recipientName}`,
+          finalAmt ? `💰 ${finalAmt}` : null,
+          location ? `📍 ${location}` : null,
+          itemsSummary ? `📦 ${itemsSummary}` : null,
+          '👆 Bấm để xem & soạn hàng ngay!',
+        ].filter(Boolean).join('\n')
+
+        sendPushToAdmins({
+          title: `‼️ ĐƠN MỚI #${orderNum} ‼️`,
+          body: bodyLines,
+          icon: '/icon-admin-192.png',
+          badge: '/icon-admin-192.png',
+          tag: `admin-new-order-${createdId}`,
+          url: `/admin/orders/${createdId}`,
+          role: 'admin',
+          requireInteraction: true,
+          data: { orderId: createdId, orderNumber: orderNum },
+          actions: [
+            { action: 'view', title: '📋 Xem đơn ngay' },
+            { action: 'dismiss', title: 'Sau' },
+          ],
+          // 3-burst vibration pattern (~8s total)
+          vibrate: [500, 200, 500, 200, 1000, 500, 400, 500, 200, 500, 200, 1000, 500, 400, 500, 200, 500, 200, 1000],
+        } as Parameters<typeof sendPushToAdmins>[0]).catch(err =>
+          console.error('[Push] admin notify error:', err)
+        )
+        // ──────────────────────────────────────────────────────────────────
+
       }
     }
     // ────────────────────────────────────────────────────────────────────────
