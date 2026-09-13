@@ -45,7 +45,8 @@ async function saveSubscription(role: PushRole): Promise<PushState> {
   }
 
   console.log(`[Push] Registering SW for role=${role}...`)
-  const registration = await navigator.serviceWorker.register('/sw.js')
+  const scope = window.location.pathname.startsWith('/admin') ? '/admin' : '/'
+  const registration = await navigator.serviceWorker.register('/sw.js', { scope })
   await navigator.serviceWorker.ready // wait until SW is active
   console.log(`[Push] SW registered, scope: ${registration.scope}`)
 

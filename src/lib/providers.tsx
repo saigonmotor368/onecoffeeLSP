@@ -103,7 +103,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     if (saved && (saved === 'vi' || saved === 'en')) setLangState(saved)
 
     if (typeof window !== 'undefined' && 'serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
-      navigator.serviceWorker.register('/sw.js').catch(() => {})
+      const scope = window.location.pathname.startsWith('/admin') ? '/admin' : '/'
+      navigator.serviceWorker.register('/sw.js', { scope }).catch(() => {})
     }
   }, [])
   

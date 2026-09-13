@@ -434,7 +434,8 @@ export default function AdminSettingsPage() {
                       return
                     }
                     // Direct subscribe flow
-                    const reg = await navigator.serviceWorker.register('/sw.js')
+                    const scope = window.location.pathname.startsWith('/admin') ? '/admin' : '/'
+                    const reg = await navigator.serviceWorker.register('/sw.js', { scope })
                     await navigator.serviceWorker.ready
                     const publicKey = 'BObXO53RMrfO2ToJU6fBFYF-NaumNBR1t9GQ_xmlOPlyvloXJ1AKACneclp2joUV2YxaC2YMcu1Terbh5mbnJvk'
                     const padded = publicKey + '='.repeat((4 - (publicKey.length % 4)) % 4)
