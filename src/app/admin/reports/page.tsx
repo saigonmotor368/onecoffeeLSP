@@ -19,14 +19,21 @@ export default function AdminReportsPage() {
   const [loading, setLoading] = useState(true)
 
   // Filters
+  const getLocalYMD = (d: Date) => {
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${day}`
+  }
+
   const [timePreset, setTimePreset] = useState<'today' | 'yesterday' | '7days' | 'month' | 'custom' | 'all'>('7days')
   const [startDate, setStartDate] = useState<string>(() => {
     const d = new Date()
     d.setDate(d.getDate() - 7)
-    return d.toISOString().split('T')[0]
+    return getLocalYMD(d)
   })
   const [endDate, setEndDate] = useState<string>(() => {
-    return new Date().toISOString().split('T')[0]
+    return getLocalYMD(new Date())
   })
 
   const loadData = useCallback(async () => {
@@ -54,7 +61,7 @@ export default function AdminReportsPage() {
   const handlePresetChange = (preset: typeof timePreset) => {
     setTimePreset(preset)
     const now = new Date()
-    const todayStr = now.toISOString().split('T')[0]
+    const todayStr = getLocalYMD(now)
 
     if (preset === 'today') {
       setStartDate(todayStr)
@@ -62,17 +69,17 @@ export default function AdminReportsPage() {
     } else if (preset === 'yesterday') {
       const y = new Date(now)
       y.setDate(y.getDate() - 1)
-      const yStr = y.toISOString().split('T')[0]
+      const yStr = getLocalYMD(y)
       setStartDate(yStr)
       setEndDate(yStr)
     } else if (preset === '7days') {
       const d = new Date(now)
       d.setDate(d.getDate() - 7)
-      setStartDate(d.toISOString().split('T')[0])
+      setStartDate(getLocalYMD(d))
       setEndDate(todayStr)
     } else if (preset === 'month') {
-      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split('T')[0]
-      setStartDate(firstDay)
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
+      setStartDate(getLocalYMD(firstDay))
       setEndDate(todayStr)
     } else if (preset === 'all') {
       setStartDate('2025-01-01')
@@ -95,15 +102,16 @@ export default function AdminReportsPage() {
     })
   }, [orders, timePreset, startDate, endDate])
 
-  // Order Items belonging to filtered orders
-  const filteredOrderIds = useMemo(() => new Set(filteredOrders.map(o => o.id)), [filteredOrders])
+  const validOrders = useMemo(() => filteredOrders.filter(o => o.order_status !== 'cancelled'), [filteredOrders])
+
+  // Order Items belonging to valid filtered orders (exclude cancelled)
+  const filteredOrderIds = useMemo(() => new Set(validOrders.map(o => o.id)), [validOrders])
   const filteredItems = useMemo(
     () => orderItems.filter(item => filteredOrderIds.has(item.order_id)),
     [orderItems, filteredOrderIds]
   )
 
   // Overall KPIs
-  const validOrders = filteredOrders.filter(o => o.order_status !== 'cancelled')
   const totalRevenue = validOrders.reduce((s, o) => s + (o.final_amount || 0), 0)
   const totalRawAmount = validOrders.reduce((s, o) => s + (o.total_amount || 0), 0)
   const totalDiscounts = validOrders.reduce((s, o) => s + (o.discount_amount || 0), 0)
