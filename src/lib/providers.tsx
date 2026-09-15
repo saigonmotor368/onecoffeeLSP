@@ -55,9 +55,8 @@ interface CartContextValue {
   isLspEmployee: boolean
   setIsLspEmployee: (val: boolean) => void
   shippingFee: number
-  freeShippingThreshold: number
-  isFreeShipping: boolean
-  remainingForFreeShipping: number
+  isDeliveryAvailable: boolean
+  remainingForDelivery: number
   employeeDiscountPercent: number
   employeeDiscount: number
   appliedVoucher: AppliedVoucher | null
