@@ -124,7 +124,7 @@ export default function CartPage() {
         </div>
         {!isDeliveryAvailable && (
           <div style={{ fontSize: '12px', color: '#E53E3E', marginTop: '6px', textAlign: 'center', fontWeight: 600 }}>
-            {lang === 'vi' ? 'Dưới 200k chỉ áp dụng Nhận hàng tại One Coffee Station' : 'Orders under 200k are pickup only'}
+            {lang === 'vi' ? 'Đơn hàng dưới 200k vui lòng đến nhận hàng trực tiếp tại One Cafe' : 'Orders under 200k please pickup at One Cafe'}
           </div>
         )}
       </div>
@@ -277,45 +277,7 @@ export default function CartPage() {
         )}
       </div>
 
-      {/* Delivery Address Section (Hidden if not eligible for delivery) */}
-      {isDeliveryAvailable ? (
-        <div className={styles.locationBox}>
-          <div className={styles.locationHeaderRow}>
-            <span className={styles.locationPin}>📍</span>
-            <label className={styles.locationHead}>
-              {lang === 'vi' ? 'Địa chỉ giao hàng' : 'Delivery Address'}
-            </label>
-          </div>
-          <input
-            type="text"
-            className={styles.locationInput}
-            placeholder={
-              lang === 'vi'
-                ? 'Nhập địa chỉ nhận hàng (VD: Tòa nhà điều hành, Cổng 2, khu vực lân cận...)'
-                : 'Enter delivery address (e.g. Admin Building, Gate 2, nearby...)'
-            }
-            value={selectedLocation}
-            onChange={e => {
-              setSelectedLocation(e.target.value)
-              localStorage.setItem('oc_delivery_location', e.target.value)
-            }}
-          />
-        </div>
-      ) : (
-        <div className={styles.locationBox} style={{ background: '#FFF5F5', border: '1px solid #FEB2B2' }}>
-          <div className={styles.locationHeaderRow}>
-            <span className={styles.locationPin}>🏪</span>
-            <label className={styles.locationHead} style={{ color: '#C53030' }}>
-              {lang === 'vi' ? 'Nhận hàng tại quán' : 'Pickup at Store'}
-            </label>
-          </div>
-          <p style={{ fontSize: '13px', color: '#9B2C2C', marginTop: '8px' }}>
-            {lang === 'vi' 
-              ? 'Đơn hàng dưới 200k vui lòng đến nhận hàng trực tiếp tại One Coffee Station.' 
-              : 'Orders under 200k must be picked up directly at One Coffee Station.'}
-          </p>
-        </div>
-      )}
+      {/* Delivery Address Section - removed from Cart. They will select it in Checkout */}
 
       {/* Bill Breakdown Card */}
       <div className={styles.billCard}>

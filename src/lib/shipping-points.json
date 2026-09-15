@@ -1,0 +1,76 @@
+[
+  {
+    "name": "Weight Bridge (Trạm Cân)"
+  },
+  {
+    "name": "Admin Building",
+    "note": "Tầng 1: 0 bình có vòi\r\nTầng 2: 15 bình có vòi, 0 b ko vòi"
+  },
+  {
+    "name": "Driver House/Nhà tài xế- Admin"
+  },
+  {
+    "name": "Driver House/Nhà tài xế- FL (Gate 2)",
+    "note": "Goi cho Huỳnh Tấn Sơn trước."
+  },
+  {
+    "name": "FSC Training Center / FL office (Gate 2)"
+  },
+  {
+    "name": "Landscape Area/ FL office (gate 2)"
+  },
+  {
+    "name": "Workshop Office"
+  },
+  {
+    "name": "LAB office",
+    "note": "chuyển 10b ko vòi về đổi tại Admin"
+  },
+  {
+    "name": "PAL office"
+  },
+  {
+    "name": "ECC Office"
+  },
+  {
+    "name": "Transportation Office"
+  },
+  {
+    "name": "MM Office"
+  },
+  {
+    "name": "Warehouse 1",
+    "note": "Liên hệ Ngọc Huyền trước."
+  },
+  {
+    "name": "CCB-Poly"
+  },
+  {
+    "name": "Blown Film Office"
+  },
+  {
+    "name": "Warehouse 2",
+    "note": "Liên hệ Quỳnh Hương trước."
+  },
+  {
+    "name": "A1 Office (Drinking for LSPE-ISBL)"
+  },
+  {
+    "name": "A1 Office (Drinking for lanscape)"
+  },
+  {
+    "name": "Kho A1  - (Upstream Warehouse)"
+  },
+  {
+    "name": "Kho A1 - (LSPE-ISBL Warehouse)"
+  },
+  {
+    "name": "Gate 201 (cổng 201 - LSPE)"
+  },
+  {
+    "name": "CCB-Olefin"
+  },
+  {
+    "name": "Gate 304 (Cổng 304 - gần CCB Olefin)"
+  }
+]

@@ -29,13 +29,18 @@ export default function AdminOrderDetailPage({ params }: { params: Promise<{ id:
   const [items, setItems] = useState<OrderItem[]>([])
   const [loading, setLoading] = useState(true)
   const [updating, setUpdating] = useState(false)
+  const [statusNoteInput, setStatusNoteInput] = useState('')
 
   useEffect(() => {
     const load = async () => {
       const response = await adminFetch(`/api/admin/orders?id=${encodeURIComponent(id)}`)
       const data = await response.json()
       if (response.ok) {
-        setOrder(data.order as Order)
+        const orderData = data.order as Order
+        setOrder(orderData)
+        if ((orderData as any).status_note !== undefined) {
+          setStatusNoteInput((orderData as any).status_note || '')
+        }
         setItems((data.items || []) as OrderItem[])
       }
       setLoading(false)
@@ -51,7 +56,13 @@ export default function AdminOrderDetailPage({ params }: { params: Promise<{ id:
       .on(
         'postgres_changes',
         { event: 'UPDATE', schema: 'public', table: 'orders', filter: `id=eq.${id}` },
-        payload => setOrder(payload.new as Order)
+        payload => {
+          const newOrder = payload.new as Order
+          setOrder(newOrder)
+          if ((newOrder as any).status_note !== undefined) {
+            setStatusNoteInput((newOrder as any).status_note || '')
+          }
+        }
       )
       .subscribe()
 
@@ -73,7 +84,7 @@ export default function AdminOrderDetailPage({ params }: { params: Promise<{ id:
       const res = await adminFetch('/api/admin/orders/update-status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId: id, status: newStatus }),
+        body: JSON.stringify({ orderId: id, status: newStatus, statusNote: statusNoteInput }),
       })
       const data = await res.json()
       if (res.ok && data.success) {
@@ -321,6 +332,50 @@ export default function AdminOrderDetailPage({ params }: { params: Promise<{ id:
                 <p style={{ margin: 0, fontSize: '12px', color: '#64748B' }}>
                   Mã đơn: #{order.order_number} · Đặt lúc: {new Date(order.created_at).toLocaleString('vi-VN')}
                 </p>
+              </div>
+            </div>
+
+            {/* Status Note Input */}
+            <div style={{ margin: '16px 0', width: '100%', maxWidth: '600px' }}>
+              <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>
+                📝 Lời nhắn cho khách hàng (Sẽ hiển thị trên app đặt hàng của khách)
+              </label>
+              <textarea
+                value={statusNoteInput}
+                onChange={e => setStatusNoteInput(e.target.value)}
+                placeholder="VD: Đơn hàng đang quá tải nên thời gian giao sẽ lâu hơn bình thường..."
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  border: '1px solid #CBD5E1',
+                  fontSize: '14px',
+                  minHeight: '80px',
+                  resize: 'vertical',
+                }}
+              />
+              <div style={{ display: 'flex', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => setStatusNoteInput('Đơn hàng đang quá tải nên thời gian pha chế và giao hàng sẽ lâu hơn bình thường một chút. Mong quý khách thông cảm ạ!')}
+                  style={{ background: '#F1F5F9', border: '1px solid #E2E8F0', padding: '4px 10px', fontSize: '12px', borderRadius: '4px', cursor: 'pointer', color: '#475569' }}
+                >
+                  + Mẫu: Quá tải
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatusNoteInput('Shipper đang trên đường giao đến điểm nhận. Vui lòng để ý điện thoại nhé!')}
+                  style={{ background: '#F1F5F9', border: '1px solid #E2E8F0', padding: '4px 10px', fontSize: '12px', borderRadius: '4px', cursor: 'pointer', color: '#475569' }}
+                >
+                  + Mẫu: Shipper đang đến
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setStatusNoteInput('')}
+                  style={{ background: '#FEE2E2', border: '1px solid #FECACA', padding: '4px 10px', fontSize: '12px', borderRadius: '4px', cursor: 'pointer', color: '#991B1B' }}
+                >
+                  Xóa trắng
+                </button>
               </div>
             </div>
 

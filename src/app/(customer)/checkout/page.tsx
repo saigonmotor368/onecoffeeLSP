@@ -13,6 +13,7 @@ import {
   addRecentOrder,
 } from '@/lib/notifications'
 import styles from './checkout.module.css'
+import shippingPoints from '@/lib/shipping-points.json'
 
 type PaymentMethod = 'cash' | 'transfer'
 type TransferViewTab = 'qr' | 'bank'
@@ -268,10 +269,10 @@ function CheckoutContent() {
       return
     }
     if (isDeliveryAvailable && !trimmedAddress) {
-      showToast(lang === 'vi' ? 'Vui lòng nhập địa chỉ giao hàng!' : 'Please enter delivery address!', 'error')
+      showToast(lang === 'vi' ? 'Vui lòng chọn địa điểm giao hàng!' : 'Please select a delivery point!', 'error')
       return
     }
-    const finalAddress = isDeliveryAvailable ? trimmedAddress : 'Nhận tại quán (One Coffee Station)'
+    const finalAddress = isDeliveryAvailable ? trimmedAddress : 'Nhận tại quán (One Cafe)'
 
     // Persist info for next time
     localStorage.setItem('oc_customer_name', trimmedName)
@@ -283,7 +284,7 @@ function CheckoutContent() {
       const discountNotes = [
         isLspEmployee && employeeDiscount > 0 ? `Giảm ${employeeDiscountPercent}% NV LSP (-${formatPrice(employeeDiscount)})` : '',
         appliedVoucher ? `Voucher ${appliedVoucher.code} (-${formatPrice(voucherDiscount)})` : '',
-        isDeliveryAvailable ? (lang === 'vi' ? 'Giao hàng tận nơi' : 'Delivery') : (lang === 'vi' ? 'Nhận tại One Coffee Station' : 'Pickup at One Coffee Station'),
+        isDeliveryAvailable ? (lang === 'vi' ? 'Giao hàng tận nơi' : 'Delivery') : (lang === 'vi' ? 'Nhận tại One Cafe' : 'Pickup at One Cafe'),
         customerNotes ? `Ghi chú: ${customerNotes}` : '',
       ].filter(Boolean).join(' | ')
 
@@ -515,19 +516,30 @@ function CheckoutContent() {
               {isDeliveryAvailable ? (
                 <div className={styles.inputGroup}>
                   <label className={styles.inputLabel}>
-                    {lang === 'vi' ? 'Địa chỉ giao hàng tận nơi *' : 'Delivery Address *'}
+                    {lang === 'vi' ? 'Địa điểm giao hàng *' : 'Delivery Point *'}
                   </label>
-                  <input
-                    type="text"
+                  <select
                     className={styles.inputField}
-                    placeholder={lang === 'vi' ? 'Nhập địa chỉ giao hàng (VD: Tòa nhà điều hành, Cổng 2, hoặc lân cận...)' : 'Enter delivery address...'}
                     value={deliveryAddress}
                     onChange={e => {
                       setDeliveryAddress(e.target.value)
                       localStorage.setItem('oc_delivery_location', e.target.value)
                     }}
                     required
-                  />
+                  >
+                    <option value="">{lang === 'vi' ? '-- Chọn điểm nhận hàng --' : '-- Select delivery point --'}</option>
+                    {shippingPoints.map((pt, i) => (
+                      <option key={i} value={pt.name}>
+                        {pt.name}
+                      </option>
+                    ))}
+                  </select>
+                  {deliveryAddress && shippingPoints.find(p => p.name === deliveryAddress)?.note && (
+                    <div style={{ marginTop: '8px', padding: '8px', fontSize: '12px', color: '#B7791F', backgroundColor: '#FEFCBF', borderRadius: '6px' }}>
+                      <strong>Lưu ý: </strong>
+                      {shippingPoints.find(p => p.name === deliveryAddress)?.note}
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className={styles.inputGroup} style={{ background: '#FFF5F5', padding: '12px', borderRadius: '12px', border: '1px solid #FEB2B2' }}>
@@ -535,12 +547,12 @@ function CheckoutContent() {
                     <span>🏪</span> {lang === 'vi' ? 'Phương thức nhận hàng' : 'Fulfillment'}
                   </label>
                   <div style={{ fontWeight: 700, color: '#9B2C2C', fontSize: '15px', marginTop: '4px' }}>
-                    {lang === 'vi' ? 'Nhận hàng trực tiếp tại One Coffee Station' : 'Pickup at One Coffee Station'}
+                    {lang === 'vi' ? 'Nhận hàng trực tiếp tại One Cafe' : 'Pickup at One Cafe'}
                   </div>
                   <p style={{ fontSize: '12px', color: '#C53030', marginTop: '4px', margin: 0 }}>
                     {lang === 'vi' 
-                      ? 'Đơn hàng dưới 200k không được hỗ trợ giao hàng tận nơi.' 
-                      : 'Orders under 200k are not eligible for delivery.'}
+                      ? 'Đơn hàng dưới 200k vui lòng đến nhận hàng trực tiếp tại One Cafe.' 
+                      : 'Orders under 200k please pickup at One Cafe.'}
                   </p>
                 </div>
               )}
@@ -627,19 +639,30 @@ function CheckoutContent() {
                 {isDeliveryAvailable ? (
                   <div className={styles.inputGroup}>
                     <label className={styles.inputLabel}>
-                      {lang === 'vi' ? 'Địa chỉ giao hàng tận nơi *' : 'Delivery Address *'}
+                      {lang === 'vi' ? 'Địa điểm giao hàng *' : 'Delivery Point *'}
                     </label>
-                    <input
-                      type="text"
+                    <select
                       className={styles.inputField}
-                      placeholder={lang === 'vi' ? 'Nhập địa chỉ giao hàng (VD: Tòa nhà điều hành, Cổng 2...)' : 'Enter delivery address...'}
                       value={deliveryAddress}
                       onChange={e => {
                         setDeliveryAddress(e.target.value)
                         localStorage.setItem('oc_delivery_location', e.target.value)
                       }}
                       required
-                    />
+                    >
+                      <option value="">{lang === 'vi' ? '-- Chọn điểm nhận hàng --' : '-- Select delivery point --'}</option>
+                      {shippingPoints.map((pt, i) => (
+                        <option key={i} value={pt.name}>
+                          {pt.name}
+                        </option>
+                      ))}
+                    </select>
+                    {deliveryAddress && shippingPoints.find(p => p.name === deliveryAddress)?.note && (
+                      <div style={{ marginTop: '8px', padding: '8px', fontSize: '12px', color: '#B7791F', backgroundColor: '#FEFCBF', borderRadius: '6px' }}>
+                        <strong>Lưu ý: </strong>
+                        {shippingPoints.find(p => p.name === deliveryAddress)?.note}
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <div className={styles.inputGroup} style={{ background: '#FFF5F5', padding: '12px', borderRadius: '12px', border: '1px solid #FEB2B2' }}>
@@ -647,12 +670,12 @@ function CheckoutContent() {
                       <span>🏪</span> {lang === 'vi' ? 'Phương thức nhận hàng' : 'Fulfillment'}
                     </label>
                     <div style={{ fontWeight: 700, color: '#9B2C2C', fontSize: '15px', marginTop: '4px' }}>
-                      {lang === 'vi' ? 'Nhận hàng trực tiếp tại One Coffee Station' : 'Pickup at One Coffee Station'}
+                      {lang === 'vi' ? 'Nhận hàng trực tiếp tại One Cafe' : 'Pickup at One Cafe'}
                     </div>
                     <p style={{ fontSize: '12px', color: '#C53030', marginTop: '4px', margin: 0 }}>
                       {lang === 'vi' 
-                        ? 'Đơn hàng dưới 200k không được hỗ trợ giao hàng tận nơi.' 
-                        : 'Orders under 200k are not eligible for delivery.'}
+                        ? 'Đơn hàng dưới 200k vui lòng đến nhận hàng trực tiếp tại One Cafe.' 
+                        : 'Orders under 200k please pickup at One Cafe.'}
                     </p>
                   </div>
                 )}

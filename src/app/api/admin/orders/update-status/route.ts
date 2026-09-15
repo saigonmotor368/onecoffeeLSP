@@ -7,7 +7,7 @@ export async function POST(req: Request) {
     const auth = await requireAdmin(req)
     if (!auth.authorized) return auth.response
 
-    const { orderId, status, paymentStatus } = await req.json()
+    const { orderId, status, paymentStatus, statusNote } = await req.json()
 
     if (!orderId) {
       return NextResponse.json({ error: 'orderId is required' }, { status: 400 })
@@ -30,6 +30,10 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'Invalid payment status value' }, { status: 400 })
       }
       updatePayload.payment_status = paymentStatus
+    }
+
+    if (statusNote !== undefined) {
+      updatePayload.status_note = statusNote
     }
 
     if (Object.keys(updatePayload).length === 0) {

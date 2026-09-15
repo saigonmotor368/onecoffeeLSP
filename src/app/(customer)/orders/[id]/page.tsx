@@ -236,6 +236,18 @@ export default function OrderDetailPage({ params }: { params: Promise<{ id: stri
         </div>
       )}
 
+      {(order as any).status_note && !isCancelled && (
+        <div style={{ background: '#FEF3C7', border: '1px solid #FCD34D', color: '#92400E', borderRadius: '14px', padding: '14px 16px', marginBottom: '16px', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+          <span style={{ fontSize: '16px', marginTop: '-2px' }}>💬</span>
+          <div style={{ flex: 1 }}>
+            <span style={{ display: 'block', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '2px', opacity: 0.8 }}>
+              {lang === 'vi' ? 'Lời nhắn từ quán' : 'Message from store'}
+            </span>
+            <span style={{ lineHeight: 1.4 }}>{(order as any).status_note}</span>
+          </div>
+        </div>
+      )}
+
       {/* Vertical Stepper matching Screen 8 */}
       <div className={styles.timelineCard}>
         {steps.map((step, idx) => (
