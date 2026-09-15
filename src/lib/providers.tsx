@@ -202,11 +202,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const totalItems = items.reduce((sum, i) => sum + i.quantity, 0)
   const subtotal   = items.reduce((sum, i) => sum + i.unit_price * i.quantity, 0)
 
-  // Freeship calculation
-  const freeShippingThreshold = shippingConfig.free_shipping_threshold
-  const isFreeShipping = items.length > 0 && subtotal >= freeShippingThreshold
-  const remainingForFreeShipping = Math.max(0, freeShippingThreshold - subtotal)
-  const shippingFee = items.length === 0 ? 0 : (isFreeShipping ? 0 : shippingConfig.shipping_fee)
+  // Delivery availability calculation (>= 200k)
+  const deliveryThreshold = 200000 // Fixed as requested: >200k => delivery
+  const isDeliveryAvailable = items.length > 0 && subtotal >= deliveryThreshold
+  const remainingForDelivery = Math.max(0, deliveryThreshold - subtotal)
+  const shippingFee = 0 // No more shipping fee
 
   // Employee discount calculation (20% for LSP internal staff only when checked)
   const employeeDiscountPercent = (isLspEmployee && employeeDiscountConfig.enabled)
@@ -321,9 +321,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           isLspEmployee,
           setIsLspEmployee,
           shippingFee,
-          freeShippingThreshold,
-          isFreeShipping,
-          remainingForFreeShipping,
+          isDeliveryAvailable,
+          remainingForDelivery,
           employeeDiscountPercent,
           employeeDiscount,
           appliedVoucher,

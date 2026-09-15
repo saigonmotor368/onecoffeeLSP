@@ -465,9 +465,9 @@ export default function AdminSettingsPage() {
                       const body = await res.json().catch(() => ({}))
                       showToast(body.error || 'Failed', 'error')
                     }
-                  } catch (err) {
+                  } catch (err: any) {
                     console.error('Push subscribe error:', err)
-                    showToast(lang === 'vi' ? 'Lỗi khi bật thông báo' : 'Error enabling notifications', 'error')
+                    showToast(lang === 'vi' ? 'Lỗi khi bật thông báo: ' + (err?.message || err) : 'Error enabling notifications: ' + (err?.message || err), 'error')
                   }
                 }}
                 style={{

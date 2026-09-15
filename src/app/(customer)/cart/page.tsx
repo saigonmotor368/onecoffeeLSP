@@ -15,9 +15,8 @@ export default function CartPage() {
     updateQuantity,
     clearCart,
     subtotal,
-    freeShippingThreshold,
-    isFreeShipping,
-    remainingForFreeShipping,
+    isDeliveryAvailable,
+    remainingForDelivery,
     shippingFee,
     isLspEmployee,
     setIsLspEmployee,
@@ -79,7 +78,7 @@ export default function CartPage() {
     )
   }
 
-  const freeshipPercent = Math.min(100, Math.round((subtotal / freeShippingThreshold) * 100))
+  const deliveryPercent = Math.min(100, Math.round((subtotal / 200000) * 100))
 
   return (
     <div className={styles.pageContainer}>
@@ -100,29 +99,34 @@ export default function CartPage() {
         </button>
       </header>
 
-      {/* Free Shipping Progress Card */}
+      {/* Delivery Progress Card */}
       <div className={styles.freeshipCard}>
         <div className={styles.freeshipHeader}>
           <span>🚚</span>
-          {isFreeShipping ? (
+          {isDeliveryAvailable ? (
             <span className={styles.freeshipSuccess}>
-              {lang === 'vi' ? '🎉 Bạn đã được MIỄN PHÍ giao hàng tận tay!' : '🎉 You qualified for FREE Delivery!'}
+              {lang === 'vi' ? '🎉 Đơn hàng đủ điều kiện GIAO HÀNG TẬN NƠI!' : '🎉 Your order is eligible for DELIVERY!'}
             </span>
           ) : (
             <span>
               {lang === 'vi'
-                ? `Thêm ${formatPrice(remainingForFreeShipping)} để được `
-                : `Add ${formatPrice(remainingForFreeShipping)} more for `}
-              <strong style={{ color: '#1E4D3B' }}>{lang === 'vi' ? 'MIỄN PHÍ SHIP' : 'FREE SHIP'}</strong>
+                ? `Thêm ${formatPrice(remainingForDelivery)} để được `
+                : `Add ${formatPrice(remainingForDelivery)} more for `}
+              <strong style={{ color: '#1E4D3B' }}>{lang === 'vi' ? 'GIAO HÀNG TẬN NƠI' : 'DELIVERY'}</strong>
             </span>
           )}
         </div>
         <div className={styles.freeshipProgressTrack}>
           <div
             className={styles.freeshipProgressBar}
-            style={{ width: `${freeshipPercent}%` }}
+            style={{ width: `${deliveryPercent}%` }}
           />
         </div>
+        {!isDeliveryAvailable && (
+          <div style={{ fontSize: '12px', color: '#E53E3E', marginTop: '6px', textAlign: 'center', fontWeight: 600 }}>
+            {lang === 'vi' ? 'Dưới 200k chỉ áp dụng Nhận hàng tại One Coffee Station' : 'Orders under 200k are pickup only'}
+          </div>
+        )}
       </div>
 
       {/* Cart Items List */}
@@ -273,29 +277,45 @@ export default function CartPage() {
         )}
       </div>
 
-      {/* Delivery Address Section */}
-      <div className={styles.locationBox}>
-        <div className={styles.locationHeaderRow}>
-          <span className={styles.locationPin}>📍</span>
-          <label className={styles.locationHead}>
-            {lang === 'vi' ? 'Địa chỉ giao hàng' : 'Delivery Address'}
-          </label>
+      {/* Delivery Address Section (Hidden if not eligible for delivery) */}
+      {isDeliveryAvailable ? (
+        <div className={styles.locationBox}>
+          <div className={styles.locationHeaderRow}>
+            <span className={styles.locationPin}>📍</span>
+            <label className={styles.locationHead}>
+              {lang === 'vi' ? 'Địa chỉ giao hàng' : 'Delivery Address'}
+            </label>
+          </div>
+          <input
+            type="text"
+            className={styles.locationInput}
+            placeholder={
+              lang === 'vi'
+                ? 'Nhập địa chỉ nhận hàng (VD: Tòa nhà điều hành, Cổng 2, khu vực lân cận...)'
+                : 'Enter delivery address (e.g. Admin Building, Gate 2, nearby...)'
+            }
+            value={selectedLocation}
+            onChange={e => {
+              setSelectedLocation(e.target.value)
+              localStorage.setItem('oc_delivery_location', e.target.value)
+            }}
+          />
         </div>
-        <input
-          type="text"
-          className={styles.locationInput}
-          placeholder={
-            lang === 'vi'
-              ? 'Nhập địa chỉ nhận hàng (VD: Tòa nhà điều hành, Cổng 2, khu vực lân cận...)'
-              : 'Enter delivery address (e.g. Admin Building, Gate 2, nearby...)'
-          }
-          value={selectedLocation}
-          onChange={e => {
-            setSelectedLocation(e.target.value)
-            localStorage.setItem('oc_delivery_location', e.target.value)
-          }}
-        />
-      </div>
+      ) : (
+        <div className={styles.locationBox} style={{ background: '#FFF5F5', border: '1px solid #FEB2B2' }}>
+          <div className={styles.locationHeaderRow}>
+            <span className={styles.locationPin}>🏪</span>
+            <label className={styles.locationHead} style={{ color: '#C53030' }}>
+              {lang === 'vi' ? 'Nhận hàng tại quán' : 'Pickup at Store'}
+            </label>
+          </div>
+          <p style={{ fontSize: '13px', color: '#9B2C2C', marginTop: '8px' }}>
+            {lang === 'vi' 
+              ? 'Đơn hàng dưới 200k vui lòng đến nhận hàng trực tiếp tại One Coffee Station.' 
+              : 'Orders under 200k must be picked up directly at One Coffee Station.'}
+          </p>
+        </div>
+      )}
 
       {/* Bill Breakdown Card */}
       <div className={styles.billCard}>
@@ -318,12 +338,7 @@ export default function CartPage() {
             <span>-{formatPrice(voucherDiscount)}</span>
           </div>
         )}
-        <div className={styles.billRow}>
-          <span>{lang === 'vi' ? 'Phí giao hàng tận nơi' : 'Delivery Fee'}</span>
-          <span style={{ fontWeight: isFreeShipping ? 700 : 500, color: isFreeShipping ? '#2F855A' : '#1A202C' }}>
-            {isFreeShipping ? (lang === 'vi' ? 'Miễn phí (Freeship)' : 'Free') : formatPrice(shippingFee)}
-          </span>
-        </div>
+
         <div className={styles.billDivider} />
         <div className={styles.billRowTotal}>
           <span>{lang === 'vi' ? 'Tổng thanh toán' : 'Total Amount'}</span>

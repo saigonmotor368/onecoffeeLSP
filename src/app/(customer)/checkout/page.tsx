@@ -30,7 +30,8 @@ function CheckoutContent() {
     employeeDiscount,
     voucherDiscount,
     appliedVoucher,
-    isFreeShipping,
+    isDeliveryAvailable,
+    remainingForDelivery,
     finalAmount,
     clearCart,
   } = useCart()
@@ -266,10 +267,11 @@ function CheckoutContent() {
       showToast(lang === 'vi' ? 'Vui lòng nhập số điện thoại nhận hàng!' : 'Please enter phone number!', 'error')
       return
     }
-    if (!trimmedAddress) {
+    if (isDeliveryAvailable && !trimmedAddress) {
       showToast(lang === 'vi' ? 'Vui lòng nhập địa chỉ giao hàng!' : 'Please enter delivery address!', 'error')
       return
     }
+    const finalAddress = isDeliveryAvailable ? trimmedAddress : 'Nhận tại quán (One Coffee Station)'
 
     // Persist info for next time
     localStorage.setItem('oc_customer_name', trimmedName)
@@ -281,7 +283,7 @@ function CheckoutContent() {
       const discountNotes = [
         isLspEmployee && employeeDiscount > 0 ? `Giảm ${employeeDiscountPercent}% NV LSP (-${formatPrice(employeeDiscount)})` : '',
         appliedVoucher ? `Voucher ${appliedVoucher.code} (-${formatPrice(voucherDiscount)})` : '',
-        isFreeShipping ? 'Freeship 0đ' : `Phí ship: ${formatPrice(shippingFee)}`,
+        isDeliveryAvailable ? (lang === 'vi' ? 'Giao hàng tận nơi' : 'Delivery') : (lang === 'vi' ? 'Nhận tại One Coffee Station' : 'Pickup at One Coffee Station'),
         customerNotes ? `Ghi chú: ${customerNotes}` : '',
       ].filter(Boolean).join(' | ')
 
@@ -291,7 +293,7 @@ function CheckoutContent() {
       const orderPayload = {
         order_number: orderNumber,
         user_id: userId,
-        delivery_address: trimmedAddress,
+        delivery_address: finalAddress,
         recipient_name: trimmedName,
         recipient_phone: trimmedPhone,
         total_amount: subtotal || qrAmount,
@@ -510,22 +512,38 @@ function CheckoutContent() {
                 </div>
               </div>
 
-              <div className={styles.inputGroup}>
-                <label className={styles.inputLabel}>
-                  {lang === 'vi' ? 'Địa chỉ giao hàng tận nơi *' : 'Delivery Address *'}
-                </label>
-                <input
-                  type="text"
-                  className={styles.inputField}
-                  placeholder={lang === 'vi' ? 'Nhập địa chỉ giao hàng (VD: Tòa nhà điều hành, Cổng 2, hoặc lân cận...)' : 'Enter delivery address...'}
-                  value={deliveryAddress}
-                  onChange={e => {
-                    setDeliveryAddress(e.target.value)
-                    localStorage.setItem('oc_delivery_location', e.target.value)
-                  }}
-                  required
-                />
-              </div>
+              {isDeliveryAvailable ? (
+                <div className={styles.inputGroup}>
+                  <label className={styles.inputLabel}>
+                    {lang === 'vi' ? 'Địa chỉ giao hàng tận nơi *' : 'Delivery Address *'}
+                  </label>
+                  <input
+                    type="text"
+                    className={styles.inputField}
+                    placeholder={lang === 'vi' ? 'Nhập địa chỉ giao hàng (VD: Tòa nhà điều hành, Cổng 2, hoặc lân cận...)' : 'Enter delivery address...'}
+                    value={deliveryAddress}
+                    onChange={e => {
+                      setDeliveryAddress(e.target.value)
+                      localStorage.setItem('oc_delivery_location', e.target.value)
+                    }}
+                    required
+                  />
+                </div>
+              ) : (
+                <div className={styles.inputGroup} style={{ background: '#FFF5F5', padding: '12px', borderRadius: '12px', border: '1px solid #FEB2B2' }}>
+                  <label className={styles.inputLabel} style={{ color: '#C53030', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span>🏪</span> {lang === 'vi' ? 'Phương thức nhận hàng' : 'Fulfillment'}
+                  </label>
+                  <div style={{ fontWeight: 700, color: '#9B2C2C', fontSize: '15px', marginTop: '4px' }}>
+                    {lang === 'vi' ? 'Nhận hàng trực tiếp tại One Coffee Station' : 'Pickup at One Coffee Station'}
+                  </div>
+                  <p style={{ fontSize: '12px', color: '#C53030', marginTop: '4px', margin: 0 }}>
+                    {lang === 'vi' 
+                      ? 'Đơn hàng dưới 200k không được hỗ trợ giao hàng tận nơi.' 
+                      : 'Orders under 200k are not eligible for delivery.'}
+                  </p>
+                </div>
+              )}
 
               <div className={styles.inputGroup}>
                 <label className={styles.inputLabel}>
@@ -606,22 +624,38 @@ function CheckoutContent() {
                   </div>
                 </div>
 
-                <div className={styles.inputGroup}>
-                  <label className={styles.inputLabel}>
-                    {lang === 'vi' ? 'Địa chỉ giao hàng tận nơi *' : 'Delivery Address *'}
-                  </label>
-                  <input
-                    type="text"
-                    className={styles.inputField}
-                    placeholder={lang === 'vi' ? 'Nhập địa chỉ giao hàng (VD: Tòa nhà điều hành, Cổng 2...)' : 'Enter delivery address...'}
-                    value={deliveryAddress}
-                    onChange={e => {
-                      setDeliveryAddress(e.target.value)
-                      localStorage.setItem('oc_delivery_location', e.target.value)
-                    }}
-                    required
-                  />
-                </div>
+                {isDeliveryAvailable ? (
+                  <div className={styles.inputGroup}>
+                    <label className={styles.inputLabel}>
+                      {lang === 'vi' ? 'Địa chỉ giao hàng tận nơi *' : 'Delivery Address *'}
+                    </label>
+                    <input
+                      type="text"
+                      className={styles.inputField}
+                      placeholder={lang === 'vi' ? 'Nhập địa chỉ giao hàng (VD: Tòa nhà điều hành, Cổng 2...)' : 'Enter delivery address...'}
+                      value={deliveryAddress}
+                      onChange={e => {
+                        setDeliveryAddress(e.target.value)
+                        localStorage.setItem('oc_delivery_location', e.target.value)
+                      }}
+                      required
+                    />
+                  </div>
+                ) : (
+                  <div className={styles.inputGroup} style={{ background: '#FFF5F5', padding: '12px', borderRadius: '12px', border: '1px solid #FEB2B2' }}>
+                    <label className={styles.inputLabel} style={{ color: '#C53030', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span>🏪</span> {lang === 'vi' ? 'Phương thức nhận hàng' : 'Fulfillment'}
+                    </label>
+                    <div style={{ fontWeight: 700, color: '#9B2C2C', fontSize: '15px', marginTop: '4px' }}>
+                      {lang === 'vi' ? 'Nhận hàng trực tiếp tại One Coffee Station' : 'Pickup at One Coffee Station'}
+                    </div>
+                    <p style={{ fontSize: '12px', color: '#C53030', marginTop: '4px', margin: 0 }}>
+                      {lang === 'vi' 
+                        ? 'Đơn hàng dưới 200k không được hỗ trợ giao hàng tận nơi.' 
+                        : 'Orders under 200k are not eligible for delivery.'}
+                    </p>
+                  </div>
+                )}
 
                 <div className={styles.inputGroup}>
                   <label className={styles.inputLabel}>
@@ -825,10 +859,6 @@ function CheckoutContent() {
                   <span>-{formatPrice(voucherDiscount)}</span>
                 </div>
               )}
-              <div className={styles.priceRow}>
-                <span>{lang === 'vi' ? 'Phí giao hàng' : 'Shipping Fee'}</span>
-                <span>{isFreeShipping ? (lang === 'vi' ? 'Miễn phí' : 'Free') : formatPrice(shippingFee)}</span>
-              </div>
               <div className={styles.priceRowTotal}>
                 <span>{lang === 'vi' ? 'Tổng thanh toán' : 'Final Total'}</span>
                 <span>{formatPrice(qrAmount)}</span>
