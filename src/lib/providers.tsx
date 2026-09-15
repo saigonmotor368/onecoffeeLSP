@@ -201,11 +201,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const totalItems = items.reduce((sum, i) => sum + i.quantity, 0)
   const subtotal   = items.reduce((sum, i) => sum + i.unit_price * i.quantity, 0)
 
-  // Delivery availability calculation (>= 200k)
-  const deliveryThreshold = 200000 // Fixed as requested: >200k => delivery
-  const isDeliveryAvailable = items.length > 0 && subtotal >= deliveryThreshold
-  const remainingForDelivery = Math.max(0, deliveryThreshold - subtotal)
-  const shippingFee = 0 // No more shipping fee
+
 
   // Employee discount calculation (20% for LSP internal staff only when checked)
   const employeeDiscountPercent = (isLspEmployee && employeeDiscountConfig.enabled)
@@ -234,7 +230,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }
 
   const totalDiscount = employeeDiscount + voucherDiscount
-  const finalAmount = Math.max(0, subtotal - totalDiscount) + shippingFee
+  const amountAfterDiscount = Math.max(0, subtotal - totalDiscount)
+
+  // Delivery availability calculation (>= 200k based on final amount after discount)
+  const deliveryThreshold = 200000
+  const isDeliveryAvailable = items.length > 0 && amountAfterDiscount >= deliveryThreshold
+  const remainingForDelivery = Math.max(0, deliveryThreshold - amountAfterDiscount)
+  const shippingFee = 0
+
+  const finalAmount = amountAfterDiscount + shippingFee
 
   // Apply Voucher function
   const applyVoucher = useCallback(async (rawCode: string): Promise<{ success: boolean; message: string }> => {
