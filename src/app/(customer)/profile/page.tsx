@@ -127,6 +127,13 @@ export default function ProfilePage() {
     localStorage.removeItem('onecoffee_cart')
     localStorage.removeItem('sb-hidebmafolacwfzgrrqn-auth-token')
     sessionStorage.clear()
+    
+    // Explicitly delete cookies just in case
+    document.cookie = 'sb-customer-auth-token=; Max-Age=0; path=/;'
+    document.cookie.split(';').forEach(function(c) { 
+      document.cookie = c.replace(/^ +/, '').replace(/=.*/, '=;expires=' + new Date().toUTCString() + ';path=/'); 
+    });
+
     setIsLoggedIn(false)
     setProfile(null)
     showToast(lang === 'vi' ? 'Đã đăng xuất tài khoản và xóa cache' : 'Logged out and cache cleared', 'info')
@@ -153,8 +160,23 @@ export default function ProfilePage() {
 
   const handleResetGuestCache = async () => {
     await clearSWCaches()
+    
+    try {
+      await unsubscribeFromPush('customer')
+    } catch {}
+    try {
+      await createClient().auth.signOut()
+    } catch {}
+
     localStorage.clear()
     sessionStorage.clear()
+    
+    // Explicitly delete cookies
+    document.cookie = 'sb-customer-auth-token=; Max-Age=0; path=/;'
+    document.cookie.split(';').forEach(function(c) { 
+      document.cookie = c.replace(/^ +/, '').replace(/=.*/, '=;expires=' + new Date().toUTCString() + ';path=/'); 
+    });
+
     setProfile(null)
     setIsLoggedIn(false)
     setSelectedLocation('')

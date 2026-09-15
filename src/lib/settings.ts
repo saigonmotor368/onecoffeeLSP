@@ -80,12 +80,6 @@ export const DEFAULT_BANNERS: BannerItem[] = [
 
 // Fetch shipping config
 export async function getShippingConfig(): Promise<ShippingConfig> {
-  if (typeof window !== 'undefined') {
-    const cached = localStorage.getItem('oc_shipping_config')
-    if (cached) {
-      try { return JSON.parse(cached) } catch { /* ignore */ }
-    }
-  }
 
   try {
     const supabase = createClient()
@@ -106,17 +100,19 @@ export async function getShippingConfig(): Promise<ShippingConfig> {
     // ignore
   }
 
+  // Fallback to cache on error
+  if (typeof window !== 'undefined') {
+    const cached = localStorage.getItem('oc_shipping_config')
+    if (cached) {
+      try { return JSON.parse(cached) } catch { /* ignore */ }
+    }
+  }
+
   return DEFAULT_SHIPPING_CONFIG
 }
 
 // Fetch employee discount config
 export async function getEmployeeDiscountConfig(): Promise<EmployeeDiscountConfig> {
-  if (typeof window !== 'undefined') {
-    const cached = localStorage.getItem('oc_employee_discount')
-    if (cached) {
-      try { return JSON.parse(cached) } catch { /* ignore */ }
-    }
-  }
 
   try {
     const supabase = createClient()
@@ -137,20 +133,18 @@ export async function getEmployeeDiscountConfig(): Promise<EmployeeDiscountConfi
     // ignore
   }
 
+  // Fallback to cache on error
+  if (typeof window !== 'undefined') {
+    const cached = localStorage.getItem('oc_employee_discount')
+    if (cached) {
+      try { return JSON.parse(cached) } catch { /* ignore */ }
+    }
+  }
+
   return DEFAULT_EMPLOYEE_DISCOUNT
 }
 
-// Fetch banners
 export async function getBanners(): Promise<BannerItem[]> {
-  if (typeof window !== 'undefined') {
-    const cached = localStorage.getItem('oc_banners')
-    if (cached) {
-      try {
-        const parsed = JSON.parse(cached)
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed
-      } catch { /* ignore */ }
-    }
-  }
 
   try {
     const supabase = createClient()
@@ -167,6 +161,17 @@ export async function getBanners(): Promise<BannerItem[]> {
     }
   } catch {
     // ignore
+  }
+
+  // Fallback to cache on error
+  if (typeof window !== 'undefined') {
+    const cached = localStorage.getItem('oc_banners')
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached)
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed
+      } catch { /* ignore */ }
+    }
   }
 
   return DEFAULT_BANNERS
